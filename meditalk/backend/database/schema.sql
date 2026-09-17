@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS doctors (
   registered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS doctor_schedules (
+  id          TEXT PRIMARY KEY,
+  doctor_id   TEXT UNIQUE REFERENCES doctors(id) ON DELETE CASCADE,
+  work_days   TEXT DEFAULT '[1,2,3,4,5]',
+  start_time  TEXT DEFAULT '09:00',
+  end_time    TEXT DEFAULT '17:00',
+  slot_mins   INTEGER DEFAULT 30,
+  break_start TEXT DEFAULT '13:00',
+  break_end   TEXT DEFAULT '14:00',
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS appointments (
   id TEXT PRIMARY KEY,
   patient_id TEXT REFERENCES patients(id) ON DELETE SET NULL,
@@ -57,6 +69,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   type TEXT,
   reason TEXT,
   status TEXT DEFAULT 'upcoming',
+  video_status TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

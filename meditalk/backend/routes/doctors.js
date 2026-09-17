@@ -114,4 +114,111 @@ router.patch('/:id/status', requireAuth, requireRole('admin'), async (req, res) 
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update status' }); }
 });
 
+// GET /api/doctors/:id/schedule — fetch working hours config
+router.get('/:id/schedule', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await query('SELECT * FROM doctor_schedules WHERE doctor_id = $1', [req.params.id]);
+    if (!rows[0]) {
+      // Return sensible defaults if no schedule set yet
+      return res.json({
+        doctor_id: req.params.id,
+        work_days: [1, 2, 3, 4, 5],
+        start_time: '09:00',
+        end_time: '17:00',
+        slot_mins: 30,
+        break_start: '13:00',
+        break_end: '14:00',
+      });
+    }
+    const s = rows[0];
+    res.json({
+      ...s,
+      work_days: typeof s.work_days === 'string' ? JSON.parse(s.work_days) : s.work_days,
+    });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch schedule' }); }
+});
+
+// PUT /api/doctors/:id/schedule — doctor (self) or admin
+router.put('/:id/schedule', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Allow doctor to update their own schedule or admin to update any
+    if (req.user.role !== 'admin' && req.user.id !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { work_days, start_time, end_time, slot_mins, break_start, break_end } = req.body;
+    const schedId = 'SCH-' + id;
+    const workDaysJson = JSON.stringify(work_days || [1, 2, 3, 4, 5]);
+
+    await query(
+      `INSERT INTO doctor_schedules (id, doctor_id, work_days, start_time, end_time, slot_mins, break_start, break_end, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+       ON CONFLICT (doctor_id) DO UPDATE SET
+         work_days=$3, start_time=$4, end_time=$5, slot_mins=$6, break_start=$7, break_end=$8, updated_at=NOW()`,
+      [schedId, id, workDaysJson, start_time || '09:00', end_time || '17:00', slot_mins || 30, break_start || '13:00', break_end || '14:00']
+    );
+
+    const { rows } = await query('SELECT * FROM doctor_schedules WHERE doctor_id = $1', [id]);
+    const s = rows[0];
+    res.json({ ...s, work_days: typeof s.work_days === 'string' ? JSON.parse(s.work_days) : s.work_days });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to save schedule' }); }
+});
+
+// GET /api/doctors/:id/available-slots?date=YYYY-MM-DD — dynamic slot generator
+router.get('/:id/available-slots', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: 'date query param is required' });
+
+    // Fetch schedule config
+    const { rows: schedRows } = await query('SELECT * FROM doctor_schedules WHERE doctor_id = $1', [id]);
+    const sched = schedRows[0] || { start_time: '09:00', end_time: '17:00', slot_mins: 30, break_start: '13:00', break_end: '14:00', work_days: '[1,2,3,4,5]' };
+    const workDays = typeof sched.work_days === 'string' ? JSON.parse(sched.work_days) : sched.work_days;
+
+    // Check if requested date falls on a working day (0=Sun, 6=Sat)
+    const dayOfWeek = new Date(date + 'T00:00:00').getDay();
+    if (!workDays.includes(dayOfWeek)) {
+      return res.json({ date, slots: [], reason: 'Doctor does not work on this day' });
+    }
+
+    // Generate all slots
+    function toMins(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+    function fromMins(m) { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
+
+    const startM = toMins(sched.start_time);
+    const endM = toMins(sched.end_time);
+    const breakStartM = toMins(sched.break_start);
+    const breakEndM = toMins(sched.break_end);
+    const slotMins = sched.slot_mins || 30;
+
+    const allSlots = [];
+    for (let cur = startM; cur + slotMins <= endM; cur += slotMins) {
+      // Skip break window
+      if (cur >= breakStartM && cur < breakEndM) continue;
+      // Format as 12-hour for display
+      const h24 = fromMins(cur);
+      const [hh, mm] = h24.split(':').map(Number);
+      const ampm = hh < 12 ? 'AM' : 'PM';
+      const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+      const label = `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ampm}`;
+      allSlots.push({ value: label, raw: h24 });
+    }
+
+    // Fetch already-booked slots on this date
+    const { rows: booked } = await query(
+      `SELECT time FROM appointments WHERE doctor_id = $1 AND date = $2 AND status NOT IN ('cancelled')`,
+      [id, date]
+    );
+    const bookedTimes = new Set(booked.map((r) => r.time));
+
+    const slots = allSlots.map((s) => ({
+      time: s.value,
+      available: !bookedTimes.has(s.value),
+    }));
+
+    res.json({ date, slots });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate slots' }); }
+});
+
 export default router;

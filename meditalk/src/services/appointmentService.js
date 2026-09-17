@@ -23,8 +23,11 @@ export async function bookAppointment(payload) {
   return res;
 }
 
-export function cancelAppointment(id) {
-  return apiFetch(`/appointments/${id}/cancel`, { method: 'PATCH' });
+export function cancelAppointment(id, reason) {
+  return apiFetch(`/appointments/${id}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason: reason || '' }),
+  });
 }
 
 export function rescheduleAppointment(id, { date, time }) {
@@ -38,6 +41,30 @@ export function updateAppointmentStatus(id, status) {
   return apiFetch(`/appointments/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
+  });
+}
+
+// --- Doctor Schedule Service Functions ---
+
+export function getDoctorSchedule(doctorId) {
+  return apiFetch(`/doctors/${doctorId}/schedule`);
+}
+
+export function saveDoctorSchedule(doctorId, scheduleData) {
+  return apiFetch(`/doctors/${doctorId}/schedule`, {
+    method: 'PUT',
+    body: JSON.stringify(scheduleData),
+  });
+}
+
+export function getAvailableSlots(doctorId, date) {
+  return apiFetch(`/doctors/${doctorId}/available-slots?date=${date}`);
+}
+
+export function updateVideoStatus(id, videoStatus) {
+  return apiFetch(`/appointments/${id}/video-status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ videoStatus }),
   });
 }
 

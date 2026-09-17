@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Calendar, Clock, Stethoscope, Video } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Stethoscope, Loader2, CalendarX } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DoctorCard from "../../components/cards/DoctorCard";
 import Button from "../../components/ui/Button";
@@ -9,9 +9,9 @@ import Select from "../../components/ui/Select";
 import LoadingState from "../../components/ui/LoadingState";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
-import { getDoctors, bookAppointment } from "../../services/appointmentService";
+import { getDoctors, bookAppointment, getAvailableSlots } from "../../services/appointmentService";
 import { useFetch } from "../../hooks/useFetch";
-import { SPECIALTIES, TIME_SLOTS, APPOINTMENT_TYPES, formatDate } from "../../constants";
+import { SPECIALTIES, APPOINTMENT_TYPES, formatDate } from "../../constants";
 
 const STEPS = ["Specialty", "Doctor", "Date", "Time", "Details", "Confirm"];
 
@@ -28,8 +28,35 @@ export default function BookAppointment() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // --- Dynamic Slot State ---
+  const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+
+  // Fetch slots whenever doctor + date are both selected (step 3)
+  useEffect(() => {
+    if (!sel.doctor?.id || !sel.date) { setSlots([]); return; }
+    setSlotsLoading(true);
+    setSlotsError("");
+    setSlots([]);
+    getAvailableSlots(sel.doctor.id, sel.date)
+      .then((res) => {
+        if (res?.slots?.length === 0 && res?.reason) {
+          setSlotsError(res.reason);
+        } else {
+          setSlots(res?.slots || []);
+        }
+      })
+      .catch(() => setSlotsError("Could not load slots. Please try again."))
+      .finally(() => setSlotsLoading(false));
+  }, [sel.doctor?.id, sel.date]);
+
   function set(key, value) {
     setSel((s) => ({ ...s, [key]: value }));
+    // Reset time if doctor or date changes
+    if (key === "doctor" || key === "date") {
+      setSel((s) => ({ ...s, [key]: value, time: "" }));
+    }
   }
 
   const filteredDoctors = (doctors || []).filter((d) => d.specialty === sel.specialty);
@@ -115,28 +142,62 @@ export default function BookAppointment() {
 
         {step === 2 && (
           <Step title="Choose a date">
-            <Input type="date" value={sel.date} onChange={(e) => set("date", e.target.value)} className="max-w-xs" />
+            <div className="max-w-xs space-y-2">
+              <Input
+                type="date"
+                value={sel.date}
+                onChange={(e) => set("date", e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+              />
+              {sel.date && sel.doctor && (
+                <p className="text-xs text-ink/50">
+                  Showing available slots for <span className="font-medium text-ink">{sel.doctor.name}</span>
+                </p>
+              )}
+            </div>
           </Step>
         )}
 
         {step === 3 && (
           <Step title={`Choose a time · ${formatDate(sel.date)}`}>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {TIME_SLOTS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => set("time", t)}
-                  className={
-                    "py-2.5 rounded-xl border text-sm font-medium transition " +
-                    (sel.time === t
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-sage/40 hover:bg-sage/20")
-                  }
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            {slotsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-ink/50 py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                Loading available slots…
+              </div>
+            ) : slotsError ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-ink/50">
+                <CalendarX className="h-8 w-8 text-danger/50" />
+                <p>{slotsError}</p>
+                <p className="text-xs">Please choose a different date.</p>
+              </div>
+            ) : slots.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-ink/50">
+                <CalendarX className="h-8 w-8 text-ink/30" />
+                <p>No slots available on this day.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {slots.map((s) => (
+                  <button
+                    key={s.time}
+                    disabled={!s.available}
+                    onClick={() => s.available && set("time", s.time)}
+                    title={!s.available ? "Already booked" : ""}
+                    className={
+                      "py-2.5 rounded-xl border text-sm font-medium transition " +
+                      (sel.time === s.time
+                        ? "border-primary bg-primary/10 text-primary"
+                        : s.available
+                        ? "border-sage/40 hover:bg-sage/20 text-ink"
+                        : "border-sage/20 bg-sage/10 text-ink/25 cursor-not-allowed line-through")
+                    }
+                  >
+                    {s.time}
+                  </button>
+                ))}
+              </div>
+            )}
           </Step>
         )}
 

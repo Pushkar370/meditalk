@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Video } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -38,11 +38,21 @@ export default function DoctorAppointments() {
     { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
     {
       key: "actions",
-      label: "Action",
+      label: "Actions",
       render: (r) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/doctor/patients/${r.patientId}`)}>
-          View Patient
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => navigate(`/doctor/patients/${r.patientId}`)}>
+            View Patient
+          </Button>
+          {(r.status === "upcoming" || r.status === "confirmed") && (
+            <Button
+              size="sm"
+              onClick={() => navigate(`/doctor/consultation/${r.patientId}?apptId=${r.id}`)}
+            >
+              <Video className="h-3.5 w-3.5" /> Consult
+            </Button>
+          )}
+        </div>
       ),
     },
   ];

@@ -12,8 +12,24 @@ function mapAppt(r) {
     id: r.id, patientId: r.patient_id, patientName: r.patient_name,
     doctorId: r.doctor_id, doctorName: r.doctor_name, specialty: r.specialty,
     date: r.date, time: r.time, type: r.type, status: r.status, reason: r.reason,
+    videoStatus: r.video_status || null,
   };
 }
+
+// Helper: resolve the users.id for a given patient_id or doctor_id
+// Notifications table has FK → users.id, not patient_id/doctor_id
+async function getUserId(patientId, doctorId) {
+  if (patientId) {
+    const { rows } = await query('SELECT id FROM users WHERE patient_id = $1 LIMIT 1', [patientId]);
+    if (rows[0]) return rows[0].id;
+  }
+  if (doctorId) {
+    const { rows } = await query('SELECT id FROM users WHERE doctor_id = $1 LIMIT 1', [doctorId]);
+    if (rows[0]) return rows[0].id;
+  }
+  return patientId || doctorId; // fallback
+}
+
 
 // GET /api/appointments — filtered by role automatically
 router.get('/', async (req, res) => {
@@ -102,15 +118,17 @@ router.post('/', async (req, res) => {
       [id, patientId, patientName, doctorId, doctorName, specialty, date, time, type, reason]
     );
 
-    // Notify both Patient and Doctor
+    // Notify both Patient and Doctor (resolve users.id via getUserId for FK constraint)
     try {
+      const patientUserId = await getUserId(patientId, null);
+      const doctorUserId = await getUserId(null, doctorId);
       await query(
         `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Booked',$3,false)`,
-        ['N-' + Date.now(), patientId, `Your appointment with ${doctorName || 'Doctor'} on ${date} at ${time} is scheduled.`]
+        ['N-' + Date.now(), patientUserId, `Your appointment with ${doctorName || 'Doctor'} on ${date} at ${time} is scheduled.`]
       );
       await query(
         `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','New Patient Appointment',$3,false)`,
-        ['N-' + (Date.now() + 1), doctorId, `New appointment booked by ${patientName || 'Patient'} on ${date} at ${time}.`]
+        ['N-' + (Date.now() + 1), doctorUserId, `New appointment booked by ${patientName || 'Patient'} on ${date} at ${time}.`]
       );
       await query(
         `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
@@ -126,6 +144,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id/cancel', async (req, res) => {
   try {
+    const { reason } = req.body || {};
     const { rowCount } = await query("UPDATE appointments SET status = 'cancelled' WHERE id = $1", [req.params.id]);
     if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
 
@@ -133,18 +152,20 @@ router.patch('/:id/cancel', async (req, res) => {
       const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
       if (rows[0]) {
         const a = rows[0];
+        const patientUserId = await getUserId(a.patient_id, null);
+        const doctorUserId = await getUserId(null, a.doctor_id);
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          ['N-' + Date.now(), a.patient_id, `Your appointment on ${a.date} at ${a.time} has been cancelled.`]
+          ['N-' + Date.now(), patientUserId, `Your appointment on ${a.date} at ${a.time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`]
         );
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          ['N-' + (Date.now() + 1), a.doctor_id, `Appointment with ${a.patient_name} on ${a.date} has been cancelled.`]
+          ['N-' + (Date.now() + 1), doctorUserId, `Appointment with ${a.patient_name} on ${a.date} has been cancelled.${reason ? ' Reason: ' + reason : ''}`]
         );
         await query(
           `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-           VALUES ($1, $2, 'User', 'Cancelled appointment', 'Appointment', $3, 'success')`,
-          [a.patient_id, a.patient_name, req.params.id]
+           VALUES ($1, $2, 'User', $3, 'Appointment', $4, 'success')`,
+          [a.patient_id, a.patient_name, reason ? `Cancelled appointment. Reason: ${reason}` : 'Cancelled appointment', req.params.id]
         );
       }
     } catch (_) {}
@@ -179,13 +200,15 @@ router.patch('/:id/reschedule', async (req, res) => {
       const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
       if (rows[0]) {
         const a = rows[0];
+        const patientUserId = await getUserId(a.patient_id, null);
+        const doctorUserId = await getUserId(null, a.doctor_id);
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          ['N-' + Date.now(), a.patient_id, `Your appointment has been rescheduled to ${date} at ${time}.`]
+          ['N-' + Date.now(), patientUserId, `Your appointment has been rescheduled to ${date} at ${time}.`]
         );
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          ['N-' + (Date.now() + 1), a.doctor_id, `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`]
+          ['N-' + (Date.now() + 1), doctorUserId, `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`]
         );
         await query(
           `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
@@ -197,6 +220,39 @@ router.patch('/:id/reschedule', async (req, res) => {
 
     res.json({ success: true, id: req.params.id });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to reschedule appointment' }); }
+});
+
+// PATCH /api/appointments/:id/video-status — update video call lifecycle
+router.patch('/:id/video-status', async (req, res) => {
+  try {
+    const { videoStatus } = req.body;
+    const allowed = ['waiting', 'in_progress', 'ended'];
+    if (!videoStatus || !allowed.includes(videoStatus)) {
+      return res.status(400).json({ error: `videoStatus must be one of: ${allowed.join(', ')}` });
+    }
+    const { rowCount } = await query(
+      'UPDATE appointments SET video_status = $1 WHERE id = $2',
+      [videoStatus, req.params.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
+
+    // Notify patient when doctor starts the call
+    if (videoStatus === 'in_progress') {
+      try {
+        const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+        if (rows[0]) {
+          const a = rows[0];
+          const patientUserId = await getUserId(a.patient_id, null);
+          await query(
+            `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Video Call Started',$3,false)`,
+            ['N-' + Date.now(), patientUserId, `Dr. ${a.doctor_name} has started your video consultation. Join now!`]
+          );
+        }
+      } catch (_) {}
+    }
+
+    res.json({ success: true, id: req.params.id, videoStatus });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update video status' }); }
 });
 
 router.patch('/:id', async (req, res) => {

@@ -57,5 +57,30 @@ export async function initDb() {
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   const p = getPool();
   await p.query(schemaSql);
+
+  // ── Column migrations (idempotent — safe to run every startup) ──────────
+  const migrations = [
+    // Phase 3: video consultation status tracking
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS video_status TEXT DEFAULT NULL`,
+    // Phase 2: cancellation reason
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancel_reason TEXT`,
+    // doctor_schedules table guard (created in schema but may be missing in old DBs)
+    `CREATE TABLE IF NOT EXISTS doctor_schedules (
+      id          TEXT PRIMARY KEY,
+      doctor_id   TEXT UNIQUE REFERENCES doctors(id) ON DELETE CASCADE,
+      work_days   TEXT DEFAULT '[1,2,3,4,5]',
+      start_time  TEXT DEFAULT '09:00',
+      end_time    TEXT DEFAULT '17:00',
+      slot_mins   INTEGER DEFAULT 30,
+      break_start TEXT DEFAULT '13:00',
+      break_end   TEXT DEFAULT '14:00',
+      updated_at  TIMESTAMPTZ DEFAULT NOW()
+    )`,
+  ];
+  for (const sql of migrations) {
+    try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   console.log('📋 Database schema initialized');
 }
