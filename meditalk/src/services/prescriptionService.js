@@ -45,3 +45,11 @@ export async function saveConsultation(payload) {
 export function getMedicalRecords(patientId) {
   return apiFetch(`/medical-records?patientId=${patientId}`);
 }
+
+export async function saveMedicalRecord(recordData) {
+  const res = await apiFetch('/medical-records', {
+    method: 'POST',
+    body: JSON.stringify(recordData),
+  });
+  return res;
+}

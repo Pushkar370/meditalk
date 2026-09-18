@@ -413,7 +413,7 @@ export default function DoctorConsultation() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => toast.info("Go to the Prescriptions page to issue a prescription.")}
+          onClick={() => navigate(`/doctor/prescriptions?patientId=${patientId}&diagnosis=${encodeURIComponent(form.diagnosis || '')}`)}
         >
           <Pill className="h-4 w-4" /> Generate Prescription
         </Button>

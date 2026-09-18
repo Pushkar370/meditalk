@@ -189,4 +189,72 @@ router.get('/medical-records', requireAuth, async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch medical records' }); }
 });
 
+// POST /api/medical-records — patients (own) and doctors can upload records
+router.post('/medical-records', requireAuth, async (req, res) => {
+  try {
+    const { role, id: callerId } = req.user;
+    const {
+      patientId, type, description, doctor: doctorName, date,
+      fileData, fileName, fileType, fileSize, notes,
+    } = req.body;
+
+    // Patients can only upload for themselves
+    const targetPatientId = role === 'patient' ? callerId : patientId;
+    if (!targetPatientId) return res.status(400).json({ error: 'patientId is required' });
+    if (!type) return res.status(400).json({ error: 'type is required' });
+
+    const id = 'MR-' + Date.now();
+    const details = JSON.stringify({
+      notes: notes || '',
+      fileData: fileData || null,
+      fileName: fileName || null,
+      fileType: fileType || null,
+      fileSize: fileSize || null,
+      uploadedBy: callerId,
+      uploadedRole: role,
+    });
+
+    // Resolve doctor name for the record
+    let resolvedDoctor = doctorName || null;
+    if (!resolvedDoctor && role === 'doctor') {
+      try {
+        const { rows } = await query('SELECT name FROM doctors WHERE id = $1', [callerId]);
+        resolvedDoctor = rows[0]?.name || callerId;
+      } catch (_) {}
+    }
+
+    await query(
+      `INSERT INTO medical_records (id, patient_id, type, description, doctor, details, date, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, targetPatientId, type, description || fileName || type, resolvedDoctor || 'Patient Upload',
+       details, date ? new Date(date).toISOString() : new Date().toISOString(), 'final']
+    );
+
+    // Notify the patient about new record
+    try {
+      const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [targetPatientId]);
+      const patientUserId = uRows[0]?.id;
+      if (patientUserId) {
+        await query(
+          `INSERT INTO notifications (id, user_id, type, title, message, read)
+           VALUES ($1, $2, 'record_added', 'Health Record Added', $3, false)`,
+          ['N-' + Date.now(), patientUserId, `A new ${type} record has been added to your health profile.`]
+        );
+      }
+    } catch (_) {}
+
+    // Audit log
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, $3, 'Uploaded medical record', 'MedicalRecord', $4, 'success')`,
+        [callerId, resolvedDoctor || callerId, role, id]
+      );
+    } catch (_) {}
+
+    const { rows } = await query('SELECT * FROM medical_records WHERE id = $1', [id]);
+    res.status(201).json({ success: true, record: parseMedicalRecord(rows[0]) });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to save medical record' }); }
+});
+
 export default router;
