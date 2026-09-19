@@ -357,20 +357,78 @@ router.get('/analytics', async (req, res) => {
 
 router.get('/audit-logs', async (req, res) => {
   try {
-    const { role, status, search } = req.query;
+    const { role, status, search, from, to } = req.query;
     let sql = 'SELECT * FROM audit_logs';
     const conditions = []; const params = []; let idx = 1;
     if (role) { conditions.push('role = $' + idx++); params.push(role); }
     if (status) { conditions.push('status = $' + idx++); params.push(status); }
+    if (from) { conditions.push('timestamp >= $' + idx++); params.push(from + ' 00:00:00'); }
+    if (to) { conditions.push('timestamp <= $' + idx++); params.push(to + ' 23:59:59'); }
     if (search) {
-      conditions.push('(user_name ILIKE $' + idx + ' OR action ILIKE $' + (idx+1) + ')');
-      params.push('%'+search+'%', '%'+search+'%'); idx += 2;
+      conditions.push('(user_name ILIKE $' + idx + ' OR action ILIKE $' + (idx+1) + ' OR entity_type ILIKE $' + (idx+2) + ')');
+      params.push('%'+search+'%', '%'+search+'%', '%'+search+'%'); idx += 3;
     }
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
-    sql += ' ORDER BY timestamp DESC';
+    sql += ' ORDER BY timestamp DESC LIMIT 500';
     const { rows } = await query(sql, params);
     res.json(rows);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch audit logs' }); }
+});
+
+router.get('/audit-logs/stats', async (req, res) => {
+  try {
+    const [total, auth, appts, clinical, announces] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM audit_logs'),
+      query("SELECT COUNT(*) as count FROM audit_logs WHERE entity_type = 'Auth'"),
+      query("SELECT COUNT(*) as count FROM audit_logs WHERE entity_type = 'Appointment'"),
+      query("SELECT COUNT(*) as count FROM audit_logs WHERE entity_type IN ('Prescription', 'Medical Record', 'Consultation', 'Doctor')"),
+      query("SELECT COUNT(*) as count FROM audit_logs WHERE entity_type = 'Announcement'"),
+    ]);
+    res.json({
+      total: parseInt(total.rows[0].count),
+      auth: parseInt(auth.rows[0].count),
+      appointments: parseInt(appts.rows[0].count),
+      clinical: parseInt(clinical.rows[0].count),
+      announcements: parseInt(announces.rows[0].count),
+    });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch audit log stats' }); }
+});
+
+// PATCH /api/admin/users/:id/status — suspend/reactivate user account
+router.patch('/users/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body; // 'active' | 'inactive'
+  if (!['active', 'inactive'].includes(status)) {
+    return res.status(400).json({ error: "status must be 'active' or 'inactive'" });
+  }
+
+  try {
+    const { rows: userRows } = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (!userRows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userRows[0];
+
+    // If user has patient_id or doctor_id, update their respective record status
+    if (user.patient_id) {
+      await query('UPDATE patients SET status = $1 WHERE id = $2', [status, user.patient_id]);
+    }
+    if (user.doctor_id) {
+      await query('UPDATE doctors SET status = $1 WHERE id = $2', [status, user.doctor_id]);
+    }
+
+    // Write audit log
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, 'Admin', 'Administrator', $2, 'User', $3, 'success')`,
+        [req.user.userId || req.user.id, `${status === 'active' ? 'Reactivated' : 'Suspended'} user: ${user.name}`, id]
+      );
+    } catch (_) {}
+
+    res.json({ success: true, userId: id, status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update user status' });
+  }
 });
 
 export default router;

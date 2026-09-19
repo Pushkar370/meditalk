@@ -6,6 +6,7 @@ import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { changePassword } from "../services/authService";
 
 const SECTIONS = [
   { key: "account", label: "Account", icon: User },
@@ -20,6 +21,7 @@ export default function Settings() {
   const toast = useToast();
   const [section, setSection] = useState("account");
   const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [changingPw, setChangingPw] = useState(false);
 
   const prefs = [
     { key: "apptReminder", label: "Appointment reminders", def: true },
@@ -33,6 +35,35 @@ export default function Settings() {
 
   function toggle(key) {
     setPrefState((s) => ({ ...s, [key]: !s[key] }));
+  }
+
+  async function handlePasswordChange() {
+    if (!pw.current || !pw.next || !pw.confirm) {
+      toast.error("Please fill in all password fields.");
+      return;
+    }
+    if (pw.next.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
+    if (pw.next !== pw.confirm) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    setChangingPw(true);
+    try {
+      const res = await changePassword({ currentPassword: pw.current, nextPassword: pw.next });
+      if (res.success) {
+        toast.success("Password updated successfully.");
+        setPw({ current: "", next: "", confirm: "" });
+      } else {
+        toast.error(res.message || res.error || "Failed to update password.");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to update password.");
+    } finally {
+      setChangingPw(false);
+    }
   }
 
   return (
@@ -80,7 +111,7 @@ export default function Settings() {
                 <Input label="Current password" type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
                 <Input label="New password" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
                 <Input label="Confirm new password" type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
-                <Button onClick={() => toast.success("Password updated (mock)")}>Update password</Button>
+                <Button onClick={handlePasswordChange} loading={changingPw}>Update password</Button>
               </div>
             </Card>
           )}

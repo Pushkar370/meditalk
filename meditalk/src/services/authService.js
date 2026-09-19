@@ -39,3 +39,10 @@ export function logout() {
   // Client-side only — clear token
   return Promise.resolve({ success: true });
 }
+
+export async function changePassword({ currentPassword, nextPassword }) {
+  return apiFetch('/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ currentPassword, nextPassword }),
+  });
+}

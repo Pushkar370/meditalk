@@ -2,6 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../database/db.js';
+import { requireAuth } from '../middleware/auth.js';
+import { pushNotification } from '../server.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
@@ -109,6 +111,63 @@ router.post('/register', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Registration failed.' });
+  }
+});
+
+// PUT /api/auth/password
+router.put('/password', requireAuth, async (req, res) => {
+  const { currentPassword, nextPassword } = req.body;
+  if (!currentPassword || !nextPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required.' });
+  }
+  if (nextPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+  }
+
+  try {
+    const userId = req.user.userId || req.user.id;
+    const { rows } = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User account not found.' });
+
+    if (!bcrypt.compareSync(currentPassword, user.password)) {
+      return res.status(401).json({ error: 'Incorrect current password.' });
+    }
+
+    const newHash = bcrypt.hashSync(nextPassword, 10);
+    await query('UPDATE users SET password = $1 WHERE id = $2', [newHash, userId]);
+
+    // Audit log
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, $3, 'Changed account password', 'Auth', $1, 'success')`,
+        [user.id, user.name, user.role === 'admin' ? 'Administrator' : user.role.charAt(0).toUpperCase() + user.role.slice(1)]
+      );
+    } catch (_) {}
+
+    // In-app notification
+    try {
+      const notifId = `N-${Date.now()}`;
+      await query(
+        `INSERT INTO notifications (id, user_id, title, message, type, read, date)
+         VALUES ($1, $2, 'Security Alert: Password Changed', 'Your MediTalk password was updated successfully.', 'info', false, NOW())`,
+        [notifId, user.id]
+      );
+      try {
+        pushNotification(user.id, {
+          id: notifId,
+          title: 'Security Alert: Password Changed',
+          message: 'Your MediTalk password was updated successfully.',
+          type: 'info',
+        });
+      } catch (_) {}
+    } catch (_) {}
+
+    res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update password.' });
   }
 });
 

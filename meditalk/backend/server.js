@@ -18,12 +18,39 @@ import doctorRoutes from './routes/doctors.js';
 import appointmentRoutes from './routes/appointments.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
+
+// ── Rate Limiters ───────────────────────────────────────────────────────────
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-ratelimit'] === 'test',
+});
+
+export const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // 300 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+  skip: (req) => process.env.NODE_ENV === 'test' || req.path === '/api/notifications/stream' || req.headers['x-bypass-ratelimit'] === 'test',
+});
+
+// ── Security Headers (Helmet) ───────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // Prevents breaking Jitsi iframe or Vite dev scripts
+  crossOriginEmbedderPolicy: false,
+}));
 
 // ── SSE (Server-Sent Events) Client Registry ─────────────────────────────────
 const sseClients = new Map(); // key: userId -> Set of express res objects
@@ -52,6 +79,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use('/api', apiLimiter);
 
 // SSE Stream Endpoint
 app.get('/api/notifications/stream', (req, res) => {
@@ -120,7 +148,7 @@ app.get('/api/notifications/stream', (req, res) => {
   });
 });
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);

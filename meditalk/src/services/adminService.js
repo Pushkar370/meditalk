@@ -5,8 +5,21 @@ export function getAuditLogs(filters = {}) {
   if (filters.role) params.set('role', filters.role);
   if (filters.status) params.set('status', filters.status);
   if (filters.search) params.set('search', filters.search);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
   const qs = params.toString();
   return apiFetch(`/admin/audit-logs${qs ? `?${qs}` : ''}`);
+}
+
+export function getAuditLogStats() {
+  return apiFetch('/admin/audit-logs/stats');
+}
+
+export function setUserStatus(userId, status) {
+  return apiFetch(`/admin/users/${userId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function getAnalytics(from, to) {
