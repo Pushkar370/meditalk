@@ -16,6 +16,11 @@ router.get('/', requireAuth, async (req, res) => {
     if (status && status !== 'all') { conditions.push('status = $' + idx++); params.push(status); }
     if (specialty) { conditions.push('specialty = $' + idx++); params.push(specialty); }
     if (search) { conditions.push('(name ILIKE $' + idx + ' OR specialty ILIKE $' + (idx+1) + ')'); params.push('%'+search+'%','%'+search+'%'); idx += 2; }
+    // Patients should only see approved and active doctors
+    if (req.user.role === 'patient') {
+      conditions.push("(verification_status = 'approved' OR verification_status IS NULL)");
+      conditions.push("status = 'active'");
+    }
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY name ASC';
     const { rows } = await query(sql, params);
@@ -194,8 +199,9 @@ router.get('/:id/available-slots', requireAuth, async (req, res) => {
 
     const allSlots = [];
     for (let cur = startM; cur + slotMins <= endM; cur += slotMins) {
-      // Skip break window
-      if (cur >= breakStartM && cur < breakEndM) continue;
+      const slotEnd = cur + slotMins;
+      // Skip if slot overlaps with lunch break window
+      if (cur < breakEndM && slotEnd > breakStartM) continue;
       // Format as 12-hour for display
       const h24 = fromMins(cur);
       const [hh, mm] = h24.split(':').map(Number);

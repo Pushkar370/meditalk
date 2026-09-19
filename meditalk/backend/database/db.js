@@ -1,8 +1,14 @@
+import dns from 'dns';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Enforce IPv4 priority to prevent IPv6 routing timeouts with Neon AWS endpoints
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
 
 const { Pool } = pg;
 
@@ -34,15 +40,58 @@ export function getPool() {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     });
 
     pool.on('error', (err) => {
-      console.error('[DB] Unexpected error on idle client', err);
+      // Suppress noisy stack traces for expected Neon idle client termination
+      const msg = err?.message || '';
+      if (msg.includes('Connection terminated') || msg.includes('closed') || err?.code === 'ECONNRESET') {
+        console.warn('⚠️ [DB] PostgreSQL idle client recycled.');
+      } else {
+        console.error('[DB] Unexpected error on idle client:', msg);
+      }
     });
 
     console.log('🐘 Connected to PostgreSQL');
   }
   return pool;
+}
+
+// Deep database ping helper for health checks
+export async function pingDb() {
+  const start = Date.now();
+  try {
+    const p = getPool();
+    await p.query('SELECT 1');
+    return { ok: true, latencyMs: Date.now() - start };
+  } catch (err) {
+    return { ok: false, error: err.message, latencyMs: Date.now() - start };
+  }
+}
+
+// Pool allocation statistics
+export function getPoolStats() {
+  if (!pool) return { totalCount: 0, idleCount: 0, waitingCount: 0 };
+  return {
+    totalCount: pool.totalCount || 0,
+    idleCount: pool.idleCount || 0,
+    waitingCount: pool.waitingCount || 0,
+  };
+}
+
+// Graceful pool drainage
+export async function closePool() {
+  if (pool) {
+    try {
+      await pool.end();
+      pool = null;
+      console.log('🛑 PostgreSQL pool drained and closed.');
+    } catch (err) {
+      console.warn('⚠️ Error while draining PostgreSQL pool:', err.message);
+    }
+  }
 }
 
 // Convenience wrapper — returns full pg QueryResult

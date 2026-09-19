@@ -79,12 +79,16 @@ router.post('/prescriptions', requireAuth, requireRole('doctor'), async (req, re
       [id, patientId, pName, doctorId, dName, JSON.stringify(medications), additionalInstructions, status]
     );
     try {
-      const rxNotifId = 'N-' + (Date.now()+1);
-      await query(
-        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','New Prescription','A new prescription has been issued for you.',false)`,
-        [rxNotifId, patientId]
-      );
-      try { pushNotification(patientId, { id: rxNotifId, type: 'prescription_available', title: 'New Prescription', message: 'A new prescription has been issued for you.' }); } catch (_) {}
+      const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [patientId]);
+      const patientUserId = uRows[0]?.id;
+      if (patientUserId) {
+        const rxNotifId = 'N-' + (Date.now() + 1);
+        await query(
+          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','New Prescription','A new prescription has been issued for you.',false)`,
+          [rxNotifId, patientUserId]
+        );
+        try { pushNotification(patientUserId, { id: rxNotifId, type: 'prescription_available', title: 'New Prescription', message: 'A new prescription has been issued for you.' }); } catch (_) {}
+      }
     } catch (_) {}
     const { rows } = await query('SELECT * FROM prescriptions WHERE id = $1', [id]);
     res.status(201).json({ success: true, prescription: parsePrescription(rows[0]) });
@@ -145,10 +149,17 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
         [mrId, patientId, 'Consultation', drName, diagnosis || reason || 'Consultation', 'completed',
          JSON.stringify({ symptoms: symptoms ? symptoms.split(',').map(s => s.trim()) : [], diagnosis, treatment: treatmentPlan, notes: observations })]
       );
-      await query(
-        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Consultation Completed',$3,false)`,
-        ['N-' + Date.now(), patientId, `Your consultation with ${drName} has been documented in your health records.`]
-      );
+      const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [patientId]);
+      const patientUserId = uRows[0]?.id;
+      if (patientUserId) {
+        const cNotifId = 'N-' + Date.now();
+        const cMsg = `Your consultation with ${drName} has been documented in your health records.`;
+        await query(
+          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Consultation Completed',$3,false)`,
+          [cNotifId, patientUserId, cMsg]
+        );
+        try { pushNotification(patientUserId, { id: cNotifId, type: 'appointment_confirmed', title: 'Consultation Completed', message: cMsg }); } catch (_) {}
+      }
       await query(
         `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
          VALUES ($1, $2, 'Doctor', 'Completed clinical consultation', 'Consultation', $3, 'success')`,

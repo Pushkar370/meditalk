@@ -75,3 +75,8 @@ export function getBroadcastHistory() {
   return apiFetch('/admin/broadcasts');
 }
 
+// ── Phase 7: System Diagnostics & Health ────────────────────────────────────
+export function getSystemHealth() {
+  return apiFetch('/admin/system-health');
+}
+

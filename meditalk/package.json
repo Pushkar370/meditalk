@@ -9,7 +9,7 @@
     "server": "node backend/server.js",
     "seed": "node backend/database/seed.js",
     "build": "npm install && vite build",
-    "start": "NODE_ENV=production node backend/server.js",
+    "start": "node backend/server.js",
     "preview": "vite preview"
   },
   "dependencies": {

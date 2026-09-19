@@ -161,19 +161,31 @@ export default function PatientAppointments() {
                 }}
                 onCancel={(appt) => { setToCancel(appt); setCancelReason(""); }}
               />
-              {a.videoStatus === "in_progress" && (
-                <button
-                  onClick={() => navigate(`/patient/consultation/${a.id}`)}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-success text-white text-sm font-semibold shadow-md hover:bg-success/90 transition animate-pulse-slow"
-                >
-                  <Video className="h-4 w-4" />
-                  Join Video Call
-                </button>
-              )}
-              {(a.videoStatus === "waiting") && (
-                <div className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                  Doctor is preparing the call…
+              {a.type?.toLowerCase().includes("video") && a.status !== "cancelled" && a.status !== "completed" && (
+                <div className="flex flex-col gap-1.5 w-full">
+                  {a.videoStatus === "in_progress" ? (
+                    <button
+                      onClick={() => navigate(`/patient/consultation/${a.id}`)}
+                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-success text-white text-sm font-semibold shadow-md hover:bg-success/90 transition animate-pulse-slow"
+                    >
+                      <Video className="h-4 w-4" />
+                      Join Video Call (Live)
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate(`/patient/consultation/${a.id}`)}
+                      className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Enter Video Room / Waiting Lobby
+                    </button>
+                  )}
+                  {a.videoStatus === "waiting" && (
+                    <div className="flex items-center justify-center gap-2 w-full py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+                      <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                      Doctor is preparing the call…
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -81,6 +81,18 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'patientId, doctorId, date and time are required' });
     }
 
+    // --- Doctor Verification Guard ---
+    const { rows: docCheck } = await query('SELECT verification_status, status FROM doctors WHERE id = $1', [doctorId]);
+    if (docCheck.length > 0) {
+      const doc = docCheck[0];
+      if (doc.verification_status && doc.verification_status !== 'approved') {
+        return res.status(403).json({
+          error: 'This doctor is currently unavailable for bookings.',
+          code: 'DOCTOR_UNVERIFIED',
+        });
+      }
+    }
+
     // --- Double-booking collision detection ---
     // Check: is the doctor already booked at this exact date+time with an active status?
     const { rows: doctorConflict } = await query(
@@ -295,10 +307,16 @@ router.patch('/:id', async (req, res) => {
       const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
       if (rows[0]) {
         const a = rows[0];
-        await query(
-          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Updated',$3,false)`,
-          ['N-' + Date.now(), a.patient_id, `Your appointment status is now: ${status}.`]
-        );
+        const patientUserId = await getUserId(a.patient_id, null);
+        if (patientUserId) {
+          const statNotifId = 'N-' + Date.now();
+          const statMsg = `Your appointment status is now: ${status}.`;
+          await query(
+            `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Updated',$3,false)`,
+            [statNotifId, patientUserId, statMsg]
+          );
+          try { pushNotification(patientUserId, { id: statNotifId, type: 'appointment_confirmed', title: 'Appointment Updated', message: statMsg }); } catch (_) {}
+        }
         await query(
           `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
            VALUES ($1, $2, 'Doctor', 'Updated appointment status to ' || $3, 'Appointment', $4, 'success')`,

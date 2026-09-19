@@ -77,7 +77,8 @@ export default function DoctorCalendar() {
     const sm = schedule.slot_mins || 30;
     let count = 0;
     for (let cur = startM; cur + sm <= endM; cur += sm) {
-      if (cur >= bsM && cur < beM) continue;
+      const slotEnd = cur + sm;
+      if (cur < beM && slotEnd > bsM) continue;
       count++;
     }
     return count;

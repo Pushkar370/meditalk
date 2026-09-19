@@ -1,3 +1,8 @@
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
@@ -10,7 +15,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config();
 
-import { initDb } from './database/db.js';
+import { initDb, pingDb, getPoolStats, closePool } from './database/db.js';
+import { requireAuth, requireRole } from './middleware/auth.js';
 
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
@@ -156,8 +162,59 @@ app.use('/api', prescriptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', db: 'postgresql', timestamp: new Date().toISOString() });
+// Deep Healthcheck Endpoint
+app.get('/api/health', async (_req, res) => {
+  const dbHealth = await pingDb();
+  const poolStats = getPoolStats();
+  if (!dbHealth.ok) {
+    return res.status(503).json({
+      status: 'degraded',
+      database: 'unreachable',
+      error: dbHealth.error,
+      latencyMs: dbHealth.latencyMs,
+      pool: poolStats,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  res.json({
+    status: 'healthy',
+    database: 'connected',
+    latencyMs: dbHealth.latencyMs,
+    pool: poolStats,
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Admin System Diagnostics & Telemetry
+app.get('/api/admin/system-health', requireAuth, requireRole('admin'), async (_req, res) => {
+  const dbHealth = await pingDb();
+  const poolStats = getPoolStats();
+  const mem = process.memoryUsage();
+  let totalSseConnections = 0;
+  for (const clientSet of sseClients.values()) {
+    totalSseConnections += clientSet.size;
+  }
+
+  res.json({
+    status: dbHealth.ok ? 'operational' : 'degraded',
+    nodeVersion: process.version,
+    platform: process.platform,
+    uptimeSeconds: Math.floor(process.uptime()),
+    database: {
+      status: dbHealth.ok ? 'connected' : 'disconnected',
+      latencyMs: dbHealth.latencyMs,
+      pool: poolStats,
+      error: dbHealth.error || null,
+    },
+    memory: {
+      rssMb: Math.round(mem.rss / (1024 * 1024) * 10) / 10,
+      heapTotalMb: Math.round(mem.heapTotal / (1024 * 1024) * 10) / 10,
+      heapUsedMb: Math.round(mem.heapUsed / (1024 * 1024) * 10) / 10,
+    },
+    activeSseStreams: totalSseConnections,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api', (req, res) => {
@@ -179,10 +236,11 @@ app.use((err, _req, res, _next) => {
 
 export default app;
 
+let server;
 async function startServer() {
   try {
     await initDb();
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       console.log(`🚀 MediTalk API running at http://localhost:${PORT}`);
       console.log(`   Health: http://localhost:${PORT}/api/health`);
     });
@@ -191,5 +249,32 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+async function shutdown(signal) {
+  console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+  if (server) {
+    server.close(async () => {
+      console.log('🔌 HTTP server closed.');
+      for (const clientSet of sseClients.values()) {
+        for (const clientRes of clientSet) {
+          try { clientRes.end(); } catch (_) {}
+        }
+      }
+      sseClients.clear();
+      await closePool();
+      console.log('✅ Graceful shutdown completed.');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error('⚠️ Forcefully terminating after timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 startServer();
