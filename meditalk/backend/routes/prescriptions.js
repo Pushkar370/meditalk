@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { pushNotification } from '../server.js';
 
 const router = Router();
 
@@ -78,10 +79,12 @@ router.post('/prescriptions', requireAuth, requireRole('doctor'), async (req, re
       [id, patientId, pName, doctorId, dName, JSON.stringify(medications), additionalInstructions, status]
     );
     try {
+      const rxNotifId = 'N-' + (Date.now()+1);
       await query(
         `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','New Prescription','A new prescription has been issued for you.',false)`,
-        ['N-' + (Date.now()+1), patientId]
+        [rxNotifId, patientId]
       );
+      try { pushNotification(patientId, { id: rxNotifId, type: 'prescription_available', title: 'New Prescription', message: 'A new prescription has been issued for you.' }); } catch (_) {}
     } catch (_) {}
     const { rows } = await query('SELECT * FROM prescriptions WHERE id = $1', [id]);
     res.status(201).json({ success: true, prescription: parsePrescription(rows[0]) });

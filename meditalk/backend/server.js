@@ -17,11 +17,32 @@ import patientRoutes from './routes/patients.js';
 import doctorRoutes from './routes/doctors.js';
 import appointmentRoutes from './routes/appointments.js';
 import prescriptionRoutes from './routes/prescriptions.js';
+import jwt from 'jsonwebtoken';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
+
+// ── SSE (Server-Sent Events) Client Registry ─────────────────────────────────
+const sseClients = new Map(); // key: userId -> Set of express res objects
+
+export function pushNotification(userId, payload) {
+  if (!userId) return;
+  const targetId = String(userId);
+  const userClients = sseClients.get(targetId);
+  if (userClients && userClients.size > 0) {
+    const dataString = `data: ${JSON.stringify(payload)}\n\n`;
+    for (const clientRes of userClients) {
+      try {
+        clientRes.write(dataString);
+      } catch (e) {
+        console.warn('[SSE] Failed to write to client:', e.message);
+      }
+    }
+  }
+}
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
@@ -31,6 +52,73 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// SSE Stream Endpoint
+app.get('/api/notifications/stream', (req, res) => {
+  const token = req.query.token;
+  if (!token) {
+    return res.status(401).json({ error: 'Missing auth token' });
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const userId = String(decoded.userId || decoded.id);
+
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'Access-Control-Allow-Origin': '*',
+  });
+
+  // Initial connection greeting
+  res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+
+  // Register client
+  if (!sseClients.has(userId)) {
+    sseClients.set(userId, new Set());
+  }
+  sseClients.get(userId).add(res);
+
+  // Also index by decoded.id if different from decoded.userId
+  const altId = decoded.id ? String(decoded.id) : null;
+  if (altId && altId !== userId) {
+    if (!sseClients.has(altId)) {
+      sseClients.set(altId, new Set());
+    }
+    sseClients.get(altId).add(res);
+  }
+
+  // Periodic heartbeat every 25s
+  const heartbeatTimer = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n');
+    } catch (_) {}
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeatTimer);
+    const userSet = sseClients.get(userId);
+    if (userSet) {
+      userSet.delete(res);
+      if (userSet.size === 0) sseClients.delete(userId);
+    }
+    if (altId && altId !== userId) {
+      const altSet = sseClients.get(altId);
+      if (altSet) {
+        altSet.delete(res);
+        if (altSet.size === 0) sseClients.delete(altId);
+      }
+    }
+  });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);

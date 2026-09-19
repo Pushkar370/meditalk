@@ -21,6 +21,20 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email, password or role.' });
     }
 
+    // Phase 5: block doctor login if not yet verified
+    if (role === 'doctor' && user.doctor_id) {
+      const { rows: docRows } = await query('SELECT verification_status, rejection_notes FROM doctors WHERE id = $1', [user.doctor_id]);
+      const doc = docRows[0];
+      if (doc) {
+        if (doc.verification_status === 'pending') {
+          return res.status(403).json({ success: false, message: 'Your account is pending admin verification. You will be notified once approved.' });
+        }
+        if (doc.verification_status === 'rejected') {
+          return res.status(403).json({ success: false, message: `Your account registration was rejected. Reason: ${doc.rejection_notes || 'Please contact support.'}` });
+        }
+      }
+    }
+
     const payload = {
       id: user.patient_id || user.doctor_id || user.id,
       userId: user.id,
@@ -71,8 +85,8 @@ router.post('/register', async (req, res) => {
     if (role === 'doctor') {
       const doctorId = `D-${Math.floor(100 + Math.random() * 900)}`;
       await query(
-        `INSERT INTO doctors (id, name, specialty, email, phone, experience, availability, status, bio)
-         VALUES ($1, $2, $3, $4, $5, $6, 'Available', 'active', $7)`,
+        `INSERT INTO doctors (id, name, specialty, email, phone, experience, availability, status, bio, verification_status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'Available', 'active', $7, 'pending')`,
         [doctorId, name, specialty, email, phone || null, parseInt(experience, 10) || 1, bio || `${specialty} Specialist`]
       );
       await query(

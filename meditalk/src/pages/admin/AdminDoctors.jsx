@@ -14,6 +14,7 @@ import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
 import { getDoctors, addDoctor, updateDoctor, setDoctorStatus } from "../../services/doctorService";
+import { verifyDoctor } from "../../services/adminService";
 import { SPECIALTIES } from "../../constants";
 
 export default function AdminDoctors() {
@@ -75,6 +76,16 @@ export default function AdminDoctors() {
     }
   }
 
+  async function quickVerify(doc, action) {
+    try {
+      await verifyDoctor(doc.id, action);
+      toast.success(`Doctor ${action === 'approve' ? 'approved' : 'rejected'}.`);
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to update verification status.");
+    }
+  }
+
   const columns = [
     { key: "id", label: "Doctor ID" },
     { key: "name", label: "Name" },
@@ -82,13 +93,33 @@ export default function AdminDoctors() {
     { key: "email", label: "Email" },
     { key: "phone", label: "Phone" },
     { key: "experience", label: "Experience (yrs)", render: (r) => r.experience },
+    {
+      key: "verification_status",
+      label: "Verification",
+      render: (r) => {
+        const v = r.verification_status || "approved";
+        if (v === "pending") return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">Pending</span>;
+        if (v === "rejected") return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30">Rejected</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Approved</span>;
+      },
+    },
     { key: "availability", label: "Availability", render: (r) => <StatusBadge status={r.availability.toLowerCase()} label={r.availability} /> },
     { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
     {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {r.verification_status === "pending" && (
+            <>
+              <Button size="sm" variant="success" onClick={() => quickVerify(r, "approve")} title="Approve Verification">
+                ✓
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => quickVerify(r, "reject")} title="Reject Application">
+                ✕
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="outline" onClick={() => toast.info(`${r.name} — ${r.bio || "No bio."}`)}>
             <Eye className="h-3.5 w-3.5" />
           </Button>

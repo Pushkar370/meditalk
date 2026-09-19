@@ -29,7 +29,7 @@ import {
   DoctorPrescriptions, DoctorCalendar,
 } from "./pages/doctor/doctorIndex.jsx";
 import {
-  AdminDashboard, AdminPatients, AdminDoctors, AdminAppointments, AdminAnalytics, AdminAuditLogs,
+  AdminDashboard, AdminPatients, AdminDoctors, AdminDoctorVerification, AdminAppointments, AdminAnnouncements, AdminAnalytics, AdminAuditLogs,
 } from "./pages/admin/adminIndex.jsx";
 
 import { useAuth } from "./context/AuthContext";
@@ -86,7 +86,9 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/patients" element={<AdminPatients />} />
           <Route path="/admin/doctors" element={<AdminDoctors />} />
+          <Route path="/admin/doctor-verification" element={<AdminDoctorVerification />} />
           <Route path="/admin/appointments" element={<AdminAppointments />} />
+          <Route path="/admin/announcements" element={<AdminAnnouncements />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />
           <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
           <Route path="/admin/notifications" element={<NotificationCenter />} />

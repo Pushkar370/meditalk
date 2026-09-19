@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { pushNotification } from '../server.js';
 
 const router = Router();
 
@@ -122,14 +123,23 @@ router.post('/', async (req, res) => {
     try {
       const patientUserId = await getUserId(patientId, null);
       const doctorUserId = await getUserId(null, doctorId);
+      const nPatientId = 'N-' + Date.now();
+      const nDoctorId = 'N-' + (Date.now() + 1);
+      const patientMsg = `Your appointment with ${doctorName || 'Doctor'} on ${date} at ${time} is scheduled.`;
+      const doctorMsg = `New appointment booked by ${patientName || 'Patient'} on ${date} at ${time}.`;
+
       await query(
         `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Booked',$3,false)`,
-        ['N-' + Date.now(), patientUserId, `Your appointment with ${doctorName || 'Doctor'} on ${date} at ${time} is scheduled.`]
+        [nPatientId, patientUserId, patientMsg]
       );
       await query(
         `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','New Patient Appointment',$3,false)`,
-        ['N-' + (Date.now() + 1), doctorUserId, `New appointment booked by ${patientName || 'Patient'} on ${date} at ${time}.`]
+        [nDoctorId, doctorUserId, doctorMsg]
       );
+
+      try { pushNotification(patientUserId, { id: nPatientId, type: 'appointment_confirmed', title: 'Appointment Booked', message: patientMsg }); } catch (_) {}
+      try { pushNotification(doctorUserId, { id: nDoctorId, type: 'appointment_confirmed', title: 'New Patient Appointment', message: doctorMsg }); } catch (_) {}
+
       await query(
         `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
          VALUES ($1, $2, 'Patient', 'Booked appointment with ' || $3, 'Appointment', $4, 'success')`,
@@ -154,14 +164,22 @@ router.patch('/:id/cancel', async (req, res) => {
         const a = rows[0];
         const patientUserId = await getUserId(a.patient_id, null);
         const doctorUserId = await getUserId(null, a.doctor_id);
+        const npId = 'N-' + Date.now();
+        const ndId = 'N-' + (Date.now() + 1);
+        const pMsg = `Your appointment on ${a.date} at ${a.time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
+        const dMsg = `Appointment with ${a.patient_name} on ${a.date} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
+
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          ['N-' + Date.now(), patientUserId, `Your appointment on ${a.date} at ${a.time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`]
+          [npId, patientUserId, pMsg]
         );
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          ['N-' + (Date.now() + 1), doctorUserId, `Appointment with ${a.patient_name} on ${a.date} has been cancelled.${reason ? ' Reason: ' + reason : ''}`]
+          [ndId, doctorUserId, dMsg]
         );
+
+        try { pushNotification(patientUserId, { id: npId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: pMsg }); } catch (_) {}
+        try { pushNotification(doctorUserId, { id: ndId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: dMsg }); } catch (_) {}
         await query(
           `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
            VALUES ($1, $2, 'User', $3, 'Appointment', $4, 'success')`,
@@ -202,14 +220,22 @@ router.patch('/:id/reschedule', async (req, res) => {
         const a = rows[0];
         const patientUserId = await getUserId(a.patient_id, null);
         const doctorUserId = await getUserId(null, a.doctor_id);
+        const nrpId = 'N-' + Date.now();
+        const nrdId = 'N-' + (Date.now() + 1);
+        const pRMsg = `Your appointment has been rescheduled to ${date} at ${time}.`;
+        const dRMsg = `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`;
+
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          ['N-' + Date.now(), patientUserId, `Your appointment has been rescheduled to ${date} at ${time}.`]
+          [nrpId, patientUserId, pRMsg]
         );
         await query(
           `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          ['N-' + (Date.now() + 1), doctorUserId, `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`]
+          [nrdId, doctorUserId, dRMsg]
         );
+
+        try { pushNotification(patientUserId, { id: nrpId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: pRMsg }); } catch (_) {}
+        try { pushNotification(doctorUserId, { id: nrdId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: dRMsg }); } catch (_) {}
         await query(
           `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
            VALUES ($1, $2, 'User', 'Rescheduled appointment', 'Appointment', $3, 'success')`,
@@ -243,10 +269,13 @@ router.patch('/:id/video-status', async (req, res) => {
         if (rows[0]) {
           const a = rows[0];
           const patientUserId = await getUserId(a.patient_id, null);
+          const callMsg = `Dr. ${a.doctor_name} has started your video consultation. Join now!`;
+          const callId = 'N-' + Date.now();
           await query(
             `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Video Call Started',$3,false)`,
-            ['N-' + Date.now(), patientUserId, `Dr. ${a.doctor_name} has started your video consultation. Join now!`]
+            [callId, patientUserId, callMsg]
           );
+          try { pushNotification(patientUserId, { id: callId, type: 'appointment_confirmed', title: 'Video Call Started', message: callMsg }); } catch (_) {}
         }
       } catch (_) {}
     }

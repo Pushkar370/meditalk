@@ -1,14 +1,17 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { getNotifications, markAsRead, markAllAsRead, deleteNotification } from "../services/notificationService";
+import { useToast } from "./ToastContext";
+import { useSSE } from "../hooks/useSSE";
 
 const NotificationContext = createContext(null);
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 120_000; // 120 seconds fallback
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef(null);
+  const { showToast } = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -21,9 +24,29 @@ export function NotificationProvider({ children }) {
     }
   }, []);
 
+  // Handle incoming real-time SSE notification
+  const handleSSENotification = useCallback(
+    (notif) => {
+      if (!notif) return;
+      setNotifications((prev) => {
+        // Prevent duplicates
+        if (prev.some((n) => n.id === notif.id)) return prev;
+        return [{ ...notif, read: false, createdAt: notif.createdAt || new Date().toISOString() }, ...prev];
+      });
+
+      // Show real-time notification toast
+      const toastType = notif.type === "error" ? "error" : notif.type === "warning" ? "info" : "success";
+      showToast(`${notif.title || "Notification"}: ${notif.message || ""}`, toastType);
+    },
+    [showToast]
+  );
+
+  // Connect to SSE stream
+  useSSE(handleSSENotification);
+
   useEffect(() => {
     load();
-    // Start polling
+    // Safety-net fallback polling
     intervalRef.current = setInterval(load, POLL_INTERVAL);
     return () => clearInterval(intervalRef.current);
   }, [load]);

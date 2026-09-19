@@ -64,6 +64,12 @@ export async function initDb() {
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS video_status TEXT DEFAULT NULL`,
     // Phase 2: cancellation reason
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancel_reason TEXT`,
+    // Phase 5: doctor verification workflow
+    `ALTER TABLE doctors ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'approved'`,
+    `ALTER TABLE doctors ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`,
+    `ALTER TABLE doctors ADD COLUMN IF NOT EXISTS rejection_notes TEXT`,
+    // notifications timestamp compatibility
+    `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
     // doctor_schedules table guard (created in schema but may be missing in old DBs)
     `CREATE TABLE IF NOT EXISTS doctor_schedules (
       id          TEXT PRIMARY KEY,
