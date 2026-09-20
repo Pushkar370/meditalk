@@ -54,6 +54,7 @@ async function seed() {
     const users = [
       { id: 'U-P-1001', name: 'Aarav Sharma', email: 'patient@meditalk.com', password: hash, role: 'patient', patient_id: 'P-1001', doctor_id: null },
       { id: 'U-D-201', name: 'Dr. Sneha Menon', email: 'doctor@meditalk.com', password: hash, role: 'doctor', patient_id: null, doctor_id: 'D-201' },
+      { id: 'U-D-202-ARJUN', name: 'Dr. Arjun Patel', email: 'arjun.patel@meditalk.com', password: hash, role: 'doctor', patient_id: null, doctor_id: 'D-202' },
       { id: 'U-ADM-1', name: 'Admin User', email: 'admin@meditalk.com', password: hash, role: 'admin', patient_id: null, doctor_id: null },
       { id: 'U-P-1002', name: 'Aarav Sharma', email: 'patient@meditrack.com', password: hash, role: 'patient', patient_id: 'P-1001', doctor_id: null },
       { id: 'U-D-202', name: 'Dr. Sneha Menon', email: 'doctor@meditrack.com', password: hash, role: 'doctor', patient_id: null, doctor_id: 'D-201' },
@@ -76,9 +77,10 @@ async function seed() {
     console.log('✅ Database seeded successfully!');
     console.log('');
     console.log('Test accounts:');
-    console.log('  Patient:  patient@meditalk.com / password');
-    console.log('  Doctor:   doctor@meditalk.com / password');
-    console.log('  Admin:    admin@meditalk.com / password');
+    console.log('  Admin:       admin@meditalk.com / password');
+    console.log('  Patient:     patient@meditalk.com / password');
+    console.log('  Doctor (GM): doctor@meditalk.com / password (Dr. Sneha Menon)');
+    console.log('  Doctor (CA): arjun.patel@meditalk.com / password (Dr. Arjun Patel)');
     process.exit(0);
   } catch (err) {
     console.error('❌ Failed to seed database:', err);
