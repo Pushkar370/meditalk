@@ -64,7 +64,7 @@ export default function Login() {
       <div className="hidden lg:flex flex-col justify-between bg-primary p-10 text-white relative overflow-hidden">
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-accent/20" />
         <div className="absolute -left-10 bottom-10 h-48 w-48 rounded-full bg-sage/30" />
-        <Logo />
+        <Logo inverted />
         <div className="relative z-10">
           <h2 className="text-3xl font-bold leading-snug">
             Your health, <br /> organized & secure.
