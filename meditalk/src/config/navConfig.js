@@ -1,10 +1,11 @@
 import {
-  LayoutDashboard, User, FileText, CalendarDays, History, Pill, Bell, Settings, LogOut, Calendar, ShieldCheck, Megaphone,
+  LayoutDashboard, User, FileText, CalendarDays, History, Pill, Bell, Settings, LogOut, Calendar, ShieldCheck, Megaphone, Sparkles,
 } from "lucide-react";
 
 export const NAV_CONFIG = {
   patient: [
     { label: "Dashboard", to: "/patient/dashboard", icon: LayoutDashboard },
+    { label: "AI Symptom Triage", to: "/patient/triage", icon: Sparkles },
     { label: "My Profile", to: "/patient/profile", icon: User },
     { label: "Health Records", to: "/patient/records", icon: FileText },
     { label: "Appointments", to: "/patient/appointments", icon: CalendarDays },

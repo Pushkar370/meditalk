@@ -23,6 +23,7 @@ import PatientAppointments from "./pages/patient/PatientAppointments";
 import BookAppointment from "./pages/patient/BookAppointment";
 import PatientPrescriptions from "./pages/patient/PatientPrescriptions";
 import PatientVideoRoom from "./pages/patient/PatientVideoRoom";
+import PatientTriage from "./pages/patient/PatientTriage";
 
 import {
   DoctorDashboard, DoctorAppointments, DoctorPatients, DoctorPatientDetails, DoctorConsultation,
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/patient/history" element={<PatientHistory />} />
           <Route path="/patient/appointments" element={<PatientAppointments />} />
           <Route path="/patient/book-appointment" element={<BookAppointment />} />
+          <Route path="/patient/triage" element={<PatientTriage />} />
           <Route path="/patient/prescriptions" element={<PatientPrescriptions />} />
           <Route path="/patient/consultation/:appointmentId" element={<PatientVideoRoom />} />
           <Route path="/patient/notifications" element={<NotificationCenter />} />

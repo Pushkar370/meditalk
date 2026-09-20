@@ -9,11 +9,21 @@ const router = Router();
 router.use(requireAuth);
 
 function mapAppt(r) {
+  let triageSummary = null;
+  if (r.triage_summary) {
+    try {
+      triageSummary = typeof r.triage_summary === 'string' ? JSON.parse(r.triage_summary) : r.triage_summary;
+    } catch (_) {
+      triageSummary = { clinicalSummary: r.triage_summary };
+    }
+  }
   return {
     id: r.id, patientId: r.patient_id, patientName: r.patient_name,
     doctorId: r.doctor_id, doctorName: r.doctor_name, specialty: r.specialty,
     date: r.date, time: r.time, type: r.type, status: r.status, reason: r.reason,
     videoStatus: r.video_status || null,
+    urgency: r.urgency || 'routine',
+    triageSummary,
   };
 }
 
@@ -76,7 +86,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/appointments — book a new appointment with double-booking protection
 router.post('/', async (req, res) => {
   try {
-    const { patientId, patientName, doctorId, doctorName, specialty, date, time, type, reason } = req.body;
+    const { patientId, patientName, doctorId, doctorName, specialty, date, time, type, reason, triageSummary, urgency } = req.body;
     if (!patientId || !doctorId || !date || !time) {
       return res.status(400).json({ error: 'patientId, doctorId, date and time are required' });
     }
@@ -125,10 +135,13 @@ router.post('/', async (req, res) => {
     }
     // ------------------------------------------
 
+    const serializedTriage = triageSummary ? (typeof triageSummary === 'string' ? triageSummary : JSON.stringify(triageSummary)) : null;
+    const triageUrgency = urgency || (triageSummary?.urgency) || 'routine';
+
     const id = 'A-' + Date.now();
     await query(
-      `INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, specialty, date, time, type, status, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'upcoming',$10)`,
-      [id, patientId, patientName, doctorId, doctorName, specialty, date, time, type, reason]
+      `INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, specialty, date, time, type, status, reason, triage_summary, urgency) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'upcoming',$10,$11,$12)`,
+      [id, patientId, patientName, doctorId, doctorName, specialty, date, time, type, reason, serializedTriage, triageUrgency]
     );
 
     // Notify both Patient and Doctor (resolve users.id via getUserId for FK constraint)

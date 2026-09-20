@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Stethoscope, Loader2, CalendarX } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Check, ChevronLeft, ChevronRight, Stethoscope, Loader2, CalendarX, Sparkles } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DoctorCard from "../../components/cards/DoctorCard";
 import Button from "../../components/ui/Button";
@@ -19,12 +19,24 @@ export default function BookAppointment() {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const incomingSpecialty = location.state?.recommendedSpecialty;
+  const incomingTriage = location.state?.triageSummary;
+  const incomingReason = location.state?.reason;
 
   const { data: doctors, loading: doctorsLoading } = useFetch(() => getDoctors());
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(incomingSpecialty ? 1 : 0);
   const [sel, setSel] = useState({
-    specialty: "", doctor: null, date: "", time: "", type: APPOINTMENT_TYPES[0], reason: "", symptoms: "",
+    specialty: incomingSpecialty || "",
+    doctor: null,
+    date: "",
+    time: "",
+    type: APPOINTMENT_TYPES[0],
+    reason: incomingReason || "",
+    symptoms: "",
+    triageSummary: incomingTriage || null,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -83,6 +95,8 @@ export default function BookAppointment() {
         time: sel.time,
         type: sel.type,
         reason: sel.reason,
+        triageSummary: sel.triageSummary,
+        urgency: sel.triageSummary?.urgency || 'routine',
       });
       if (res.success) {
         toast.success("Appointment booked successfully!");
@@ -106,6 +120,25 @@ export default function BookAppointment() {
       <div className="card min-h-[18rem]">
         {step === 0 && (
           <Step title="Select a specialty">
+            {/* AI Triage Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-gradient-to-r from-primary/10 via-sage/15 to-white border border-primary/20 mb-4">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-5 h-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-ink">Not sure which specialty you need?</p>
+                  <p className="text-[11px] text-ink/60">Use the AI Clinical Triage tool to analyze your symptoms and get matched.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/patient/triage')}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-sm shrink-0"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Run AI Triage
+              </button>
+            </div>
+
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {SPECIALTIES.map((s) => (
                 <button
@@ -222,6 +255,12 @@ export default function BookAppointment() {
               <Summary label="Time" value={sel.time} />
               <Summary label="Type" value={sel.type} />
               <Summary label="Reason" value={sel.reason} />
+              {sel.triageSummary && (
+                <Summary
+                  label="AI Triage Urgency"
+                  value={sel.triageSummary.urgencyLabel || `${sel.triageSummary.urgency || "routine"} priority`}
+                />
+              )}
             </div>
           </Step>
         )}

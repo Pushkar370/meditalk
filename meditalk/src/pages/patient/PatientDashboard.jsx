@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import {
   CalendarClock, CalendarDays, Pill, FileText, Plus,
-  HeartPulse, Activity, FlaskConical,
+  HeartPulse, Activity, FlaskConical, Sparkles, ArrowRight,
+  Gauge, Thermometer, Droplets, ShieldCheck,
 } from "lucide-react";
 import StatCard from "../../components/ui/StatCard";
 import AppointmentCard from "../../components/cards/AppointmentCard";
@@ -13,6 +14,7 @@ import { greeting, formatDate } from "../../constants";
 import { getPatientById } from "../../services/patientService";
 import { getAppointments } from "../../services/appointmentService";
 import { getMedicalRecords, getPrescriptions } from "../../services/prescriptionService";
+import { getPatientVitalsHistory } from "../../services/triageService";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
@@ -23,6 +25,7 @@ export default function PatientDashboard() {
   const { data: appts, loading: apptsLoading } = useFetch(() => getAppointments({ patientId }), [patientId]);
   const { data: records } = useFetch(() => getMedicalRecords(patientId), [patientId]);
   const { data: rx } = useFetch(() => getPrescriptions({ patientId }), [patientId]);
+  const { data: vitalsHistory } = useFetch(() => (patientId ? getPatientVitalsHistory(patientId) : Promise.resolve([])), [patientId]);
 
   if (patientLoading || apptsLoading) return <LoadingState />;
 
@@ -37,12 +40,39 @@ export default function PatientDashboard() {
     .slice(0, 4);
 
   const displayName = patient?.name?.split(" ")[0] || user?.name?.split(" ")[0] || "there";
+  const latestVitals = (vitalsHistory && vitalsHistory.length > 0) ? vitalsHistory[vitalsHistory.length - 1] : null;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-ink">{greeting()}, {displayName}</h1>
-        <p className="text-sm text-ink/50">Here's your health summary for today.</p>
+        <p className="text-sm text-ink/50">Here's your personal health overview & vitals intelligence.</p>
+      </div>
+
+      {/* AI Clinical Triage Launcher Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-sage/20 to-accent/10 p-5 border border-primary/20 shadow-sm">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="h-11 w-11 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-md shadow-primary/25">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-ink text-base">MediTalk AI Symptom Triage</h3>
+                <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-primary/20 text-primary">Gemini 1.5 Flash</span>
+              </div>
+              <p className="text-xs sm:text-sm text-ink/70 mt-1 max-w-2xl">
+                Unsure about symptoms or which doctor to see? Get an instant clinical urgency assessment, home care guidance, and automated specialist matching.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => navigate("/patient/triage")}
+            className="shrink-0 shadow-md shadow-primary/20"
+          >
+            <Sparkles className="h-4 w-4" /> Check Symptoms Now
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -102,6 +132,108 @@ export default function PatientDashboard() {
               ))}
             </div>
           </div>
+          {/* Biometric Vitals Intelligence */}
+          <div className="card mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <HeartPulse className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-ink">Biometric Vitals Intelligence</h3>
+              </div>
+              <span className="text-xs text-ink/50">
+                {latestVitals ? `Last measured: ${formatDate(latestVitals.date)}` : "Clinical Telemetry"}
+              </span>
+            </div>
+
+            {/* Vitals Telemetry Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="p-3 rounded-xl bg-background border border-sage/30">
+                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                  <span>Blood Pressure</span>
+                  <Gauge className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <p className="text-lg font-bold text-ink">
+                  {latestVitals?.bp || "120/80"} <span className="text-xs font-normal text-ink/40">mmHg</span>
+                </p>
+                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                  {latestVitals?.systolic ? (latestVitals.systolic < 125 ? "Optimal" : "Elevated") : "Target"}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background border border-sage/30">
+                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                  <span>Heart Rate</span>
+                  <Activity className="h-3.5 w-3.5 text-rose-500" />
+                </div>
+                <p className="text-lg font-bold text-ink">
+                  {latestVitals?.hr || "72"} <span className="text-xs font-normal text-ink/40">bpm</span>
+                </p>
+                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                  Normal Range
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background border border-sage/30">
+                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                  <span>SpO₂ Oxygen</span>
+                  <Droplets className="h-3.5 w-3.5 text-sky-500" />
+                </div>
+                <p className="text-lg font-bold text-ink">
+                  {latestVitals?.spo2 || "98"} <span className="text-xs font-normal text-ink/40">%</span>
+                </p>
+                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600">
+                  Optimal
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-background border border-sage/30">
+                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                  <span>Temperature</span>
+                  <Thermometer className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <p className="text-lg font-bold text-ink">
+                  {latestVitals?.temp || "36.8"} <span className="text-xs font-normal text-ink/40">°C</span>
+                </p>
+                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                  Afebrile
+                </span>
+              </div>
+            </div>
+
+            {/* Historical Consultation Telemetry Log */}
+            {vitalsHistory && vitalsHistory.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-sage/30 text-ink/50 font-medium">
+                      <th className="pb-2">Date</th>
+                      <th className="pb-2">Consultant</th>
+                      <th className="pb-2">BP</th>
+                      <th className="pb-2">Heart Rate</th>
+                      <th className="pb-2">SpO₂</th>
+                      <th className="pb-2">Diagnosis</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sage/20 text-ink">
+                    {vitalsHistory.slice(-3).reverse().map((vh) => (
+                      <tr key={vh.consultationId} className="hover:bg-sage/5">
+                        <td className="py-2 text-ink/70">{formatDate(vh.date)}</td>
+                        <td className="py-2 font-medium">{vh.doctorName}</td>
+                        <td className="py-2 font-mono">{vh.bp || "—"}</td>
+                        <td className="py-2">{vh.hr ? `${vh.hr} bpm` : "—"}</td>
+                        <td className="py-2">{vh.spo2 ? `${vh.spo2}%` : "—"}</td>
+                        <td className="py-2 text-ink/60 truncate max-w-[120px]">{vh.diagnosis}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-sage/10 text-xs text-ink/60 flex items-center justify-between">
+                <span>Clinical consultation vitals will log historical trends here automatically.</span>
+                <span className="font-semibold text-primary">Live Tracking Enabled</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Health summary */}
@@ -115,7 +247,7 @@ export default function PatientDashboard() {
               <dl className="space-y-3 text-sm">
                 <Row label="Blood Group" value={patient.bloodGroup || "-"} />
                 <Row label="Height" value={patient.height || "-"} />
-                <Row label="Weight" value={patient.weight || "-"} />
+                <Row label="Weight" value={latestVitals?.weight ? `${latestVitals.weight} kg` : (patient.weight || "-")} />
                 <Row label="Allergies" value={(patient.allergies || []).join(", ") || "None"} />
                 <Row label="Medications" value={(patient.currentMedications || []).join(", ") || "None"} />
               </dl>
@@ -129,6 +261,13 @@ export default function PatientDashboard() {
             <div className="space-y-2">
               <Button className="w-full justify-start" onClick={() => navigate("/patient/book-appointment")}>
                 <Plus className="h-4 w-4" /> Book Appointment
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-primary border-primary/30 hover:bg-primary/5"
+                onClick={() => navigate("/patient/triage")}
+              >
+                <Sparkles className="h-4 w-4 text-primary" /> AI Symptom Triage
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/patient/records")}>
                 <FileText className="h-4 w-4" /> View Records

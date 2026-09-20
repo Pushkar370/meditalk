@@ -157,6 +157,51 @@ router.patch('/:id/status', requireAuth, requireRole('admin'), async (req, res) 
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update status' }); }
 });
 
+// GET /api/patients/:id/vitals-history — historical biometrics from consultations
+router.get('/:id/vitals-history', requireAuth, async (req, res) => {
+  try {
+    const { role, id: callerId } = req.user;
+    const { id } = req.params;
+
+    // Patients can only access their own vitals
+    if (role === 'patient' && callerId !== id) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s vitals history' });
+    }
+
+    const { rows } = await query(
+      `SELECT c.id, c.date, c.diagnosis, c.vitals, d.name as doctor_name
+       FROM consultations c
+       LEFT JOIN doctors d ON d.id = c.doctor_id
+       WHERE c.patient_id = $1
+       ORDER BY c.date ASC`,
+      [id]
+    );
+
+    const history = rows.map(r => {
+      const vitals = safeJson(r.vitals, {});
+      const bpParts = (vitals.bp || '').split('/').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+      return {
+        consultationId: r.id,
+        date: r.date,
+        diagnosis: r.diagnosis || 'Consultation',
+        doctorName: r.doctor_name || 'Doctor',
+        bp: vitals.bp || null,
+        systolic: bpParts[0] || null,
+        diastolic: bpParts[1] || null,
+        hr: vitals.hr ? parseInt(vitals.hr, 10) : null,
+        temp: vitals.temp ? parseFloat(vitals.temp) : null,
+        spo2: vitals.spo2 ? parseInt(vitals.spo2, 10) : null,
+        weight: vitals.weight ? parseFloat(vitals.weight) : null,
+      };
+    }).filter(entry => entry.bp || entry.hr || entry.spo2 || entry.temp || entry.weight);
+
+    res.json(history);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch vitals history' });
+  }
+});
+
 export default router;
 
 

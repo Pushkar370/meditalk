@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Video } from "lucide-react";
+import { CalendarDays, Video, AlertTriangle, AlertCircle, Sparkles } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -14,6 +14,35 @@ import { getAppointments } from "../../services/appointmentService";
 import { formatDate } from "../../constants";
 
 const FILTERS = ["All", "upcoming", "confirmed", "completed", "cancelled"];
+
+function UrgencyBadge({ urgency }) {
+  if (urgency === "emergency") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-danger/15 text-danger border border-danger/30 shadow-sm animate-pulse">
+        <AlertTriangle className="h-3 w-3" /> Emergency 🚨
+      </span>
+    );
+  }
+  if (urgency === "urgent") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+        <AlertCircle className="h-3 w-3" /> Urgent ⚠️
+      </span>
+    );
+  }
+  if (urgency === "self_care") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700 border border-sky-200">
+        Self-Care ℹ️
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage/20 text-ink/70">
+      Routine 🟢
+    </span>
+  );
+}
 
 export default function DoctorAppointments() {
   const navigate = useNavigate();
@@ -33,8 +62,26 @@ export default function DoctorAppointments() {
     { key: "date", label: "Date", render: (r) => formatDate(r.date) },
     { key: "time", label: "Time" },
     { key: "patientName", label: "Patient" },
+    {
+      key: "urgency",
+      label: "Triage Urgency",
+      render: (r) => <UrgencyBadge urgency={r.urgency || r.triageSummary?.urgency} />,
+    },
     { key: "type", label: "Type" },
-    { key: "reason", label: "Reason" },
+    {
+      key: "reason",
+      label: "Reason",
+      render: (r) => (
+        <div className="max-w-[200px]">
+          <p className="truncate">{r.reason}</p>
+          {r.triageSummary && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium">
+              <Sparkles className="h-2.5 w-2.5" /> AI Assessed
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
     {
       key: "actions",

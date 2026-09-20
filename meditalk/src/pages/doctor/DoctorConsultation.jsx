@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Stethoscope, Activity, Pill, Save, FileText, CheckCircle2,
-  Video, PhoneOff, Phone, ChevronDown, ChevronUp,
+  Video, PhoneOff, Phone, ChevronDown, ChevronUp, Sparkles, AlertTriangle, AlertCircle, ArrowDownToLine,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -101,6 +101,27 @@ export default function DoctorConsultation() {
   const [saving, setSaving] = useState(false);
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoUpdating, setVideoUpdating] = useState(false);
+  const [triageBriefOpen, setTriageBriefOpen] = useState(true);
+
+  function applyTriageToNotes() {
+    if (!appointment?.triageSummary) return;
+    const ts = appointment.triageSummary;
+    setForm((prev) => {
+      const appendedSymptoms = prev.symptoms
+        ? `${prev.symptoms}\n[Patient Reported Symptoms]: ${appointment.reason || ''}`
+        : (appointment.reason || '');
+      const triageBrief = `[AI Clinical Triage Assessment - Priority: ${(ts.urgency || appointment.urgency || 'routine').toUpperCase()}]\nSummary: ${ts.clinicalSummary || ''}\nRecommended Specialty: ${ts.recommendedSpecialty || ''}\nPossible Considerations: ${Array.isArray(ts.possibleConditions) ? ts.possibleConditions.join(', ') : ''}`;
+      const appendedObs = prev.observations
+        ? `${prev.observations}\n\n${triageBrief}`
+        : triageBrief;
+      return {
+        ...prev,
+        symptoms: appendedSymptoms,
+        observations: appendedObs,
+      };
+    });
+    toast.success("Applied AI triage notes to consultation record.");
+  }
 
   // ICD-10 dropdown state
   const [icdQuery, setIcdQuery] = useState("");
@@ -202,6 +223,114 @@ export default function DoctorConsultation() {
           </div>
         </div>
       </Card>
+
+      {/* ─── Pre-Consultation AI Triage Brief ───────────── */}
+      {appointment?.triageSummary && (
+        <div className={`card transition border ${
+          (appointment.urgency === "emergency" || appointment.triageSummary.urgency === "emergency")
+            ? "border-danger/30 bg-danger/5"
+            : (appointment.urgency === "urgent" || appointment.triageSummary.urgency === "urgent")
+            ? "border-amber-300 bg-amber-50/50"
+            : "border-primary/20 bg-primary/5"
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-white ${
+                (appointment.urgency === "emergency" || appointment.triageSummary.urgency === "emergency")
+                  ? "bg-danger animate-pulse"
+                  : (appointment.urgency === "urgent" || appointment.triageSummary.urgency === "urgent")
+                  ? "bg-amber-500"
+                  : "bg-primary"
+              }`}>
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-ink text-sm">Pre-Consultation AI Triage Brief</h3>
+                  <span className={`px-2 py-0.5 text-[11px] font-bold rounded-full uppercase tracking-wider ${
+                    (appointment.urgency === "emergency" || appointment.triageSummary.urgency === "emergency")
+                      ? "bg-danger text-white"
+                      : (appointment.urgency === "urgent" || appointment.triageSummary.urgency === "urgent")
+                      ? "bg-amber-200 text-amber-900"
+                      : "bg-sage/40 text-ink/80"
+                  }`}>
+                    {appointment.triageSummary.urgencyLabel || `${appointment.urgency || "routine"} priority`}
+                  </span>
+                </div>
+                <p className="text-xs text-ink/60 mt-0.5">
+                  Assessed via {appointment.triageSummary.source === "gemini_ai" ? "Gemini 1.5 Flash AI" : "MediTalk Clinical Matrix Engine"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={applyTriageToNotes} className="text-xs">
+                <ArrowDownToLine className="h-3.5 w-3.5" /> Import to Notes
+              </Button>
+              <button
+                type="button"
+                onClick={() => setTriageBriefOpen((v) => !v)}
+                className="p-1.5 rounded-lg border border-sage/40 hover:bg-sage/10 transition text-ink/70"
+                aria-label="Toggle triage brief"
+              >
+                {triageBriefOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {triageBriefOpen && (
+            <div className="mt-4 pt-4 border-t border-sage/20 space-y-3.5 text-xs">
+              <div>
+                <span className="font-semibold text-ink/70 block mb-1">Clinical Summary</span>
+                <p className="text-ink text-sm leading-relaxed bg-white/80 p-2.5 rounded-lg border border-sage/20">
+                  {appointment.triageSummary.clinicalSummary}
+                </p>
+              </div>
+
+              {/* Red Flags Alert if present */}
+              {Array.isArray(appointment.triageSummary.redFlags) && appointment.triageSummary.redFlags.length > 0 && (
+                <div>
+                  <span className="font-semibold text-danger flex items-center gap-1 mb-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Red-Flag Indicators Screened:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {appointment.triageSummary.redFlags.map((rf, idx) => (
+                      <span key={idx} className="px-2 py-0.5 bg-danger/10 text-danger border border-danger/20 rounded-md font-medium">
+                        {rf}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Potential Conditions & Suggested Diagnostic Questions */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                {Array.isArray(appointment.triageSummary.possibleConditions) && (
+                  <div className="bg-white/70 p-2.5 rounded-lg border border-sage/20">
+                    <span className="font-semibold text-ink/70 block mb-1">Differential Considerations</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-ink/80">
+                      {appointment.triageSummary.possibleConditions.map((cond, idx) => (
+                        <li key={idx}>{cond}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(appointment.triageSummary.suggestedQuestions) && (
+                  <div className="bg-white/70 p-2.5 rounded-lg border border-sage/20">
+                    <span className="font-semibold text-ink/70 block mb-1">Suggested Diagnostic Questions</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-ink/80">
+                      {appointment.triageSummary.suggestedQuestions.map((q, idx) => (
+                        <li key={idx}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Video Panel ───────────────────────────────── */}
       {roomId && (

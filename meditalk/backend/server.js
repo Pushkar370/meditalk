@@ -28,6 +28,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
+import triageRoutes from './routes/triage.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -161,6 +162,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api', prescriptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/triage', triageRoutes);
 
 // Deep Healthcheck Endpoint
 app.get('/api/health', async (_req, res) => {
