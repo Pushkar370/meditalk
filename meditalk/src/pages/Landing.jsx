@@ -35,7 +35,7 @@ export default function Landing() {
             <ShieldCheck className="h-3.5 w-3.5" /> Secure · Trusted · Patient-Centric
           </span>
           <h1 className="mt-4 text-3xl sm:text-5xl font-extrabold text-ink leading-tight">
-            Smarter care with <span className="text-primary">MediTrack</span>
+            Smarter care with <span className="text-primary">MediTalk</span>
           </h1>
           <p className="mt-4 text-ink/60 max-w-md">
             A unified platform for patient health records, appointments, consultations and
@@ -96,14 +96,14 @@ export default function Landing() {
         <div className="mt-10 text-center">
           <Link to="/register">
             <Button size="lg">
-              Start using MediTrack <ArrowRight className="h-4 w-4" />
+              Start using MediTalk <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
       </section>
 
       <footer className="border-t border-sage/30 py-6 text-center text-xs text-ink/40">
-        MediTrack — An Intelligent Patient Health Record & Appointment Management System. Demo project.
+        MediTalk — An Intelligent Patient Health Record & Appointment Management System.
       </footer>
     </div>
   );

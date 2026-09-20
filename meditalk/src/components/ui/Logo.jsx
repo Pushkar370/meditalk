@@ -11,7 +11,7 @@ export default function Logo({ size = "md", withText = true }) {
       </div>
       {withText && (
         <div className="leading-none">
-          <span className={"font-extrabold text-primary " + text}>MediTrack</span>
+          <span className={"font-extrabold text-primary " + text}>MediTalk</span>
           <span className="block text-[10px] text-ink/50 tracking-wide mt-0.5">
             HEALTH MANAGEMENT
           </span>

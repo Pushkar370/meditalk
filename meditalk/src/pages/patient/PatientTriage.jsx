@@ -160,10 +160,18 @@ export default function PatientTriage() {
       />
 
       {/* Clinical Disclaimer Banner */}
-      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200">
-        <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-        <p>
-          <span className="font-semibold">Clinical Guidance Notice:</span> This AI tool assesses urgency and recommends specialists based on evidence-based triage logic. It is not an official medical diagnosis. In life-threatening emergencies, dial emergency services (911 / 112 / 108) immediately.
+      <div className="flex items-start gap-3.5 p-4 rounded-xl bg-amber-50 border border-amber-300 shadow-sm text-ink">
+        <div className="h-6 w-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+          <Info className="w-4 h-4" />
+        </div>
+        <p className="text-xs sm:text-sm text-ink leading-relaxed">
+          <strong className="font-bold text-amber-950">Clinical Guidance Notice:</strong>{" "}
+          <span className="text-ink/80 font-normal">
+            This AI tool assesses urgency and recommends specialists based on evidence-based triage logic. It is not an official medical diagnosis. In life-threatening emergencies,{" "}
+          </span>
+          <strong className="font-bold text-danger">
+            dial emergency services (911 / 112 / 108) immediately.
+          </strong>
         </p>
       </div>
 

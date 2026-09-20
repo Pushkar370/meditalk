@@ -73,7 +73,7 @@ export default function Login() {
             Sign in to access records, appointments and consultations from anywhere.
           </p>
         </div>
-        <p className="relative z-10 text-xs text-white/50">© MediTrack. Demo project.</p>
+        <p className="relative z-10 text-xs text-white/50">© MediTalk.</p>
       </div>
 
       {/* Form panel */}

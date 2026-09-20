@@ -80,7 +80,7 @@ export default function Register() {
           </div>
           <h1 className="mt-4 text-xl font-bold text-ink">Account created</h1>
           <p className="mt-2 text-sm text-ink/60">
-            Your MediTrack {role === ROLES.DOCTOR ? "Doctor" : "Patient"} account is ready. You can now sign in.
+            Your MediTalk {role === ROLES.DOCTOR ? "Doctor" : "Patient"} account is ready. You can now sign in.
           </p>
           <Button className="mt-6 w-full" onClick={() => navigate("/login")}>
             Go to Login
@@ -98,7 +98,7 @@ export default function Register() {
         </div>
         <div className="card">
           <h1 className="text-2xl font-bold text-ink">Create your account</h1>
-          <p className="text-sm text-ink/50 mt-1">Join MediTrack medical network.</p>
+          <p className="text-sm text-ink/50 mt-1">Join MediTalk medical network.</p>
 
           {/* Role selector */}
           <div className="mt-4">
