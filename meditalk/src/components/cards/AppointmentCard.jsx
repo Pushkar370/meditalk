@@ -2,10 +2,10 @@ import { Calendar, Clock, Stethoscope, Video } from "lucide-react";
 import StatusBadge from "../ui/StatusBadge";
 import Button from "../ui/Button";
 
-export default function AppointmentCard({ appointment, onView, onReschedule, onCancel }) {
+export default function AppointmentCard({ appointment, onView, onReschedule, onCancel, noCard = false }) {
   const a = appointment;
   return (
-    <div className="card">
+    <div className={noCard ? "p-4 rounded-xl bg-sage/10 border border-sage/20" : "card"}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-sage/20 flex items-center justify-center">

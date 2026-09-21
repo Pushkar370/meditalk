@@ -70,7 +70,7 @@ export default function AdminAnalytics() {
   }
 
   if (loading || !a) {
-    return <div className="py-20 text-center text-slate-400">Loading analytics & intelligence…</div>;
+    return <div className="py-20 text-center text-ink/50">Loading analytics & intelligence…</div>;
   }
 
   return (
@@ -100,11 +100,11 @@ export default function AdminAnalytics() {
 
       {/* Date Range Picker Bar */}
       <div className="card flex flex-wrap items-center justify-between gap-4 p-4">
-        <div className="flex items-center gap-2 text-sm text-slate-300 font-medium">
-          <Filter className="w-4 h-4 text-primary-400" />
+        <div className="flex items-center gap-2 text-sm text-ink font-semibold">
+          <Filter className="w-4 h-4 text-primary" />
           <span>Date Range Filter</span>
           {appliedRange.from && appliedRange.to && (
-            <span className="text-xs bg-primary-500/20 text-primary-300 border border-primary-500/30 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full font-medium">
               Active: {appliedRange.from} → {appliedRange.to}
             </span>
           )}
@@ -112,22 +112,22 @@ export default function AdminAnalytics() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">From:</span>
+            <span className="text-xs text-ink/60">From:</span>
             <input
               type="date"
               value={dateRange.from}
               onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-              className="px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-primary-500"
+              className="px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">To:</span>
+            <span className="text-xs text-ink/60">To:</span>
             <input
               type="date"
               value={dateRange.to}
               onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-              className="px-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-primary-500"
+              className="px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
 
@@ -145,47 +145,47 @@ export default function AdminAnalytics() {
 
       {/* Phase 5 New Advanced KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-slate-900 p-5 shadow-card">
+        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-50/80 via-white to-white p-5 shadow-card">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Doctor Acceptance Rate</span>
-            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300">
+            <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Doctor Acceptance Rate</span>
+            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-slate-100 mt-2">
+          <div className="text-3xl font-bold text-ink mt-2">
             {a.kpis?.doctorAcceptanceRate ?? 92}%
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink/60 mt-1">
             Percentage of booked appointments accepted or fulfilled by practitioners.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-primary-500/30 bg-gradient-to-br from-primary-500/10 via-slate-900 to-slate-900 p-5 shadow-card">
+        <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/5 via-sage/10 to-white p-5 shadow-card">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-primary-400 uppercase tracking-wider">Patient Retention Rate</span>
-            <div className="p-2 rounded-xl bg-primary-500/20 text-primary-300">
+            <span className="text-xs font-semibold text-primary uppercase tracking-wider">Patient Retention Rate</span>
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
               <HeartHandshake className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-slate-100 mt-2">
+          <div className="text-3xl font-bold text-ink mt-2">
             {a.kpis?.patientRetentionRate ?? 85}%
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink/60 mt-1">
             Proportion of registered patients who have returned for 2+ appointments.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-slate-900 to-slate-900 p-5 shadow-card">
+        <div className="rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-50/80 via-white to-white p-5 shadow-card">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Avg Consultation Length</span>
-            <div className="p-2 rounded-xl bg-blue-500/20 text-blue-300">
+            <span className="text-xs font-semibold text-sky-800 uppercase tracking-wider">Avg Consultation Length</span>
+            <div className="p-2 rounded-xl bg-sky-100 text-sky-700">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-slate-100 mt-2">
+          <div className="text-3xl font-bold text-ink mt-2">
             ~{a.kpis?.avgConsultDuration ?? 28} mins
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-ink/60 mt-1">
             Average clinical contact time per telehealth or in-clinic consultation.
           </p>
         </div>

@@ -207,7 +207,7 @@ export default function PatientTriage() {
                       key={idx}
                       type="button"
                       onClick={() => handleQuickChip(chip.text)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-sand-light border border-sage/30 hover:bg-sage/20 text-ink/80 transition"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-sage/40 hover:bg-sage/15 text-ink/80 shadow-sm transition active:scale-95"
                     >
                       {chip.label}
                     </button>
@@ -398,10 +398,10 @@ export default function PatientTriage() {
 
           {/* Clinical Summary for Doctor */}
           <Card title="Pre-Consultation Clinical Brief (Stored with Appointment)">
-            <div className="p-3.5 rounded-xl bg-sand-light/60 border border-sage/30 text-xs font-mono text-ink/80 space-y-2">
+            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-xs font-mono text-ink/85 space-y-2">
               <p className="font-semibold text-ink">{result.clinicalSummary}</p>
               {result.redFlags && result.redFlags.length > 0 && (
-                <p className="text-danger text-[11px]">
+                <p className="text-danger text-[11px] font-sans font-medium">
                   <span className="font-bold">Screened Warnings:</span> {result.redFlags.join(", ")}
                 </p>
               )}

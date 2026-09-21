@@ -150,7 +150,7 @@ export default function Settings() {
                 </label>
                 <div>
                   <p className="text-sm font-medium text-ink mb-2">Active sessions</p>
-                  <div className="rounded-xl bg-background p-3 text-sm text-ink/70">
+                  <div className="rounded-xl bg-sage/10 border border-sage/20 p-3 text-sm text-ink/70">
                     Current session · {user?.role} · Active now
                   </div>
                 </div>

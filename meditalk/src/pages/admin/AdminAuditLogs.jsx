@@ -78,7 +78,7 @@ export default function AdminAuditLogs() {
       key: "timestamp",
       label: "Timestamp",
       render: (r) => (
-        <span className="text-xs font-mono text-slate-300">
+        <span className="text-xs font-mono text-ink/70">
           {formatDateTime(r.timestamp)}
         </span>
       ),
@@ -88,8 +88,8 @@ export default function AdminAuditLogs() {
       label: "Actor",
       render: (r) => (
         <div>
-          <div className="font-semibold text-slate-100 text-xs">{r.user_name || "System"}</div>
-          <div className="text-[11px] text-slate-400">{r.role || "System"}</div>
+          <div className="font-semibold text-ink text-xs">{r.user_name || "System"}</div>
+          <div className="text-[11px] text-ink/50">{r.role || "System"}</div>
         </div>
       ),
     },
@@ -97,7 +97,7 @@ export default function AdminAuditLogs() {
       key: "action",
       label: "Action / Event",
       render: (r) => (
-        <div className="font-medium text-slate-200 text-xs max-w-xs truncate" title={r.action}>
+        <div className="font-medium text-ink text-xs max-w-xs truncate" title={r.action}>
           {r.action}
         </div>
       ),
@@ -107,11 +107,11 @@ export default function AdminAuditLogs() {
       label: "Resource",
       render: (r) => {
         const type = r.entity_type || "System";
-        let color = "bg-slate-800 text-slate-300 border-slate-700";
-        if (type === "Auth") color = "bg-blue-500/15 text-blue-300 border-blue-500/30";
-        if (type === "Appointment") color = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-        if (type === "Doctor") color = "bg-amber-500/15 text-amber-300 border-amber-500/30";
-        if (type === "Announcement") color = "bg-purple-500/15 text-purple-300 border-purple-500/30";
+        let color = "bg-sage/15 text-primary border-sage/30";
+        if (type === "Auth") color = "bg-sky-50 text-sky-700 border-sky-200";
+        if (type === "Appointment") color = "bg-emerald-50 text-emerald-700 border-emerald-200";
+        if (type === "Doctor") color = "bg-amber-50 text-amber-800 border-amber-200";
+        if (type === "Announcement") color = "bg-purple-50 text-purple-700 border-purple-200";
 
         return (
           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${color}`}>
@@ -124,7 +124,7 @@ export default function AdminAuditLogs() {
       key: "entity_id",
       label: "Reference",
       render: (r) => (
-        <span className="text-[11px] font-mono text-slate-400 truncate max-w-[120px] inline-block" title={r.entity_id}>
+        <span className="text-[11px] font-mono text-ink/50 truncate max-w-[120px] inline-block" title={r.entity_id}>
           {r.entity_id || "—"}
         </span>
       ),
@@ -136,20 +136,20 @@ export default function AdminAuditLogs() {
         const st = (r.status || "success").toLowerCase();
         if (st === "warning") {
           return (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
               <AlertTriangle className="w-3 h-3" /> Warning
             </span>
           );
         }
         if (st === "failed" || st === "error") {
           return (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-400">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-danger">
               <XCircle className="w-3 h-3" /> Failed
             </span>
           );
         }
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success">
             <CheckCircle2 className="w-3 h-3" /> Success
           </span>
         );
@@ -207,120 +207,123 @@ export default function AdminAuditLogs() {
 
       {/* KPI Stats Chips Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3.5">
-          <div className="text-xs text-slate-400 font-medium flex items-center justify-between">
+        <div className="card p-3.5 flex flex-col justify-between">
+          <div className="text-xs text-ink/60 font-medium flex items-center justify-between">
             <span>Total Events</span>
-            <Shield className="w-3.5 h-3.5 text-primary-400" />
+            <Shield className="w-3.5 h-3.5 text-primary" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{stats?.total ?? allLogs.length}</div>
+          <div className="text-xl font-bold text-ink mt-1">{stats?.total ?? allLogs.length}</div>
         </div>
 
-        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3.5">
-          <div className="text-xs text-blue-300 font-medium flex items-center justify-between">
+        <div className="rounded-2xl border border-sky-200/70 bg-sky-50/60 p-3.5 shadow-card flex flex-col justify-between">
+          <div className="text-xs text-sky-800 font-medium flex items-center justify-between">
             <span>Auth / Logins</span>
-            <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+            <KeyRound className="w-3.5 h-3.5 text-sky-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{stats?.auth ?? 0}</div>
+          <div className="text-xl font-bold text-ink mt-1">{stats?.auth ?? 0}</div>
         </div>
 
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3.5">
-          <div className="text-xs text-emerald-300 font-medium flex items-center justify-between">
+        <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-3.5 shadow-card flex flex-col justify-between">
+          <div className="text-xs text-emerald-800 font-medium flex items-center justify-between">
             <span>Appointments</span>
-            <CalendarDays className="w-3.5 h-3.5 text-emerald-400" />
+            <CalendarDays className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{stats?.appointments ?? 0}</div>
+          <div className="text-xl font-bold text-ink mt-1">{stats?.appointments ?? 0}</div>
         </div>
 
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3.5">
-          <div className="text-xs text-amber-300 font-medium flex items-center justify-between">
+        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/60 p-3.5 shadow-card flex flex-col justify-between">
+          <div className="text-xs text-amber-800 font-medium flex items-center justify-between">
             <span>Clinical / Doctors</span>
-            <Stethoscope className="w-3.5 h-3.5 text-amber-400" />
+            <Stethoscope className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{stats?.clinical ?? 0}</div>
+          <div className="text-xl font-bold text-ink mt-1">{stats?.clinical ?? 0}</div>
         </div>
 
-        <div className="rounded-2xl border border-purple-500/20 bg-purple-500/10 p-3.5">
-          <div className="text-xs text-purple-300 font-medium flex items-center justify-between">
+        <div className="rounded-2xl border border-purple-200/70 bg-purple-50/60 p-3.5 shadow-card flex flex-col justify-between">
+          <div className="text-xs text-purple-800 font-medium flex items-center justify-between">
             <span>Announcements</span>
-            <Megaphone className="w-3.5 h-3.5 text-purple-400" />
+            <Megaphone className="w-3.5 h-3.5 text-purple-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{stats?.announcements ?? 0}</div>
+          <div className="text-xl font-bold text-ink mt-1">{stats?.announcements ?? 0}</div>
         </div>
       </div>
 
       {/* Filter Toolbar */}
       <div className="card space-y-3 p-4">
-        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
-            <Filter className="w-3.5 h-3.5 text-primary-400" />
+        <div className="flex items-center justify-between gap-2 border-b border-sage/20 pb-2">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink/70">
+            <Filter className="w-3.5 h-3.5 text-primary" />
             <span>Search & Scoping Parameters</span>
           </div>
           {(appliedFilters.from || appliedFilters.to || appliedFilters.role || appliedFilters.status || appliedFilters.search) && (
             <button
               onClick={handleResetFilters}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
+              className="text-xs text-ink/50 hover:text-ink flex items-center gap-1 transition"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Reset Filters</span>
+              <span>Reset</span>
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
+          {/* Free Search */}
+          <div className="lg:col-span-2 relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
             <input
               type="text"
+              placeholder="Filter by actor name, user ID, or action..."
               value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Search user, action, resource..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500"
+              onChange={(e) => handleFilterChange("search", e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
             />
           </div>
 
-          <Select
-            value={filters.role}
-            onChange={(e) => setFilters({ ...filters, role: e.target.value })}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r || "All Roles"}
-              </option>
-            ))}
-          </Select>
+          {/* Role Filter */}
+          <div>
+            <select
+              value={filters.role}
+              onChange={(e) => handleFilterChange("role", e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            >
+              <option value="">All Roles</option>
+              <option value="patient">Patient</option>
+              <option value="doctor">Doctor</option>
+              <option value="admin">Admin</option>
+              <option value="system">System Worker</option>
+            </select>
+          </div>
 
-          <Select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s ? s.toUpperCase() : "All Statuses"}
-              </option>
-            ))}
-          </Select>
+          {/* Status Filter */}
+          <div>
+            <select
+              value={filters.status}
+              onChange={(e) => handleFilterChange("status", e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+            >
+              <option value="">All Statuses</option>
+              <option value="success">Success</option>
+              <option value="warning">Warning</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-slate-400">From:</span>
+          {/* Date Pickers */}
+          <div className="grid grid-cols-2 gap-1.5">
             <input
               type="date"
               value={filters.from}
-              onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-              className="w-full px-2 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-primary-500"
+              onChange={(e) => handleFilterChange("from", e.target.value)}
+              className="w-full px-2 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              title="From date"
             />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">To:</span>
             <input
               type="date"
               value={filters.to}
-              onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-              className="w-full px-2 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-primary-500"
+              onChange={(e) => handleFilterChange("to", e.target.value)}
+              className="w-full px-2 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              title="To date"
             />
-            <Button size="sm" onClick={handleApplyFilters} className="px-3 py-1.5">
-              Apply
-            </Button>
           </div>
         </div>
       </div>
@@ -350,44 +353,44 @@ export default function AdminAuditLogs() {
           footer={<Button onClick={() => setInspectLog(null)}>Close</Button>}
         >
           <div className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-2 gap-2 bg-sage/10 p-3.5 rounded-xl border border-sage/20">
               <div>
-                <span className="text-slate-400 block text-[11px]">Actor</span>
-                <span className="font-semibold text-slate-100">{inspectLog.user_name || "System"}</span>
+                <span className="text-ink/50 block text-[11px]">Actor</span>
+                <span className="font-semibold text-ink">{inspectLog.user_name || "System"}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[11px]">Role</span>
-                <span className="font-medium text-slate-200">{inspectLog.role || "System"}</span>
+                <span className="text-ink/50 block text-[11px]">Role</span>
+                <span className="font-medium text-ink">{inspectLog.role || "System"}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[11px]">User ID</span>
-                <span className="font-mono text-slate-300">{inspectLog.user_id || "N/A"}</span>
+                <span className="text-ink/50 block text-[11px]">User ID</span>
+                <span className="font-mono text-ink/70">{inspectLog.user_id || "N/A"}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[11px]">Timestamp</span>
-                <span className="font-mono text-slate-300">{inspectLog.timestamp}</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-              <span className="text-slate-400 block text-[11px]">Action Description</span>
-              <p className="font-medium text-slate-100 text-sm">{inspectLog.action}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
-              <div>
-                <span className="text-slate-400 block text-[11px]">Resource / Entity Type</span>
-                <span className="font-medium text-slate-200">{inspectLog.entity_type || "General"}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[11px]">Reference / Target ID</span>
-                <span className="font-mono text-slate-200">{inspectLog.entity_id || "N/A"}</span>
+                <span className="text-ink/50 block text-[11px]">Timestamp</span>
+                <span className="font-mono text-ink/70">{inspectLog.timestamp}</span>
               </div>
             </div>
 
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-              <span className="text-slate-400 block text-[11px] mb-1">Raw Record Payload</span>
-              <pre className="text-[11px] text-slate-300 font-mono overflow-x-auto p-2 bg-slate-900 rounded-lg">
+            <div className="bg-sage/10 p-3.5 rounded-xl border border-sage/20 space-y-1">
+              <span className="text-ink/50 block text-[11px]">Action Description</span>
+              <p className="font-medium text-ink text-sm">{inspectLog.action}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 bg-sage/10 p-3.5 rounded-xl border border-sage/20">
+              <div>
+                <span className="text-ink/50 block text-[11px]">Resource / Entity Type</span>
+                <span className="font-medium text-ink">{inspectLog.entity_type || "General"}</span>
+              </div>
+              <div>
+                <span className="text-ink/50 block text-[11px]">Reference / Target ID</span>
+                <span className="font-mono text-ink">{inspectLog.entity_id || "N/A"}</span>
+              </div>
+            </div>
+
+            <div className="bg-sage/10 p-3.5 rounded-xl border border-sage/20">
+              <span className="text-ink/50 block text-[11px] mb-1">Raw Record Payload</span>
+              <pre className="text-[11px] text-ink font-mono overflow-x-auto p-2.5 bg-white border border-sage/30 rounded-lg">
                 {JSON.stringify(inspectLog, null, 2)}
               </pre>
             </div>

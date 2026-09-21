@@ -330,7 +330,7 @@ export default function DoctorCalendar() {
               {selectedAppts.map((a) => (
                 <div
                   key={a.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-background border border-sage/20"
+                  className="flex items-center justify-between p-3 rounded-xl bg-sage/10 border border-sage/20 hover:bg-sage/15 transition"
                 >
                   <div>
                     <p className="text-sm font-medium text-ink">{a.patientName}</p>

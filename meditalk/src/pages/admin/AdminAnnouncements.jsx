@@ -52,8 +52,8 @@ export default function AdminAnnouncements() {
       label: "Broadcast Summary",
       render: (r) => (
         <div>
-          <div className="font-semibold text-slate-100">{r.action}</div>
-          <div className="text-xs text-slate-400 mt-0.5">By {r.user_name} ({r.role})</div>
+          <div className="font-semibold text-ink">{r.action}</div>
+          <div className="text-xs text-ink/50 mt-0.5">By {r.user_name} ({r.role})</div>
         </div>
       ),
     },
@@ -61,7 +61,7 @@ export default function AdminAnnouncements() {
       key: "status",
       label: "Status",
       render: (r) => (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-success/15 text-success border border-success/30">
           <CheckCircle2 className="w-3 h-3" /> Sent
         </span>
       ),
@@ -70,7 +70,7 @@ export default function AdminAnnouncements() {
       key: "timestamp",
       label: "Timestamp",
       render: (r) => (
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-ink/50">
           {r.timestamp ? new Date(r.timestamp).toLocaleString() : "—"}
         </span>
       ),
@@ -87,14 +87,14 @@ export default function AdminAnnouncements() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Compose Form */}
         <div className="lg:col-span-7 card space-y-5">
-          <div className="flex items-center gap-2.5 text-slate-100 font-semibold text-base border-b border-slate-800 pb-3">
-            <Megaphone className="w-5 h-5 text-primary-400" />
+          <div className="flex items-center gap-2.5 text-ink font-semibold text-base border-b border-sage/30 pb-3">
+            <Megaphone className="w-5 h-5 text-primary" />
             <span>Compose Broadcast</span>
           </div>
 
           {/* Target Audience */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-2">Target Audience</label>
+            <label className="block text-xs font-medium text-ink/80 mb-2">Target Audience</label>
             <div className="grid grid-cols-3 gap-2.5">
               {[
                 { key: "all", label: "All Users", icon: Users, desc: "Patients + Doctors" },
@@ -110,13 +110,13 @@ export default function AdminAnnouncements() {
                     onClick={() => setTargetRole(t.key)}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       active
-                        ? "bg-primary-500/15 border-primary-500/40 text-primary-300 shadow-sm"
-                        : "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                        ? "bg-primary/10 border-primary text-primary shadow-sm"
+                        : "bg-white border-sage/30 text-ink/70 hover:bg-sage/10"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary-400" : "text-slate-500"}`} />
-                    <div className="font-semibold text-xs text-slate-200">{t.label}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">{t.desc}</div>
+                    <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary" : "text-ink/40"}`} />
+                    <div className="font-semibold text-xs text-ink">{t.label}</div>
+                    <div className="text-[11px] text-ink/50 mt-0.5">{t.desc}</div>
                   </button>
                 );
               })}
@@ -125,8 +125,8 @@ export default function AdminAnnouncements() {
 
           {/* Title */}
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Announcement Title <span className="text-red-400">*</span>
+            <label className="block text-xs font-medium text-ink/80 mb-1.5">
+              Announcement Title <span className="text-danger">*</span>
             </label>
             <Input
               value={title}
@@ -139,10 +139,10 @@ export default function AdminAnnouncements() {
           {/* Message Body */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-medium text-slate-300">
-                Message Content <span className="text-red-400">*</span>
+              <label className="text-xs font-medium text-ink/80">
+                Message Content <span className="text-danger">*</span>
               </label>
-              <span className="text-[11px] text-slate-500">{message.length}/500</span>
+              <span className="text-[11px] text-ink/40">{message.length}/500</span>
             </div>
             <textarea
               rows={4}
@@ -150,7 +150,7 @@ export default function AdminAnnouncements() {
               onChange={(e) => setMessage(e.target.value)}
               maxLength={500}
               placeholder="Write the full announcement message here. This will be delivered as an in-app notification and instant push toast to all targeted users."
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500"
+              className="input-base resize-none"
             />
           </div>
 
@@ -169,36 +169,36 @@ export default function AdminAnnouncements() {
         {/* Live Preview Card */}
         <div className="lg:col-span-5 space-y-4">
           <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-slate-300 font-medium text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-ink/60 font-medium text-xs uppercase tracking-wider">
               <span>Recipient Live Preview</span>
             </div>
 
-            <div className="rounded-2xl border border-primary-500/30 bg-gradient-to-b from-primary-500/10 to-slate-900 p-4 shadow-card">
+            <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-sage/15 to-white p-4 shadow-card">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-primary-500/20 text-primary-300 flex items-center justify-center flex-shrink-0 border border-primary-500/30">
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                   <Megaphone className="w-4 h-4" />
                 </div>
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-semibold text-slate-100 text-sm truncate">
+                    <h4 className="font-semibold text-ink text-sm truncate">
                       {title.trim() || "Announcement Title"}
                     </h4>
-                    <span className="text-[10px] text-primary-400 font-bold uppercase tracking-wider bg-primary-500/20 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] text-primary font-bold uppercase tracking-wider bg-primary/15 px-2 py-0.5 rounded-full">
                       {targetRole === "all" ? "All Users" : targetRole === "doctor" ? "Doctors" : "Patients"}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 line-clamp-4 leading-relaxed">
+                  <p className="text-xs text-ink/75 line-clamp-4 leading-relaxed">
                     {message.trim() || "Your message body will appear here exactly as seen by recipients across MediTalk."}
                   </p>
-                  <div className="text-[11px] text-slate-400 pt-1 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-slate-500" />
+                  <div className="text-[11px] text-ink/40 pt-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-ink/40" />
                     <span>Just now</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-normal">
+            <p className="text-[11px] text-ink/50 leading-normal">
               Broadcasting triggers persistent database notifications for each recipient and pushes real-time toasts across all active client browser sessions.
             </p>
           </div>
@@ -207,8 +207,8 @@ export default function AdminAnnouncements() {
 
       {/* Broadcast History */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-slate-100 font-semibold text-base">
-          <History className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-2 text-ink font-semibold text-base">
+          <History className="w-4 h-4 text-primary" />
           <span>Past Broadcast History</span>
         </div>
 
@@ -235,17 +235,17 @@ export default function AdminAnnouncements() {
           title="Confirm Platform Broadcast"
         >
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-ink text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-600 mt-0.5" />
               <div>
-                You are about to broadcast <strong>"{title}"</strong> to{" "}
-                <strong>{targetRole === "all" ? "all registered users" : `all ${targetRole}s`}</strong>.
+                You are about to broadcast <strong className="text-ink">"{title}"</strong> to{" "}
+                <strong className="text-ink">{targetRole === "all" ? "all registered users" : `all ${targetRole}s`}</strong>.
                 This action cannot be undone.
               </div>
             </div>
 
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1">
-              <div className="font-semibold text-slate-200">Message Preview:</div>
+            <div className="bg-sage/10 p-3 rounded-xl border border-sage/25 text-xs text-ink/80 space-y-1">
+              <div className="font-semibold text-ink">Message Preview:</div>
               <p className="italic">"{message}"</p>
             </div>
 

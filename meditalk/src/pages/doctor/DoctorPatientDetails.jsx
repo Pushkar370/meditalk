@@ -116,7 +116,7 @@ export default function DoctorPatientDetails() {
           ((rx || []).length ? (
             <div className="space-y-3">
               {rx.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 rounded-xl bg-background p-3">
+                <div key={p.id} className="flex items-center gap-3 rounded-xl bg-sage/10 border border-sage/20 p-3 hover:bg-sage/15 transition">
                   <Pill className="h-5 w-5 text-primary" />
                   <div className="flex-1">
                     <p className="font-medium text-ink text-sm">Rx #{p.id}</p>
@@ -147,7 +147,7 @@ export default function DoctorPatientDetails() {
         {tab === "treatment" && (
           <div className="space-y-3">
             {(consults || []).map((c) => (
-              <div key={c.id} className="rounded-xl bg-background p-4 text-sm">
+              <div key={c.id} className="rounded-xl bg-sage/10 border border-sage/20 p-4 text-sm">
                 <div className="flex justify-between">
                   <p className="font-medium text-ink">{c.diagnosis} <span className="text-ink/40">({c.diagnosisCode})</span></p>
                   <span className="text-ink/40">{formatDate(c.date)}</span>

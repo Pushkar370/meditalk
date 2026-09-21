@@ -62,7 +62,7 @@ export default function AdminDashboard() {
 
       {/* ── System Diagnostics & Platform Health Card ──────────────── */}
       {health && (
-        <div className="bg-gradient-to-r from-primary/5 via-sage/10 to-sand-light/50 border border-primary/20 rounded-2xl p-4 shadow-sm">
+        <div className="bg-gradient-to-r from-primary/5 via-sage/10 to-accent/10 border border-primary/20 rounded-2xl p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
             {/* Memory Usage */}
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-sage/30">
               <div className="flex items-center gap-1.5 text-ink/50 mb-1">
-                <Cpu className="w-3.5 h-3.5 text-accent-warm" />
+                <Cpu className="w-3.5 h-3.5 text-amber-500" />
                 <span className="font-medium">Node Memory (Heap)</span>
               </div>
               <p className="text-base font-bold text-ink">

@@ -73,12 +73,12 @@ export default function AdminDoctorVerification() {
       header: "Doctor",
       render: (d) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-500/20 to-primary-600/30 flex items-center justify-center font-bold text-primary-400 border border-primary-500/30">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary border border-primary/20">
             {d.name?.charAt(0) || "D"}
           </div>
           <div>
-            <div className="font-semibold text-slate-100">{d.name}</div>
-            <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+            <div className="font-semibold text-ink">{d.name}</div>
+            <div className="text-xs text-ink/50 flex items-center gap-2 mt-0.5">
               <span>{d.email}</span>
               {d.phone && <span>• {d.phone}</span>}
             </div>
@@ -89,7 +89,7 @@ export default function AdminDoctorVerification() {
     {
       header: "Specialty",
       render: (d) => (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary-500/15 text-primary-300 border border-primary-500/20">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
           {d.specialty || "General Medicine"}
         </span>
       ),
@@ -97,7 +97,7 @@ export default function AdminDoctorVerification() {
     {
       header: "Experience",
       render: (d) => (
-        <span className="text-xs text-slate-300">
+        <span className="text-xs text-ink/70">
           {d.experience ? `${d.experience} yr${d.experience > 1 ? "s" : ""}` : "N/A"}
         </span>
       ),
@@ -108,20 +108,20 @@ export default function AdminDoctorVerification() {
         const st = d.verification_status || "approved";
         if (st === "pending") {
           return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
               <Clock className="w-3 h-3" /> Pending Review
             </span>
           );
         }
         if (st === "rejected") {
           return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30" title={d.rejection_notes || "Rejected"}>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-danger/10 text-danger border border-danger/20" title={d.rejection_notes || "Rejected"}>
               <XCircle className="w-3 h-3" /> Rejected
             </span>
           );
         }
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-success/15 text-success border border-success/30">
             <CheckCircle2 className="w-3 h-3" /> Approved
           </span>
         );
@@ -130,7 +130,7 @@ export default function AdminDoctorVerification() {
     {
       header: "Registered",
       render: (d) => (
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-ink/50">
           {d.registered_at ? new Date(d.registered_at).toLocaleDateString() : "—"}
         </span>
       ),
@@ -143,7 +143,7 @@ export default function AdminDoctorVerification() {
           {d.verification_status !== "approved" && (
             <button
               onClick={() => setApprovingDoctor(d)}
-              className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+              className="p-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 border border-success/20 transition-colors"
               title="Approve doctor"
             >
               <CheckCircle2 className="w-4 h-4" />
@@ -152,7 +152,7 @@ export default function AdminDoctorVerification() {
           {d.verification_status !== "rejected" && (
             <button
               onClick={() => setRejectingDoctor(d)}
-              className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+              className="p-1.5 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 border border-danger/20 transition-colors"
               title="Reject doctor application"
             >
               <XCircle className="w-4 h-4" />
@@ -172,10 +172,10 @@ export default function AdminDoctorVerification() {
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
               pendingCount > 0
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-300 animate-pulse"
-                : "bg-slate-800/60 border-slate-700 text-slate-400"
+                ? "bg-amber-100 border-amber-300 text-amber-900 animate-pulse"
+                : "bg-white border-sage/30 text-ink/60"
             }`}>
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
               <span>{pendingCount} Pending Approval{pendingCount === 1 ? "" : "s"}</span>
             </div>
           </div>
@@ -183,20 +183,20 @@ export default function AdminDoctorVerification() {
       />
 
       {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div className="flex items-center justify-between border-b border-sage/30 pb-3">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("pending")}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
               activeTab === "pending"
-                ? "bg-primary-600 text-white shadow-lg shadow-primary-600/25"
-                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-sage/30 text-ink/70 hover:text-ink hover:bg-sage/10"
             }`}
           >
             <Clock className="w-4 h-4" />
             <span>Pending Review Queue</span>
             {pendingCount > 0 && (
-              <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-slate-950">
+              <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">
                 {pendingCount}
               </span>
             )}
@@ -205,8 +205,8 @@ export default function AdminDoctorVerification() {
             onClick={() => setActiveTab("all")}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
               activeTab === "all"
-                ? "bg-primary-600 text-white shadow-lg shadow-primary-600/25"
-                : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white border border-sage/30 text-ink/70 hover:text-ink hover:bg-sage/10"
             }`}
           >
             <UserCheck className="w-4 h-4" />
@@ -216,13 +216,13 @@ export default function AdminDoctorVerification() {
 
         {activeTab === "all" && (
           <div className="relative w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink/40" />
             <input
               type="text"
               placeholder="Search by name, specialty, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 text-sm bg-slate-900 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500"
+              className="w-full pl-9 pr-4 py-1.5 text-sm bg-white border border-sage/40 rounded-xl text-ink placeholder:text-ink/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
         )}
@@ -244,71 +244,71 @@ export default function AdminDoctorVerification() {
               {pendingDoctors.map((doc) => (
                 <div
                   key={doc.id}
-                  className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-sm p-5 hover:border-slate-700/80 transition-all flex flex-col justify-between shadow-card"
+                  className="card flex flex-col justify-between hover:shadow-card-hover transition-all"
                 >
                   <div className="space-y-4">
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-primary-600/30 flex items-center justify-center font-bold text-lg text-amber-300 border border-amber-500/30 shadow-inner">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center font-bold text-lg text-primary border border-primary/20 shadow-sm">
                           {doc.name?.charAt(0) || "D"}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-slate-100 text-base leading-tight">
+                          <h3 className="font-semibold text-ink text-base leading-tight">
                             {doc.name}
                           </h3>
-                          <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-500/15 text-primary-300 border border-primary-500/20">
+                          <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                             {doc.specialty || "General Medicine"}
                           </span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                         Pending
                       </span>
                     </div>
 
                     {/* Metadata */}
-                    <div className="space-y-2 text-xs text-slate-400 bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
+                    <div className="space-y-2 text-xs text-ink/70 bg-sage/10 p-3.5 rounded-xl border border-sage/20">
                       <div className="flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-slate-500" />
+                        <Mail className="w-3.5 h-3.5 text-primary shrink-0" />
                         <span className="truncate">{doc.email}</span>
                       </div>
                       {doc.phone && (
                         <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
+                          <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
                           <span>{doc.phone}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-2">
-                        <Award className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Experience: <strong className="text-slate-200">{doc.experience || 1} year{doc.experience > 1 ? "s" : ""}</strong></span>
+                        <Award className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span>Experience: <strong className="text-ink">{doc.experience || 1} year{doc.experience > 1 ? "s" : ""}</strong></span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
                         <span>Registered: {doc.registered_at ? new Date(doc.registered_at).toLocaleDateString() : "Recently"}</span>
                       </div>
                     </div>
 
                     {/* Bio */}
                     {doc.bio && (
-                      <p className="text-xs text-slate-300 line-clamp-3 italic bg-slate-800/30 p-2.5 rounded-xl">
+                      <p className="text-xs text-ink/70 line-clamp-3 italic bg-cream/70 p-2.5 rounded-xl border border-accent/20">
                         "{doc.bio}"
                       </p>
                     )}
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2 mt-5 pt-4 border-t border-slate-800/80">
+                  <div className="grid grid-cols-2 gap-2 mt-5 pt-4 border-t border-sage/20">
                     <button
                       onClick={() => setRejectingDoctor(doc)}
-                      className="w-full py-2 px-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/15 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-3 rounded-xl border border-danger/30 text-danger hover:bg-danger/10 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
                     >
                       <XCircle className="w-4 h-4" />
                       <span>Reject</span>
                     </button>
                     <button
                       onClick={() => setApprovingDoctor(doc)}
-                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/25"
+                      className="w-full py-2 px-3 rounded-xl bg-primary hover:bg-primary-dark text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Approve</span>
@@ -323,7 +323,7 @@ export default function AdminDoctorVerification() {
 
       {/* Tab 2: All Doctors & Verification Status Table */}
       {activeTab === "all" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+        <div className="card p-0 overflow-hidden">
           {loadingAll ? (
             <LoadingState />
           ) : (
@@ -345,14 +345,14 @@ export default function AdminDoctorVerification() {
           title="Approve Practitioner Account"
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-success/10 border border-success/25 text-ink text-sm">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-success" />
               <div>
-                You are approving <strong>Dr. {approvingDoctor.name}</strong> ({approvingDoctor.specialty}).
+                You are approving <strong className="text-ink">Dr. {approvingDoctor.name}</strong> ({approvingDoctor.specialty}).
                 Their account will be granted full doctor access to MediTalk immediately.
               </div>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink/60">
               An instant system notification will be delivered to the practitioner's account confirming their verified status.
             </p>
             <div className="flex justify-end gap-3 pt-2">
@@ -363,7 +363,6 @@ export default function AdminDoctorVerification() {
                 variant="primary"
                 onClick={() => handleApprove(approvingDoctor)}
                 loading={processing}
-                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Confirm Approval
               </Button>
@@ -380,24 +379,24 @@ export default function AdminDoctorVerification() {
           title="Reject Practitioner Application"
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-400" />
+            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-danger/10 border border-danger/25 text-ink text-sm">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-danger" />
               <div>
-                Rejecting application for <strong>Dr. {rejectingDoctor.name}</strong>.
+                Rejecting application for <strong className="text-ink">Dr. {rejectingDoctor.name}</strong>.
                 They will not be able to log in until cleared by an administrator.
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Rejection Reason / Notes to Applicant <span className="text-red-400">*</span>
+              <label className="block text-xs font-medium text-ink/80 mb-1.5">
+                Rejection Reason / Notes to Applicant <span className="text-danger">*</span>
               </label>
               <textarea
                 rows={3}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g. Medical registration certificate expired or unverified. Please upload current credentials."
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500"
+                className="input-base"
               />
             </div>
 

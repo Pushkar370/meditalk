@@ -15,7 +15,7 @@ export function generateAnalyticsPdf(analytics, stats, dateRange = {}) {
   let y = 0;
 
   // ── Header Band ────────────────────────────────────────────────────────────
-  doc.setFillColor(15, 23, 42); // #0f172a slate-900
+  doc.setFillColor(47, 111, 104); // #2F6F68 MediTalk Primary Teal
   doc.rect(0, 0, W, 38, 'F');
 
   doc.setTextColor(255, 255, 255);
@@ -25,7 +25,7 @@ export function generateAnalyticsPdf(analytics, stats, dateRange = {}) {
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(148, 163, 184); // slate-400
+  doc.setTextColor(244, 201, 93); // #F4C95D MediTalk Gold Accent
   doc.text('Executive Clinical Operations & Platform Intelligence Report', margin, 22);
 
   const scopeText = dateRange.from && dateRange.to

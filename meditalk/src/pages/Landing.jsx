@@ -66,7 +66,7 @@ export default function Landing() {
                 { label: "Prescriptions", value: "2", tone: "text-success" },
                 { label: "Records", value: "12", tone: "text-primary" },
               ].map((s) => (
-                <div key={s.label} className="rounded-xl bg-background p-3">
+                <div key={s.label} className="rounded-xl bg-sage/10 border border-sage/20 p-3">
                   <p className={"text-2xl font-bold " + s.tone}>{s.value}</p>
                   <p className="text-xs text-ink/50">{s.label}</p>
                 </div>

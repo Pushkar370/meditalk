@@ -157,72 +157,72 @@ export default function AdminAppointments() {
           onClick={() => setFilter({ ...filter, status: "" })}
           className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
             filter.status === ""
-              ? "bg-primary-500/15 border-primary-500/40 text-primary-300 shadow-sm"
-              : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "bg-primary/10 border-primary text-primary shadow-sm"
+              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
           }`}
         >
           <div className="text-xs font-medium">All Consultations</div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{totalCount}</div>
+          <div className="text-xl font-bold text-ink mt-1">{totalCount}</div>
         </div>
 
         <div
           onClick={() => setFilter({ ...filter, date: todayStr })}
           className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
             filter.date === todayStr
-              ? "bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-sm"
-              : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "bg-sky-50 border-sky-300 text-sky-800 shadow-sm"
+              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
           }`}
         >
           <div className="text-xs font-medium flex items-center justify-between">
             <span>Today</span>
-            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+            <Calendar className="w-3.5 h-3.5 text-sky-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{todayCount}</div>
+          <div className="text-xl font-bold text-ink mt-1">{todayCount}</div>
         </div>
 
         <div
           onClick={() => setFilter({ ...filter, status: "upcoming" })}
           className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
             filter.status === "upcoming"
-              ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-sm"
-              : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "bg-amber-50 border-amber-300 text-amber-800 shadow-sm"
+              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
           }`}
         >
           <div className="text-xs font-medium flex items-center justify-between">
             <span>Upcoming / Confirmed</span>
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <Clock className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{upcomingCount}</div>
+          <div className="text-xl font-bold text-ink mt-1">{upcomingCount}</div>
         </div>
 
         <div
           onClick={() => setFilter({ ...filter, status: "completed" })}
           className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
             filter.status === "completed"
-              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm"
-              : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm"
+              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
           }`}
         >
           <div className="text-xs font-medium flex items-center justify-between">
             <span>Completed</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{completedCount}</div>
+          <div className="text-xl font-bold text-ink mt-1">{completedCount}</div>
         </div>
 
         <div
           onClick={() => setFilter({ ...filter, status: "cancelled" })}
           className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
             filter.status === "cancelled"
-              ? "bg-red-500/15 border-red-500/40 text-red-300 shadow-sm"
-              : "bg-slate-900/50 border-slate-800 text-slate-400 hover:border-slate-700"
+              ? "bg-red-50 border-red-300 text-red-800 shadow-sm"
+              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
           }`}
         >
           <div className="text-xs font-medium flex items-center justify-between">
             <span>Cancelled</span>
-            <XCircle className="w-3.5 h-3.5 text-red-400" />
+            <XCircle className="w-3.5 h-3.5 text-danger" />
           </div>
-          <div className="text-xl font-bold text-slate-100 mt-1">{cancelledCount}</div>
+          <div className="text-xl font-bold text-ink mt-1">{cancelledCount}</div>
         </div>
       </div>
 
@@ -332,7 +332,7 @@ export default function AdminAppointments() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              <label className="block text-xs font-medium text-ink/80 mb-1.5">
                 Cancellation Reason / Note to Parties
               </label>
               <textarea
@@ -340,7 +340,7 @@ export default function AdminAppointments() {
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="e.g. Doctor emergency leave or platform schedule adjustment."
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500"
+                className="input-base"
               />
             </div>
 
@@ -368,14 +368,14 @@ export default function AdminAppointments() {
           title={`Reschedule Appointment #${reschedulingAppt.id}`}
         >
           <div className="space-y-4">
-            <p className="text-xs text-slate-400">
-              Rescheduling appointment for <strong>{reschedulingAppt.patientName}</strong> with{" "}
-              <strong>{reschedulingAppt.doctorName}</strong>.
+            <p className="text-xs text-ink/60">
+              Rescheduling appointment for <strong className="text-ink">{reschedulingAppt.patientName}</strong> with{" "}
+              <strong className="text-ink">{reschedulingAppt.doctorName}</strong>.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">New Date</label>
+                <label className="block text-xs font-medium text-ink/80 mb-1">New Date</label>
                 <Input
                   type="date"
                   value={rescheduleForm.date}
@@ -383,7 +383,7 @@ export default function AdminAppointments() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">New Time</label>
+                <label className="block text-xs font-medium text-ink/80 mb-1">New Time</label>
                 <Input
                   type="time"
                   value={rescheduleForm.time}
@@ -393,7 +393,7 @@ export default function AdminAppointments() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
+              <label className="block text-xs font-medium text-ink/80 mb-1.5">
                 Reason for Rescheduling (Optional)
               </label>
               <textarea
@@ -401,7 +401,7 @@ export default function AdminAppointments() {
                 value={rescheduleForm.reason}
                 onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
                 placeholder="e.g. Requested by doctor or administrative timetable shift."
-                className="w-full px-3.5 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500"
+                className="input-base"
               />
             </div>
 
@@ -426,9 +426,9 @@ export default function AdminAppointments() {
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-slate-800/60 pb-2">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-medium text-slate-100 text-right">{value}</span>
+    <div className="flex justify-between gap-3 border-b border-sage/20 pb-2">
+      <span className="text-ink/50 text-xs">{label}</span>
+      <span className="font-medium text-ink text-xs text-right">{value}</span>
     </div>
   );
 }

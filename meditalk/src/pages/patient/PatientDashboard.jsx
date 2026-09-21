@@ -95,6 +95,7 @@ export default function PatientDashboard() {
             {nextAppt ? (
               <AppointmentCard
                 appointment={nextAppt}
+                noCard={true}
                 onView={() => navigate("/patient/appointments")}
                 onReschedule={() => navigate("/patient/appointments")}
                 onCancel={() => navigate("/patient/appointments")}
@@ -116,8 +117,8 @@ export default function PatientDashboard() {
             <div className="space-y-3">
               {recentActivity.length === 0 && <p className="text-sm text-ink/50">No recent activity.</p>}
               {recentActivity.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-background">
-                  <div className="h-9 w-9 rounded-full bg-sage/20 flex items-center justify-center text-primary">
+                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-sage/10 border border-sage/20 hover:bg-sage/15 transition">
+                  <div className="h-9 w-9 rounded-full bg-white/80 border border-sage/30 flex items-center justify-center text-primary shadow-sm">
                     {item.kind === "Prescription" ? <Pill className="h-4 w-4" /> :
                       item.kind === "Lab Result" ? <FlaskConical className="h-4 w-4" /> :
                       item.kind === "Vital Signs" ? <Activity className="h-4 w-4" /> :
@@ -146,7 +147,7 @@ export default function PatientDashboard() {
 
             {/* Vitals Telemetry Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="p-3 rounded-xl bg-background border border-sage/30">
+              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
                 <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
                   <span>Blood Pressure</span>
                   <Gauge className="h-3.5 w-3.5 text-primary" />
@@ -159,7 +160,7 @@ export default function PatientDashboard() {
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-background border border-sage/30">
+              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
                 <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
                   <span>Heart Rate</span>
                   <Activity className="h-3.5 w-3.5 text-rose-500" />
@@ -172,7 +173,7 @@ export default function PatientDashboard() {
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-background border border-sage/30">
+              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
                 <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
                   <span>SpO₂ Oxygen</span>
                   <Droplets className="h-3.5 w-3.5 text-sky-500" />
@@ -185,7 +186,7 @@ export default function PatientDashboard() {
                 </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-background border border-sage/30">
+              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
                 <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
                   <span>Temperature</span>
                   <Thermometer className="h-3.5 w-3.5 text-amber-500" />
@@ -228,7 +229,7 @@ export default function PatientDashboard() {
                 </table>
               </div>
             ) : (
-              <div className="p-3 rounded-xl bg-sage/10 text-xs text-ink/60 flex items-center justify-between">
+              <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 text-xs text-ink/70 flex items-center justify-between">
                 <span>Clinical consultation vitals will log historical trends here automatically.</span>
                 <span className="font-semibold text-primary">Live Tracking Enabled</span>
               </div>
