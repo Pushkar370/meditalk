@@ -2,8 +2,9 @@ import { useNavigate } from "react-router-dom";
 import {
   CalendarClock, CalendarDays, Pill, FileText, Plus,
   HeartPulse, Activity, FlaskConical, Sparkles, ArrowRight,
-  Gauge, Thermometer, Droplets, ShieldCheck,
+  Gauge, Thermometer, Droplets, ShieldCheck, Check,
 } from "lucide-react";
+
 import StatCard from "../../components/ui/StatCard";
 import AppointmentCard from "../../components/cards/AppointmentCard";
 import Button from "../../components/ui/Button";
@@ -13,19 +14,27 @@ import { useFetch } from "../../hooks/useFetch";
 import { greeting, formatDate } from "../../constants";
 import { getPatientById } from "../../services/patientService";
 import { getAppointments } from "../../services/appointmentService";
-import { getMedicalRecords, getPrescriptions } from "../../services/prescriptionService";
+import { getMedicalRecords, getPrescriptions, getAdherenceSchedules, logAdherenceDose } from "../../services/prescriptionService";
 import { getPatientVitalsHistory } from "../../services/triageService";
+import { useToast } from "../../context/ToastContext";
+import { useState } from "react";
+
 
 export default function PatientDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const patientId = user?.id;
+  const [takingDose, setTakingDose] = useState(null); // scheduleId-slot being logged
+
 
   const { data: patient, loading: patientLoading } = useFetch(() => getPatientById(patientId), [patientId]);
   const { data: appts, loading: apptsLoading } = useFetch(() => getAppointments({ patientId }), [patientId]);
   const { data: records } = useFetch(() => getMedicalRecords(patientId), [patientId]);
   const { data: rx } = useFetch(() => getPrescriptions({ patientId }), [patientId]);
   const { data: vitalsHistory } = useFetch(() => (patientId ? getPatientVitalsHistory(patientId) : Promise.resolve([])), [patientId]);
+  const { data: adherenceSchedules, reload: reloadAdherence } = useFetch(() => (patientId ? getAdherenceSchedules(patientId) : Promise.resolve([])), [patientId]);
+
 
   if (patientLoading || apptsLoading) return <LoadingState />;
 
@@ -133,7 +142,90 @@ export default function PatientDashboard() {
               ))}
             </div>
           </div>
-          {/* Biometric Vitals Intelligence */}
+
+          {/* Daily Medication Adherence Widget */}
+          {(adherenceSchedules || []).length > 0 && (
+            <div className="card mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-ink">Today's Medication Routine</h3>
+                </div>
+                {/* Streak badge */}
+                {(() => {
+                  const maxStreak = Math.max(...(adherenceSchedules || []).map(s => s.streakCount || 0), 0);
+                  return maxStreak >= 2 ? (
+                    <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-accent/20 text-ink">
+                      🔥 {maxStreak}-Day Streak!
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+
+              {['morning', 'afternoon', 'evening', 'night'].map(slot => {
+                const slotMeds = (adherenceSchedules || []).filter(s => s.timingSlots?.includes(slot));
+                if (slotMeds.length === 0) return null;
+                const today = new Date().toISOString().split('T')[0];
+                const slotLabel = { morning: '🌅 Morning', afternoon: '☀️ Afternoon', evening: '🌆 Evening', night: '🌙 Night' }[slot];
+                return (
+                  <div key={slot} className="mb-3">
+                    <p className="text-xs font-semibold text-ink/50 mb-2">{slotLabel}</p>
+                    <div className="space-y-2">
+                      {slotMeds.map(sched => {
+                        const logKey = `${today}-${slot}`;
+                        const taken = !!sched.takenLogs?.[logKey];
+                        const isLogging = takingDose === `${sched.id}-${slot}`;
+                        return (
+                          <div key={`${sched.id}-${slot}`} className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${taken ? 'bg-success/5 border-success/30' : 'bg-white border-sage/30 hover:border-primary/30'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${taken ? 'bg-success/15' : 'bg-primary/10'}`}>
+                                <Pill className={`h-4 w-4 ${taken ? 'text-success' : 'text-primary'}`} />
+                              </div>
+                              <div>
+                                <p className={`text-sm font-medium ${taken ? 'text-ink/60 line-through' : 'text-ink'}`}>{sched.medicineName}</p>
+                                <p className="text-xs text-ink/40">{sched.dosage} · {sched.frequency}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (taken) return;
+                                const key = `${sched.id}-${slot}`;
+                                setTakingDose(key);
+                                try {
+                                  await logAdherenceDose(sched.id, slot, today);
+                                  reloadAdherence();
+                                  if (sched.streakCount >= 1) toast.success(`Dose logged! 🔥 ${sched.streakCount + 1}-day streak!`);
+                                  else toast.success("Dose logged!");
+                                } catch (err) {
+                                  toast.error("Failed to log dose.");
+                                } finally {
+                                  setTakingDose(null);
+                                }
+                              }}
+                              disabled={taken || !!takingDose}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${taken ? 'bg-success/15 text-success cursor-default' : 'bg-primary text-white hover:bg-primary/90 active:scale-95'} ${isLogging ? 'opacity-60' : ''}`}
+                            >
+                              {taken ? (<><ShieldCheck className="h-3.5 w-3.5" /> Taken</>) :
+                               isLogging ? 'Logging...' :
+                               (<><Check className="h-3.5 w-3.5" /> Take Dose</>)}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => navigate('/patient/prescriptions')}
+                className="w-full mt-2 text-xs text-primary hover:underline text-center py-1"
+              >
+                Manage Medication Schedules →
+              </button>
+            </div>
+          )}
+
           <div className="card mt-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

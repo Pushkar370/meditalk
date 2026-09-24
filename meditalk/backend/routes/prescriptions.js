@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+import { runDrugSafetyCheck } from '../data/drugInteractions.js';
+
 
 const router = Router();
 
@@ -176,7 +178,20 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
 
 function parseMedicalRecord(row) {
   if (!row) return null;
-  return { ...row, patientId: row.patient_id, details: safeJson(row.details, {}) };
+  return {
+    ...row,
+    patientId: row.patient_id,
+    aiSummary: row.ai_summary || null,
+    extractedDiagnoses: safeJson(row.extracted_diagnoses, []),
+    extractedAllergies: safeJson(row.extracted_allergies, []),
+    extractedMedications: safeJson(row.extracted_medications, []),
+    extractedBiomarkers: safeJson(row.extracted_biomarkers, []),
+    clinicalRisks: safeJson(row.clinical_risks, []),
+    isExternalClinic: Boolean(row.is_external_clinic),
+    externalFacilityName: row.external_facility_name || null,
+    aiProcessedAt: row.ai_processed_at || null,
+    details: safeJson(row.details, {}),
+  };
 }
 
 // GET /api/medical-records — patients see own, doctors and admins see all (with filter)
@@ -271,4 +286,264 @@ router.post('/medical-records', requireAuth, async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to save medical record' }); }
 });
 
+
+// ─── Phase 9: Drug-Drug & Allergy Safety Check ───────────────────────────────
+// POST /api/prescriptions/check-safety
+router.post('/prescriptions/check-safety', requireAuth, requireRole('doctor'), async (req, res) => {
+  try {
+    const { patientId, newMedications = [] } = req.body;
+    if (!patientId) return res.status(400).json({ error: 'patientId is required' });
+
+    // Fetch patient allergies & current medications
+    const { rows: patRows } = await query('SELECT allergies, current_medications FROM patients WHERE id = $1', [patientId]);
+    if (!patRows[0]) return res.status(404).json({ error: 'Patient not found' });
+
+    const pat = patRows[0];
+    const allergies = safeJson(pat.allergies, []);
+    const currentMeds = safeJson(pat.current_medications, []);
+
+    // Also pull AI-extracted medications from recent external records
+    const { rows: mrRows } = await query(
+      `SELECT extracted_medications FROM medical_records WHERE patient_id = $1 AND is_external_clinic = TRUE AND ai_processed_at IS NOT NULL ORDER BY date DESC LIMIT 5`,
+      [patientId]
+    );
+    const extractedMeds = mrRows.flatMap(r => {
+      const parsed = safeJson(r.extracted_medications, []);
+      return parsed.map(m => (typeof m === 'string' ? m : m?.name || ''));
+    }).filter(Boolean);
+
+    const allCurrentMeds = [...new Set([...currentMeds, ...extractedMeds])];
+    const newMedNames = newMedications.map(m => (typeof m === 'string' ? m : m?.medicine || ''));
+
+    const alerts = runDrugSafetyCheck({
+      newMeds: newMedNames,
+      currentMeds: allCurrentMeds,
+      allergies,
+    });
+
+    res.json({ alerts, checked: true, newMedicationsCount: newMedNames.length });
+  } catch (err) {
+    console.error('[Phase9] Drug safety check error:', err);
+    res.status(500).json({ error: 'Drug safety check failed', alerts: [] });
+  }
+});
+
+// ─── Phase 9: Gemini AI Prior Records Clinical Synthesis ──────────────────────
+// Deterministic fallback medical keyword extractor
+function runKeywordMedicalExtraction(text) {
+  if (!text || text.length < 10) return null;
+  const lower = text.toLowerCase();
+
+  const diagnosisKeywords = [
+    'diabetes', 'hypertension', 'asthma', 'copd', 'chronic kidney disease', 'ckd',
+    'heart failure', 'coronary artery disease', 'cad', 'stroke', 'epilepsy', 'seizure',
+    'hypothyroidism', 'hyperthyroidism', 'anemia', 'tuberculosis', 'hiv', 'hepatitis',
+    'cirrhosis', 'cancer', 'carcinoma', 'malignancy', 'depression', 'anxiety',
+    'schizophrenia', 'bipolar', 'osteoporosis', 'rheumatoid arthritis', 'gout',
+    'obesity', 'hyperlipidemia', 'dyslipidemia',
+  ];
+  const allergyKeywords = [
+    'penicillin allergy', 'amoxicillin allergy', 'sulfa allergy', 'nsaid allergy',
+    'aspirin allergy', 'contrast allergy', 'iodine allergy', 'latex allergy',
+    'peanut allergy', 'cephalosporin allergy', 'allergic to penicillin',
+    'allergic to sulfa', 'allergic to aspirin', 'drug allergy',
+  ];
+  const medicationKeywords = [
+    'metformin', 'insulin', 'amlodipine', 'atenolol', 'lisinopril', 'enalapril',
+    'ramipril', 'atorvastatin', 'simvastatin', 'aspirin', 'clopidogrel', 'warfarin',
+    'prednisolone', 'levothyroxine', 'omeprazole', 'pantoprazole', 'salbutamol',
+    'furosemide', 'spironolactone', 'losartan', 'metoprolol',
+  ];
+  const biomarkerPatterns = [
+    { regex: /hba1c\s*[:\-]?\s*([\d.]+\s*%?)/i, test: 'HbA1c', ref: '< 5.7%', abnormalIf: v => parseFloat(v) > 6.5 },
+    { regex: /blood\s*sugar\s*[:\-]?\s*([\d.]+)/i, test: 'Blood Sugar', ref: '70–100 mg/dL (fasting)', abnormalIf: v => parseFloat(v) > 126 },
+    { regex: /creatinine\s*[:\-]?\s*([\d.]+)/i, test: 'Creatinine', ref: '0.6–1.2 mg/dL', abnormalIf: v => parseFloat(v) > 1.4 },
+    { regex: /hemoglobin\s*[:\-]?\s*([\d.]+)/i, test: 'Hemoglobin', ref: '12–17 g/dL', abnormalIf: v => parseFloat(v) < 11 },
+    { regex: /cholesterol\s*[:\-]?\s*([\d.]+)/i, test: 'Total Cholesterol', ref: '< 200 mg/dL', abnormalIf: v => parseFloat(v) > 239 },
+  ];
+
+  const extractedDiagnoses = diagnosisKeywords.filter(kw => lower.includes(kw));
+  const extractedAllergies = allergyKeywords
+    .filter(kw => lower.includes(kw))
+    .map(kw => ({ allergen: kw.replace(' allergy', '').replace('allergic to ', ''), reaction: 'Documented in record', severity: 'moderate' }));
+  const extractedMedications = medicationKeywords
+    .filter(kw => lower.includes(kw))
+    .map(kw => ({ name: kw.charAt(0).toUpperCase() + kw.slice(1), dosage: 'See record', frequency: 'See record', status: 'historical' }));
+  const extractedBiomarkers = [];
+  for (const bp of biomarkerPatterns) {
+    const match = text.match(bp.regex);
+    if (match) {
+      const val = match[1];
+      extractedBiomarkers.push({ test: bp.test, value: val, reference: bp.ref, isAbnormal: bp.abnormalIf(val) });
+    }
+  }
+
+  const clinicalRisks = [];
+  if (extractedDiagnoses.length > 2) clinicalRisks.push('Multiple chronic conditions requiring careful medication reconciliation');
+  if (extractedBiomarkers.some(b => b.isAbnormal)) clinicalRisks.push('Abnormal biomarker values present — clinical review required');
+  if (extractedAllergies.length > 0) clinicalRisks.push('Documented drug allergies — prescribe with caution');
+
+  const clinicalSummary = extractedDiagnoses.length > 0
+    ? `Patient's prior record indicates ${extractedDiagnoses.slice(0, 3).join(', ')}. ${extractedMedications.length > 0 ? `Previously on: ${extractedMedications.slice(0, 3).map(m => m.name).join(', ')}.` : ''} ${extractedAllergies.length > 0 ? `Known allergies: ${extractedAllergies.map(a => a.allergen).join(', ')}.` : ''} Clinical review recommended.`
+    : 'Prior record uploaded. Automated clinical keyword extraction found limited structured data. Manual physician review of the attached document is recommended.';
+
+  return {
+    clinicalSummary,
+    externalFacility: null,
+    extractedDiagnoses,
+    extractedAllergies,
+    extractedMedications,
+    extractedBiomarkers,
+    clinicalRisks,
+    source: 'keyword_fallback',
+  };
+}
+
+async function callGeminiMedicalAnalysis(fileData, fileType, patientNotes) {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  if (!apiKey) return null;
+
+  const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+
+  // Build parts: if image/pdf send inline, else text-only prompt
+  const isImage = fileType && (fileType.startsWith('image/') || fileType === 'application/pdf');
+  const textPrompt = `You are MediTalk Clinical Records Analyst. A patient has uploaded a prior clinic or hospital document. 
+Extract all available clinical information and return ONLY valid JSON with this exact schema:
+{
+  "clinicalSummary": "3-4 sentence clinical overview for the consulting doctor — key diagnoses, prior treatments, critical risks",
+  "externalFacility": "Hospital or clinic name if visible in document, else null",
+  "extractedDiagnoses": ["Diagnosis 1", "Diagnosis 2"],
+  "extractedAllergies": [{"allergen": "Penicillin", "reaction": "Anaphylaxis", "severity": "high"}],
+  "extractedMedications": [{"name": "Metformin", "dosage": "500mg", "frequency": "BD", "status": "active"}],
+  "extractedBiomarkers": [{"test": "HbA1c", "value": "8.4%", "reference": "< 5.7%", "isAbnormal": true}],
+  "clinicalRisks": ["Risk 1", "Risk 2"]
+}
+${patientNotes ? `Patient's additional context: "${patientNotes}"` : ''}
+If the document is not medical in nature, return clinicalSummary explaining that and empty arrays for all other fields.`;
+
+  for (const model of modelsToTry) {
+    try {
+      const parts = [];
+      if (isImage && fileData) {
+        // Send base64 inline (strip the data:mime;base64, prefix)
+        const base64Data = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+        const mimeType = fileType === 'application/pdf' ? 'application/pdf' : fileType;
+        parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+      }
+      parts.push({ text: textPrompt });
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { temperature: 0.1, responseMimeType: 'application/json' },
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`[GeminiMedical-${model}] HTTP ${response.status}: ${await response.text()}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!candidateText) continue;
+
+      const parsed = JSON.parse(candidateText);
+      return { ...parsed, source: 'gemini_ai' };
+    } catch (err) {
+      console.warn(`[GeminiMedical-${model}] Error:`, err.message);
+    }
+  }
+  return null;
+}
+
+// POST /api/medical-records/ai-synthesize
+router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
+  try {
+    const { role, id: callerId } = req.user;
+    const { recordId, patientNotes } = req.body;
+    if (!recordId) return res.status(400).json({ error: 'recordId is required' });
+
+    // Fetch the record
+    const { rows } = await query('SELECT * FROM medical_records WHERE id = $1', [recordId]);
+    if (!rows[0]) return res.status(404).json({ error: 'Record not found' });
+    const record = rows[0];
+
+    // Access control: patient can only synthesize own records, doctors any
+    if (role === 'patient' && record.patient_id !== callerId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const details = safeJson(record.details, {});
+    const fileData = details.fileData || null;
+    const fileType = details.fileType || null;
+
+    // Size guard: cap at ~8MB base64 for Gemini inline
+    const FILE_SIZE_LIMIT = 8 * 1024 * 1024;
+    if (fileData && fileData.length > FILE_SIZE_LIMIT) {
+      // Fall back to keyword extraction on large files
+      const rawText = record.description || '';
+      const fallback = runKeywordMedicalExtraction(rawText);
+      if (fallback) {
+        await query(
+          `UPDATE medical_records SET ai_summary=$1, extracted_diagnoses=$2, extracted_allergies=$3, extracted_medications=$4, extracted_biomarkers=$5, clinical_risks=$6, is_external_clinic=$7, ai_processed_at=NOW() WHERE id=$8`,
+          [fallback.clinicalSummary, JSON.stringify(fallback.extractedDiagnoses), JSON.stringify(fallback.extractedAllergies), JSON.stringify(fallback.extractedMedications), JSON.stringify(fallback.extractedBiomarkers), JSON.stringify(fallback.clinicalRisks), true, recordId]
+        );
+        return res.json({ success: true, synthesis: fallback, source: 'keyword_fallback', warning: 'File too large for AI analysis; keyword extraction used.' });
+      }
+    }
+
+    // Try Gemini first
+    let synthesis = await callGeminiMedicalAnalysis(fileData, fileType, patientNotes);
+
+    // Fallback to keyword extraction
+    if (!synthesis) {
+      const rawText = `${record.description || ''} ${record.type || ''} ${details.notes || ''}`;
+      synthesis = runKeywordMedicalExtraction(rawText);
+    }
+
+    if (!synthesis) {
+      return res.status(422).json({ error: 'Unable to analyze this document. Please ensure it contains readable text or medical content.' });
+    }
+
+    // Persist AI extraction results
+    await query(
+      `UPDATE medical_records 
+       SET ai_summary=$1, extracted_diagnoses=$2, extracted_allergies=$3, extracted_medications=$4,
+           extracted_biomarkers=$5, clinical_risks=$6, is_external_clinic=$7, external_facility_name=$8, ai_processed_at=NOW()
+       WHERE id=$9`,
+      [
+        synthesis.clinicalSummary,
+        JSON.stringify(synthesis.extractedDiagnoses || []),
+        JSON.stringify(synthesis.extractedAllergies || []),
+        JSON.stringify(synthesis.extractedMedications || []),
+        JSON.stringify(synthesis.extractedBiomarkers || []),
+        JSON.stringify(synthesis.clinicalRisks || []),
+        true,
+        synthesis.externalFacility || null,
+        recordId,
+      ]
+    );
+
+    // Audit log
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, $3, 'AI clinical synthesis of prior medical record', 'MedicalRecord', $4, 'success')`,
+        [callerId, req.user.name || callerId, role, recordId]
+      );
+    } catch (_) {}
+
+    const { rows: updated } = await query('SELECT * FROM medical_records WHERE id = $1', [recordId]);
+    res.json({ success: true, synthesis, record: parseMedicalRecord(updated[0]) });
+  } catch (err) {
+    console.error('[Phase9] AI synthesis error:', err);
+    res.status(500).json({ error: 'AI synthesis failed' });
+  }
+});
+
 export default router;
+

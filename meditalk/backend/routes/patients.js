@@ -202,6 +202,63 @@ router.get('/:id/vitals-history', requireAuth, async (req, res) => {
   }
 });
 
+// PATCH /api/patients/:id/adopt-ai-records — doctor merges AI-extracted allergies & meds into patient chart
+router.patch('/:id/adopt-ai-records', requireAuth, requireRole('doctor', 'patient'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role, id: callerId } = req.user;
+
+    // Patients can only adopt into their own chart
+    if (role === 'patient' && callerId !== id) {
+      return res.status(403).json({ error: 'Forbidden — cannot modify another patient\'s chart' });
+    }
+
+    const { allergies: newAllergies = [], medications: newMedications = [] } = req.body;
+
+    // Fetch current values
+    const { rows } = await query('SELECT allergies, current_medications FROM patients WHERE id = $1', [id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Patient not found' });
+
+    const currentAllergies = safeJson(rows[0].allergies, []);
+    const currentMeds = safeJson(rows[0].current_medications, []);
+
+    // Merge — deduplicate by lowercased string comparison
+    const mergedAllergies = [...new Set([
+      ...currentAllergies,
+      ...newAllergies.filter(a => !currentAllergies.map(x => x.toLowerCase()).includes(a.toLowerCase())),
+    ])];
+
+    const mergedMeds = [...currentMeds];
+    for (const newMed of newMedications) {
+      const medName = typeof newMed === 'string' ? newMed : newMed?.name || '';
+      if (medName && !mergedMeds.map(m => m.toLowerCase()).includes(medName.toLowerCase())) {
+        mergedMeds.push(medName);
+      }
+    }
+
+    await query(
+      'UPDATE patients SET allergies=$1, current_medications=$2 WHERE id=$3',
+      [JSON.stringify(mergedAllergies), JSON.stringify(mergedMeds), id]
+    );
+
+    // Audit log
+    try {
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, $3, 'Adopted AI-extracted allergies and medications into patient chart', 'Patient', $4, 'success')`,
+        [callerId, req.user.name || callerId, role, id]
+      );
+    } catch (_) {}
+
+    const { rows: updated } = await query('SELECT * FROM patients WHERE id = $1', [id]);
+    res.json({ success: true, patient: parsePatient(updated[0]), mergedAllergies, mergedMeds });
+  } catch (err) {
+    console.error('[Phase9] Adopt AI records error:', err);
+    res.status(500).json({ error: 'Failed to adopt AI records' });
+  }
+});
+
 export default router;
+
 
 

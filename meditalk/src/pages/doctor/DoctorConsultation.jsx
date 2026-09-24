@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Stethoscope, Activity, Pill, Save, FileText, CheckCircle2,
   Video, PhoneOff, Phone, ChevronDown, ChevronUp, Sparkles, AlertTriangle, AlertCircle, ArrowDownToLine,
+  Building2, Check,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -15,7 +16,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
 import { getPatientById } from "../../services/patientService";
-import { saveConsultation } from "../../services/prescriptionService";
+import { saveConsultation, getMedicalRecords, adoptAiRecords } from "../../services/prescriptionService";
 import { getAppointmentById, updateVideoStatus } from "../../services/appointmentService";
 import { searchICD10 } from "../../data/icd10";
 
@@ -81,11 +82,12 @@ export default function DoctorConsultation() {
   const doctorId = user?.id;
   const doctorName = user?.name || "Doctor";
 
-  const { data: patient, loading: patLoading } = useFetch(() => getPatientById(patientId), [patientId]);
+  const { data: patient, loading: patLoading, reload: reloadPatient } = useFetch(() => getPatientById(patientId), [patientId]);
   const { data: appointment, reload: reloadAppt } = useFetch(
     () => (apptId ? getAppointmentById(apptId) : Promise.resolve(null)),
     [apptId]
   );
+  const { data: medicalRecords } = useFetch(() => (patientId ? getMedicalRecords(patientId) : Promise.resolve([])), [patientId]);
 
   const [form, setForm] = useState({
     symptoms: "",
@@ -102,6 +104,49 @@ export default function DoctorConsultation() {
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoUpdating, setVideoUpdating] = useState(false);
   const [triageBriefOpen, setTriageBriefOpen] = useState(true);
+  const [priorBriefOpen, setPriorBriefOpen] = useState(true);
+  const [adoptingPrior, setAdoptingPrior] = useState(false);
+  const [adoptedSuccess, setAdoptedSuccess] = useState(false);
+
+  const priorRecords = (medicalRecords || []).filter(
+    r => r.isExternalClinic || r.is_external_clinic || r.aiSummary || r.ai_summary || r.aiProcessedAt || r.ai_processed_at
+  );
+
+  async function handleAdoptPrior(record) {
+    if (!patientId || !record) return;
+    setAdoptingPrior(true);
+    try {
+      const allergies = (record.extractedAllergies || record.extracted_allergies || []).map(a => typeof a === 'string' ? a : a.allergen);
+      const medications = record.extractedMedications || record.extracted_medications || [];
+      await adoptAiRecords(patientId, { allergies, medications });
+      toast.success("Adopted prior allergies and medications into patient chart.");
+      setAdoptedSuccess(true);
+      reloadPatient();
+    } catch (err) {
+      toast.error(err.message || "Failed to adopt prior records.");
+    } finally {
+      setAdoptingPrior(false);
+    }
+  }
+
+  function applyPriorToNotes(record) {
+    if (!record) return;
+    const summary = record.aiSummary || record.ai_summary || '';
+    const facility = record.externalFacilityName || record.external_facility_name || 'Previous Clinic/Hospital';
+    const diagnoses = (record.extractedDiagnoses || record.extracted_diagnoses || []).join(', ');
+    const abnormalBiomarkers = (record.extractedBiomarkers || record.extracted_biomarkers || [])
+      .filter(b => b.isAbnormal)
+      .map(b => `${b.test}: ${b.value} (Ref: ${b.reference || '—'})`)
+      .join('; ');
+
+    const brief = `[Prior Clinic Intelligence - ${facility}]\nSummary: ${summary}\nPrior Diagnoses: ${diagnoses || 'None specified'}${abnormalBiomarkers ? `\nFlagged Biomarkers: ${abnormalBiomarkers}` : ''}`;
+    
+    setForm(prev => ({
+      ...prev,
+      observations: prev.observations ? `${prev.observations}\n\n${brief}` : brief,
+    }));
+    toast.success("Imported prior clinical findings into observations.");
+  }
 
   function applyTriageToNotes() {
     if (!appointment?.triageSummary) return;
@@ -223,6 +268,142 @@ export default function DoctorConsultation() {
           </div>
         </div>
       </Card>
+
+      {/* ─── Phase 9: Prior Clinic Records Intelligence Brief ───────────── */}
+      {priorRecords.length > 0 && (
+        <div className="card border border-primary/30 bg-gradient-to-r from-primary/5 via-sage/10 to-accent/5 transition">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0 shadow-sm">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-ink text-sm">Prior Clinic Records Intelligence</h3>
+                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full uppercase tracking-wider bg-primary/20 text-primary">
+                    {priorRecords.length} Record{priorRecords.length > 1 ? 's' : ''} Synthesized
+                  </span>
+                  {(priorRecords[0].externalFacilityName || priorRecords[0].external_facility_name) && (
+                    <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-sage/30 text-ink/70">
+                      {priorRecords[0].externalFacilityName || priorRecords[0].external_facility_name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-ink/60 mt-0.5">
+                  AI-extracted clinical entities from previous hospital discharge / lab records
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => applyPriorToNotes(priorRecords[0])}
+                className="text-xs border-primary/30 text-primary hover:bg-primary/5"
+              >
+                <ArrowDownToLine className="h-3.5 w-3.5" /> Import to Notes
+              </Button>
+              <button
+                type="button"
+                onClick={() => setPriorBriefOpen((v) => !v)}
+                className="p-1.5 rounded-lg border border-sage/40 hover:bg-sage/10 transition text-ink/70"
+                aria-label="Toggle prior records brief"
+              >
+                {priorBriefOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {priorBriefOpen && (
+            <div className="mt-4 pt-4 border-t border-sage/20 space-y-3.5 text-xs">
+              {priorRecords.map((rec, idx) => {
+                const abnormalBiomarkers = (rec.extractedBiomarkers || rec.extracted_biomarkers || []).filter(b => b.isAbnormal);
+                const diagnoses = rec.extractedDiagnoses || rec.extracted_diagnoses || [];
+                const allergies = rec.extractedAllergies || rec.extracted_allergies || [];
+                const meds = rec.extractedMedications || rec.extracted_medications || [];
+
+                return (
+                  <div key={rec.id || idx} className="space-y-3 p-3 bg-white/80 rounded-xl border border-sage/20">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink text-sm">
+                          {rec.description || rec.type || `Prior Document #${idx + 1}`}
+                        </span>
+                        {(rec.externalFacilityName || rec.external_facility_name) && (
+                          <span className="text-xs text-ink/50">· {rec.externalFacilityName || rec.external_facility_name}</span>
+                        )}
+                      </div>
+                      {(allergies.length > 0 || meds.length > 0) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={adoptingPrior}
+                          onClick={() => handleAdoptPrior(rec)}
+                          className="text-xs border-success/40 text-success hover:bg-success/5"
+                        >
+                          {adoptedSuccess ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          {adoptedSuccess ? "Adopted into Chart" : "Adopt Allergies & Meds into Chart"}
+                        </Button>
+                      )}
+                    </div>
+
+                    {(rec.aiSummary || rec.ai_summary) && (
+                      <p className="text-ink text-xs leading-relaxed bg-sage/10 p-2.5 rounded-lg">
+                        {rec.aiSummary || rec.ai_summary}
+                      </p>
+                    )}
+
+                    {/* Biomarkers / Abnormal Labs */}
+                    {abnormalBiomarkers.length > 0 && (
+                      <div>
+                        <span className="font-semibold text-danger flex items-center gap-1 mb-1">
+                          <AlertTriangle className="h-3.5 w-3.5" /> Flagged Abnormal Biomarkers:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {abnormalBiomarkers.map((bm, bIdx) => (
+                            <span key={bIdx} className="px-2 py-0.5 bg-danger/10 text-danger border border-danger/20 rounded-md font-medium">
+                              {bm.test}: <strong>{bm.value}</strong> (Ref: {bm.reference || '—'})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Extracted Diagnoses & Medications */}
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {diagnoses.length > 0 && (
+                        <div className="bg-sage/10 p-2 rounded-lg">
+                          <span className="font-semibold text-ink/70 block mb-1">Prior Diagnoses</span>
+                          <div className="flex flex-wrap gap-1">
+                            {diagnoses.map((d, dIdx) => (
+                              <span key={dIdx} className="px-1.5 py-0.5 bg-white text-ink/80 rounded border border-sage/20">
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {meds.length > 0 && (
+                        <div className="bg-sage/10 p-2 rounded-lg">
+                          <span className="font-semibold text-ink/70 block mb-1">Prior Medications</span>
+                          <div className="flex flex-wrap gap-1">
+                            {meds.map((m, mIdx) => (
+                              <span key={mIdx} className="px-1.5 py-0.5 bg-white text-ink/80 rounded border border-sage/20">
+                                {typeof m === 'string' ? m : `${m.name || m} ${m.dosage || ''}`}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Pre-Consultation AI Triage Brief ───────────── */}
       {appointment?.triageSummary && (

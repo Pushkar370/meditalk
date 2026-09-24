@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Droplet, AlertTriangle, FileText, Stethoscope, Pill, FlaskConical, ScanLine, Activity } from "lucide-react";
+import { ArrowLeft, Droplet, AlertTriangle, FileText, Stethoscope, Pill, FlaskConical, ScanLine, Activity, Sparkles, Building2, Check } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -11,10 +11,11 @@ import Avatar from "../../components/ui/Avatar";
 import LoadingState from "../../components/ui/LoadingState";
 import { useFetch } from "../../hooks/useFetch";
 import { getPatientById } from "../../services/patientService";
-import { getConsultations, getPrescriptions, getMedicalRecords } from "../../services/prescriptionService";
+import { getConsultations, getPrescriptions, getMedicalRecords, adoptAiRecords } from "../../services/prescriptionService";
 import { formatDate } from "../../constants";
+import { useToast } from "../../context/ToastContext";
 
-const TABS = [
+const BASE_TABS = [
   { key: "overview", label: "Overview" },
   { key: "history", label: "Medical History" },
   { key: "consultations", label: "Consultations" },
@@ -27,9 +28,12 @@ const TABS = [
 export default function DoctorPatientDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [tab, setTab] = useState("overview");
+  const [adopting, setAdopting] = useState(false);
+  const [adopted, setAdopted] = useState(false);
 
-  const { data: patient, loading: pl } = useFetch(() => getPatientById(id), [id]);
+  const { data: patient, loading: pl, reload: reloadPatient } = useFetch(() => getPatientById(id), [id]);
   const { data: consults, loading: cl } = useFetch(() => getConsultations({ patientId: id }), [id]);
   const { data: rx, loading: rl } = useFetch(() => getPrescriptions({ patientId: id }), [id]);
   const { data: records, loading: ml } = useFetch(() => getMedicalRecords(id), [id]);
@@ -45,6 +49,31 @@ export default function DoctorPatientDetails() {
 
   const labs = (records || []).filter((r) => r.type === "Lab Result");
   const imaging = (records || []).filter((r) => r.type === "Imaging");
+  const priorRecords = (records || []).filter(
+    (r) => r.isExternalClinic || r.is_external_clinic || r.aiSummary || r.ai_summary || r.aiProcessedAt || r.ai_processed_at
+  );
+
+  const tabs = [
+    ...BASE_TABS,
+    ...(priorRecords.length > 0 ? [{ key: "priorRecords", label: `Prior Records (${priorRecords.length})` }] : []),
+  ];
+
+  async function handleAdoptPrior(rec) {
+    if (!rec) return;
+    setAdopting(true);
+    try {
+      const allergies = (rec.extractedAllergies || rec.extracted_allergies || []).map(a => typeof a === 'string' ? a : a.allergen);
+      const medications = rec.extractedMedications || rec.extracted_medications || [];
+      await adoptAiRecords(id, { allergies, medications });
+      toast.success("Adopted prior allergies and medications into patient chart.");
+      setAdopted(true);
+      reloadPatient();
+    } catch (err) {
+      toast.error(err.message || "Failed to adopt prior records.");
+    } finally {
+      setAdopting(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +98,7 @@ export default function DoctorPatientDetails() {
       </Card>
 
       <div className="flex gap-2 border-b border-sage/30 overflow-x-auto">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -85,13 +114,58 @@ export default function DoctorPatientDetails() {
 
       <div className="card">
         {tab === "overview" && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-            <Info label="Height" value={patient.height} />
-            <Info label="Weight" value={patient.weight} />
-            <Info label="Phone" value={patient.phone} />
-            <Info label="Email" value={patient.email} />
-            <Info label="Chronic Conditions" value={conditionsList.join(", ") || "None"} />
-            <Info label="Medications" value={medicationsList.join(", ") || "None"} />
+          <div className="space-y-6">
+            {priorRecords.length > 0 && (
+              <div className="p-4 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/5 via-sage/10 to-accent/5">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white shrink-0">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-ink text-sm">Prior Clinic Records Intelligence</h4>
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-primary/20 text-primary">
+                          {priorRecords.length} Record{priorRecords.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-ink/60 mt-0.5">
+                        AI synthesized history from previous medical facility ({priorRecords[0].externalFacilityName || priorRecords[0].external_facility_name || 'External Clinic'}).
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      loading={adopting}
+                      onClick={() => handleAdoptPrior(priorRecords[0])}
+                      className="text-xs border-success/40 text-success hover:bg-success/5"
+                    >
+                      {adopted ? <Check className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      {adopted ? "Adopted into Chart" : "Adopt Allergies & Meds"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setTab("priorRecords")} className="text-xs text-primary">
+                      View Details →
+                    </Button>
+                  </div>
+                </div>
+                {(priorRecords[0].aiSummary || priorRecords[0].ai_summary) && (
+                  <p className="mt-3 text-xs text-ink/80 bg-white/70 p-2.5 rounded-lg border border-sage/20 leading-relaxed">
+                    {priorRecords[0].aiSummary || priorRecords[0].ai_summary}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <Info label="Height" value={patient.height} />
+              <Info label="Weight" value={patient.weight} />
+              <Info label="Phone" value={patient.phone} />
+              <Info label="Email" value={patient.email} />
+              <Info label="Chronic Conditions" value={conditionsList.join(", ") || "None"} />
+              <Info label="Medications" value={medicationsList.join(", ") || "None"} />
+            </div>
           </div>
         )}
 
@@ -157,6 +231,92 @@ export default function DoctorPatientDetails() {
               </div>
             ))}
             {!(consults || []).length && <EmptyState icon={Activity} title="No treatment history" />}
+          </div>
+        )}
+
+        {tab === "priorRecords" && (
+          <div className="space-y-4">
+            {priorRecords.map((r, idx) => {
+              const abnormal = (r.extractedBiomarkers || r.extracted_biomarkers || []).filter(b => b.isAbnormal);
+              const diagnoses = r.extractedDiagnoses || r.extracted_diagnoses || [];
+              const allergies = r.extractedAllergies || r.extracted_allergies || [];
+              const meds = r.extractedMedications || r.extracted_medications || [];
+
+              return (
+                <div key={r.id || idx} className="p-4 rounded-xl border border-sage/30 bg-white space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink text-sm">{r.description || r.type}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">AI Synthesized</span>
+                      </div>
+                      <p className="text-xs text-ink/50 mt-0.5">
+                        {formatDate(r.date)} {r.externalFacilityName ? `· ${r.externalFacilityName}` : ""}
+                      </p>
+                    </div>
+                    {(allergies.length > 0 || meds.length > 0) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        loading={adopting}
+                        onClick={() => handleAdoptPrior(r)}
+                        className="text-xs border-success/40 text-success hover:bg-success/5"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" /> Adopt into Chart
+                      </Button>
+                    )}
+                  </div>
+
+                  {(r.aiSummary || r.ai_summary) && (
+                    <div className="bg-sage/10 p-3 rounded-lg text-xs text-ink leading-relaxed">
+                      {r.aiSummary || r.ai_summary}
+                    </div>
+                  )}
+
+                  {abnormal.length > 0 && (
+                    <div>
+                      <span className="text-xs font-semibold text-danger flex items-center gap-1 mb-1">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Flagged Abnormal Biomarkers:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {abnormal.map((b, bi) => (
+                          <span key={bi} className="px-2 py-0.5 bg-danger/10 text-danger border border-danger/20 rounded-md text-xs font-medium">
+                            {b.test}: <strong>{b.value}</strong> (Ref: {b.reference || '—'})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                    {diagnoses.length > 0 && (
+                      <div className="bg-sage/5 border border-sage/20 p-2.5 rounded-lg">
+                        <span className="font-semibold text-ink/70 block mb-1">Extracted Diagnoses</span>
+                        <div className="flex flex-wrap gap-1">
+                          {diagnoses.map((d, di) => (
+                            <span key={di} className="px-2 py-0.5 bg-white rounded border border-sage/20 text-ink/80">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {meds.length > 0 && (
+                      <div className="bg-sage/5 border border-sage/20 p-2.5 rounded-lg">
+                        <span className="font-semibold text-ink/70 block mb-1">Prior Medications</span>
+                        <div className="flex flex-wrap gap-1">
+                          {meds.map((m, mi) => (
+                            <span key={mi} className="px-2 py-0.5 bg-white rounded border border-sage/20 text-ink/80">
+                              {typeof m === 'string' ? m : `${m.name || m} ${m.dosage || ''}`}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

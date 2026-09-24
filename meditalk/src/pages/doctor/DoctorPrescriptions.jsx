@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Pill, Plus, Trash2, FileDown, Send, ChevronDown, Check } from "lucide-react";
+import { Pill, Plus, Trash2, FileDown, Send, ChevronDown, Check, AlertTriangle, ShieldAlert, ShieldCheck, X, Info } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
@@ -14,11 +14,12 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
 import { getPatients } from "../../services/patientService";
-import { getPrescriptions, savePrescription } from "../../services/prescriptionService";
+import { getPrescriptions, savePrescription, checkDrugSafety } from "../../services/prescriptionService";
 import { PrescriptionPreview } from "../patient/PatientPrescriptions";
 import { formatDate } from "../../constants";
 import { searchDrugs } from "../../data/drugCatalog";
 import { generatePrescriptionPdf } from "../../utils/prescriptionPdf";
+
 
 const EMPTY_MED = { medicine: "", dosage: "", frequency: "", duration: "", instructions: "" };
 const FREQUENCY_OPTIONS = ["OD", "BD", "TDS", "QID", "PRN", "SOS", "Weekly", "Fortnightly"];
@@ -135,6 +136,37 @@ export default function DoctorPrescriptions() {
     additionalInstructions: "",
   });
 
+  // ── Phase 9: Drug Safety Guard ───────────────────────────────────────────
+  const [safetyAlerts, setSafetyAlerts] = useState([]);
+  const [safetyChecking, setSafetyChecking] = useState(false);
+  const [safetyDismissed, setSafetyDismissed] = useState(false);
+  const safetyDebounceRef = useRef(null);
+
+  const runSafetyCheck = useCallback(async (patientId, medications) => {
+    if (!patientId || medications.every(m => !m.medicine)) {
+      setSafetyAlerts([]); return;
+    }
+    clearTimeout(safetyDebounceRef.current);
+    safetyDebounceRef.current = setTimeout(async () => {
+      setSafetyChecking(true);
+      try {
+        const result = await checkDrugSafety(patientId, medications);
+        setSafetyAlerts(result.alerts || []);
+        setSafetyDismissed(false);
+      } catch (_) {
+        setSafetyAlerts([]);
+      } finally {
+        setSafetyChecking(false);
+      }
+    }, 500);
+  }, []);
+
+  useEffect(() => {
+    if (form.patientId && creating) {
+      runSafetyCheck(form.patientId, form.medications);
+    }
+  }, [form.patientId, form.medications, creating, runSafetyCheck]);
+
   // Auto-open if launched from Consultation page with patientId
   useEffect(() => {
     if (preselectedPatientId && patients && patients.length > 0) {
@@ -218,6 +250,8 @@ export default function DoctorPrescriptions() {
   function openNew() {
     const firstPatient = (patients || [])[0];
     setForm({ patientId: preselectedPatientId || firstPatient?.id || "", diagnosis: "", medications: [{ ...EMPTY_MED }], additionalInstructions: "" });
+    setSafetyAlerts([]);
+    setSafetyDismissed(false);
     setCreating(true);
   }
 
@@ -311,7 +345,59 @@ export default function DoctorPrescriptions() {
             placeholder="e.g. Hypertension, URTI"
           />
 
+          {/* Drug Safety Guard */}
+          {safetyChecking && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sage/10 border border-sage/30 text-xs text-ink/60">
+              <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              Checking drug interactions & allergy safety...
+            </div>
+          )}
+          {!safetyDismissed && safetyAlerts.length > 0 && (
+            <div className="space-y-2">
+              {safetyAlerts.map((alert, i) => {
+                const isCritical = alert.severity === 'critical';
+                const isWarning = alert.severity === 'warning';
+                const bgCls = isCritical ? 'bg-danger/8 border-danger/40' : isWarning ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200';
+                const iconCls = isCritical ? 'text-danger' : isWarning ? 'text-amber-600' : 'text-blue-500';
+                const titleCls = isCritical ? 'text-danger' : isWarning ? 'text-amber-700' : 'text-blue-700';
+                return (
+                  <div key={i} className={`rounded-xl border p-3 ${bgCls}`}>
+                    <div className="flex items-start gap-2">
+                      {isCritical ? <ShieldAlert className={`h-4 w-4 shrink-0 mt-0.5 ${iconCls}`} /> :
+                       isWarning ? <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${iconCls}`} /> :
+                       <Info className={`h-4 w-4 shrink-0 mt-0.5 ${iconCls}`} />}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold ${titleCls}`}>
+                          {isCritical ? '🔴 CRITICAL — ' : isWarning ? '🟠 WARNING — ' : 'ℹ️ '}
+                          {alert.title}
+                        </p>
+                        <p className="text-xs text-ink/70 mt-0.5">{alert.effect}</p>
+                        {alert.alternatives?.length > 0 && (
+                          <p className="text-xs text-ink/60 mt-1">
+                            <span className="font-medium">Safer alternatives: </span>
+                            {alert.alternatives.slice(0, 2).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      {i === 0 && (
+                        <button onClick={() => setSafetyDismissed(true)} className="shrink-0 text-ink/40 hover:text-ink/70">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!safetyChecking && safetyAlerts.length === 0 && form.patientId && form.medications.some(m => m.medicine) && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-success/8 border border-success/30 text-xs text-success font-medium">
+              <ShieldCheck className="h-3.5 w-3.5" /> No drug interactions or allergy conflicts detected.
+            </div>
+          )}
+
           {/* Medications */}
+
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold text-ink text-sm">Medications</p>

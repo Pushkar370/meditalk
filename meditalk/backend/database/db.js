@@ -134,6 +134,53 @@ export async function initDb() {
       break_end   TEXT DEFAULT '14:00',
       updated_at  TIMESTAMPTZ DEFAULT NOW()
     )`,
+    // Phase 9: AI Clinical Records Ingestion — add AI synthesis columns to medical_records
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_summary TEXT`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS extracted_diagnoses TEXT DEFAULT '[]'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS extracted_allergies TEXT DEFAULT '[]'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS extracted_medications TEXT DEFAULT '[]'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS extracted_biomarkers TEXT DEFAULT '[]'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS clinical_risks TEXT DEFAULT '[]'`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS is_external_clinic BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS external_facility_name TEXT`,
+    `ALTER TABLE medical_records ADD COLUMN IF NOT EXISTS ai_processed_at TIMESTAMPTZ`,
+    // Phase 9: E-Pharmacy fulfillment orders
+    `CREATE TABLE IF NOT EXISTS pharmacy_orders (
+      id TEXT PRIMARY KEY,
+      prescription_id TEXT REFERENCES prescriptions(id) ON DELETE CASCADE,
+      patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      pharmacy_name TEXT NOT NULL,
+      delivery_address TEXT,
+      contact_phone TEXT NOT NULL,
+      medications TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'pending',
+      tracking_number TEXT,
+      estimated_delivery TIMESTAMPTZ,
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_pharmacy_orders_patient ON pharmacy_orders(patient_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_pharmacy_orders_prescription ON pharmacy_orders(prescription_id)`,
+    // Phase 9: Patient medication adherence schedule
+    `CREATE TABLE IF NOT EXISTS medication_schedules (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE,
+      prescription_id TEXT REFERENCES prescriptions(id) ON DELETE SET NULL,
+      medicine_name TEXT NOT NULL,
+      dosage TEXT NOT NULL,
+      frequency TEXT NOT NULL,
+      timing_slots TEXT NOT NULL DEFAULT '["morning"]',
+      start_date TIMESTAMPTZ DEFAULT NOW(),
+      end_date TIMESTAMPTZ,
+      instructions TEXT,
+      taken_logs TEXT DEFAULT '{}',
+      streak_count INTEGER DEFAULT 0,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_med_schedules_patient ON medication_schedules(patient_id)`,
   ];
   for (const sql of migrations) {
     try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }
