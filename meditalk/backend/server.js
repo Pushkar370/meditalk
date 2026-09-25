@@ -34,6 +34,7 @@ import pharmacyRoutes from './routes/pharmacy.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // ── Rate Limiters ───────────────────────────────────────────────────────────
 export const authLimiter = rateLimit({
@@ -42,7 +43,8 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' },
-  skip: (req) => process.env.NODE_ENV === 'test' || req.headers['x-bypass-ratelimit'] === 'test',
+  // Only skip in automated test environment — never expose a bypassable header
+  skip: (req) => process.env.NODE_ENV === 'test',
 });
 
 export const apiLimiter = rateLimit({
@@ -51,7 +53,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
-  skip: (req) => process.env.NODE_ENV === 'test' || req.path === '/api/notifications/stream' || req.headers['x-bypass-ratelimit'] === 'test',
+  skip: (req) => process.env.NODE_ENV === 'test' || req.path === '/api/notifications/stream',
 });
 
 // ── Security Headers (Helmet) ───────────────────────────────────────────────
@@ -79,10 +81,20 @@ export function pushNotification(userId, payload) {
   }
 }
 
+// ── CORS — explicit origin whitelist (never wildcard in production) ─────────
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      process.env.FRONTEND_URL,             // e.g. https://meditalk.onrender.com
+      'https://meditalk.onrender.com',       // fallback hardcoded prod domain
+    ].filter(Boolean)
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? true
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Allow server-to-server requests (no Origin header) and whitelisted origins
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '25mb' }));
@@ -111,7 +123,9 @@ app.get('/api/notifications/stream', (req, res) => {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no',
-    'Access-Control-Allow-Origin': '*',
+    // Reflect the actual origin rather than wildcarding (credentials require explicit origin)
+    'Access-Control-Allow-Origin': req.headers.origin || FRONTEND_URL,
+    'Access-Control-Allow-Credentials': 'true',
   });
 
   // Initial connection greeting

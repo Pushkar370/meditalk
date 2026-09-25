@@ -181,6 +181,15 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE INDEX IF NOT EXISTS idx_med_schedules_patient ON medication_schedules(patient_id)`,
+    // Password Reset Tokens (H-5 fix: proper forgot-password flow)
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id        SERIAL PRIMARY KEY,
+      user_id   TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      token     TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`,
   ];
   for (const sql of migrations) {
     try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }

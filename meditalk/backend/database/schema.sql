@@ -1,11 +1,16 @@
--- Database Schema for MediTalk (PostgreSQL)
+﻿-- ============================================================
+-- MediTalk Database Schema — Complete & Canonical
+-- This file is the single source of truth for the DB structure.
+-- ALL tables and columns (including Phase 5-9 additions) are here.
+-- Safe to run on an empty DB or re-run (all CREATE TABLE IF NOT EXISTS).
+-- ============================================================
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
-  role TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('patient', 'doctor', 'admin')),
   patient_id TEXT,
   doctor_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -42,6 +47,9 @@ CREATE TABLE IF NOT EXISTS doctors (
   availability TEXT DEFAULT 'Available',
   bio TEXT,
   status TEXT DEFAULT 'active',
+  verification_status TEXT DEFAULT 'approved',
+  verified_at TIMESTAMPTZ,
+  rejection_notes TEXT,
   registered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -68,8 +76,11 @@ CREATE TABLE IF NOT EXISTS appointments (
   time TEXT,
   type TEXT,
   reason TEXT,
-  status TEXT DEFAULT 'upcoming',
+  cancel_reason TEXT,
   video_status TEXT DEFAULT NULL,
+  triage_summary TEXT,
+  urgency TEXT DEFAULT 'routine',
+  status TEXT DEFAULT 'upcoming',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -111,7 +122,50 @@ CREATE TABLE IF NOT EXISTS medical_records (
   doctor TEXT,
   details TEXT DEFAULT '{}',
   date TIMESTAMPTZ DEFAULT NOW(),
-  status TEXT DEFAULT 'final'
+  status TEXT DEFAULT 'final',
+  ai_summary TEXT,
+  extracted_diagnoses TEXT DEFAULT '[]',
+  extracted_allergies TEXT DEFAULT '[]',
+  extracted_medications TEXT DEFAULT '[]',
+  extracted_biomarkers TEXT DEFAULT '[]',
+  clinical_risks TEXT DEFAULT '[]',
+  is_external_clinic BOOLEAN DEFAULT FALSE,
+  external_facility_name TEXT,
+  ai_processed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS pharmacy_orders (
+  id TEXT PRIMARY KEY,
+  prescription_id TEXT REFERENCES prescriptions(id) ON DELETE CASCADE,
+  patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE,
+  patient_name TEXT NOT NULL,
+  pharmacy_name TEXT NOT NULL,
+  delivery_address TEXT,
+  contact_phone TEXT NOT NULL,
+  medications TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  tracking_number TEXT,
+  estimated_delivery TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS medication_schedules (
+  id TEXT PRIMARY KEY,
+  patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE,
+  prescription_id TEXT REFERENCES prescriptions(id) ON DELETE SET NULL,
+  medicine_name TEXT NOT NULL,
+  dosage TEXT NOT NULL,
+  frequency TEXT NOT NULL,
+  timing_slots TEXT NOT NULL DEFAULT '["morning"]',
+  start_date TIMESTAMPTZ DEFAULT NOW(),
+  end_date TIMESTAMPTZ,
+  instructions TEXT,
+  taken_logs TEXT DEFAULT '{}',
+  streak_count INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -121,7 +175,8 @@ CREATE TABLE IF NOT EXISTS notifications (
   message TEXT,
   type TEXT,
   read BOOLEAN DEFAULT FALSE,
-  date TIMESTAMPTZ DEFAULT NOW()
+  date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -136,4 +191,20 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id        SERIAL PRIMARY KEY,
+  user_id   TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  token     TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_pharmacy_orders_patient ON pharmacy_orders(patient_id);
+CREATE INDEX IF NOT EXISTS idx_pharmacy_orders_prescription ON pharmacy_orders(prescription_id);
+CREATE INDEX IF NOT EXISTS idx_med_schedules_patient ON medication_schedules(patient_id);
+CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date);

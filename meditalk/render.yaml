@@ -6,6 +6,7 @@ services:
     rootDir: meditalk
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,9 +16,12 @@ services:
         fromDatabase:
           name: meditalk-db
           property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in Render dashboard — DO NOT commit the actual key
+      - key: FRONTEND_URL
+        value: https://meditalk.onrender.com  # Update if your domain changes
 
 databases:
   - name: meditalk-db
     plan: free
     databaseName: meditalk
-

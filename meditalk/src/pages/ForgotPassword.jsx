@@ -1,26 +1,42 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Mail, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import Logo from "../components/ui/Logo";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
+import { apiFetch } from "../services/apiClient";
 
 export default function ForgotPassword() {
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [devToken, setDevToken] = useState(null); // only set in dev mode
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError("Enter a valid email address.");
       return;
     }
     setError("");
-    setSent(true);
-    toast.info("If this email exists, a reset link was sent.");
+    setLoading(true);
+    try {
+      const res = await apiFetch("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setSent(true);
+      // In development, the backend returns a _devToken for easy testing
+      if (res._devToken) setDevToken(res._devToken);
+    } catch (err) {
+      setError(err.message || "Request failed. Please try again.");
+      toast.error(err.message || "Request failed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -34,11 +50,20 @@ export default function ForgotPassword() {
           </p>
 
           {sent ? (
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-3">
               <div className="mx-auto h-12 w-12 rounded-full bg-success/15 flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-success" />
               </div>
-              <p className="mt-3 text-sm text-ink/70">Reset link sent to {email}</p>
+              <p className="text-sm text-ink/70">Reset instructions sent to <strong>{email}</strong></p>
+              <p className="text-xs text-ink/40">Check your inbox (and spam folder). The link expires in 1 hour.</p>
+              {devToken && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-left">
+                  <p className="text-xs font-semibold text-yellow-700">🔧 DEV MODE — Reset Token:</p>
+                  <Link to={`/reset-password?token=${devToken}`} className="text-xs text-blue-600 underline break-all">
+                    /reset-password?token={devToken}
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -53,7 +78,9 @@ export default function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full">Send reset link</Button>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Send reset link"}
+              </Button>
             </form>
           )}
 

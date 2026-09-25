@@ -35,9 +35,15 @@ export async function register(payload) {
   }
 }
 
-export function logout() {
-  // Client-side only — clear token
-  return Promise.resolve({ success: true });
+export async function logout() {
+  // Revoke the token server-side (adds jti to blocklist)
+  try {
+    await apiFetch('/auth/logout', { method: 'POST' });
+  } catch (_) {
+    // Ignore errors — user is still logged out locally
+  }
+  localStorage.removeItem('meditrack_user');
+  return { success: true };
 }
 
 export async function changePassword({ currentPassword, nextPassword }) {

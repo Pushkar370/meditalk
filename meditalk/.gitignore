@@ -23,12 +23,18 @@ dist-ssr
 *.sln
 *.sw?
 
-# Database
+# Database — never commit live DB files or WAL journals
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 
-# Environment variables
+# Environment variables — NEVER commit real secrets
 .env
 .env.*
 !.env.example
+
+# Build artifacts
+dist/
+build/

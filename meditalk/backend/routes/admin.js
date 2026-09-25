@@ -211,7 +211,9 @@ router.patch('/appointments/:id/reschedule', async (req, res) => {
 // POST /api/admin/broadcast
 router.post('/broadcast', async (req, res) => {
   const { title, message, targetRole } = req.body; // targetRole: 'all' | 'patient' | 'doctor'
+  if (!title || !message) return res.status(400).json({ error: 'title and message are required' });
   try {
+    // Fetch target user IDs
     let sql = 'SELECT id FROM users';
     const params = [];
     if (targetRole && targetRole !== 'all') {
@@ -220,13 +222,21 @@ router.post('/broadcast', async (req, res) => {
     }
     const { rows: users } = await query(sql, params);
 
+    if (users.length === 0) {
+      return res.json({ success: true, sent: 0 });
+    }
+
+    // Single batched INSERT instead of N individual inserts (L-3 fix)
+    const batchTimestamp = Date.now();
+    const values = users.map((u, i) => `('N-${batchTimestamp}-${i}', '${u.id}', $1, $2, 'info', false, NOW())`).join(',');
+    await query(
+      `INSERT INTO notifications (id, user_id, title, message, type, read, date) VALUES ${values}`,
+      [title, message]
+    );
+
+    // SSE push is still per-user (no way to batch WebSocket-like pushes)
     for (const user of users) {
-      const notifId = `N-${Date.now()}-${user.id}`;
-      await query(
-        `INSERT INTO notifications (id, user_id, title, message, type, read, date) VALUES ($1, $2, $3, $4, 'info', false, NOW())`,
-        [notifId, user.id, title, message]
-      );
-      try { pushNotification(user.id, { id: notifId, title, message, type: 'info' }); } catch (_) {}
+      try { pushNotification(user.id, { title, message, type: 'info' }); } catch (_) {}
     }
 
     try {
@@ -256,19 +266,30 @@ router.get('/broadcasts', async (req, res) => {
 router.get('/analytics', async (req, res) => {
   try {
     const { from, to } = req.query;
-    const dateFilter = from && to
-      ? `AND date BETWEEN '${from}' AND '${to}'`
-      : '';
-    const registeredFilter = from && to
-      ? `AND registered_at BETWEEN '${from}' AND '${to}'`
-      : '';
 
-    const { rows: dayRows } = await query(`
-      SELECT EXTRACT(DOW FROM date::date)::int as dow, COUNT(*) as count
-      FROM appointments 
-      WHERE date IS NOT NULL AND date ~ '^\\d{4}-\\d{2}-\\d{2}' ${dateFilter}
-      GROUP BY dow
-    `);
+    // Build parameterized date filters — NEVER interpolate user input directly into SQL
+    const dateParams = [];
+    let dateFilter = '';
+    let registeredFilter = '';
+
+    if (from && to) {
+      // Validate date format to prevent injection even with parameterization
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(from) || !dateRegex.test(to)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+      }
+      dateParams.push(from, to);
+      dateFilter = `AND date::date BETWEEN $1 AND $2`;
+      registeredFilter = `AND registered_at::date BETWEEN $1 AND $2`;
+    }
+
+    const { rows: dayRows } = await query(
+      `SELECT EXTRACT(DOW FROM date::date)::int as dow, COUNT(*) as count
+       FROM appointments
+       WHERE date IS NOT NULL AND date ~ '^\\d{4}-\\d{2}-\\d{2}' ${dateFilter}
+       GROUP BY dow`,
+      dateParams
+    );
     const dayMap = Object.fromEntries(dayRows.map(r => [r.dow, parseInt(r.count)]));
     const appointmentTrends = {
       labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -295,7 +316,11 @@ router.get('/analytics', async (req, res) => {
     }
     const consultationTrends = { labels: consultLabels, data: consultData };
 
-    const { rows: statusRows } = await query(`SELECT status, COUNT(*) as count FROM appointments ${dateFilter ? 'WHERE date IS NOT NULL ' + dateFilter : ''} GROUP BY status`);
+    // Parameterized status query
+    const statusSql = dateParams.length > 0
+      ? `SELECT status, COUNT(*) as count FROM appointments WHERE date IS NOT NULL AND date::date BETWEEN $1 AND $2 GROUP BY status`
+      : `SELECT status, COUNT(*) as count FROM appointments GROUP BY status`;
+    const { rows: statusRows } = await query(statusSql, dateParams);
     const statusMap = Object.fromEntries(statusRows.map(r => [r.status, parseInt(r.count)]));
     const appointmentStatus = {
       labels: ['Completed', 'Upcoming', 'Confirmed', 'Cancelled'],

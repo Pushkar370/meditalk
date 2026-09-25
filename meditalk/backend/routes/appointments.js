@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { query } from '../database/db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+
 
 const router = Router();
 
@@ -77,9 +78,21 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    const { role, id: callerId } = req.user;
     const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Appointment not found' });
-    res.json(mapAppt(rows[0]));
+    const appt = mapAppt(rows[0]);
+
+    // Ownership guard: patients can only read their own appointments
+    if (role === 'patient' && appt.patientId !== callerId) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s appointment' });
+    }
+    // Doctors can only read their own appointment records
+    if (role === 'doctor' && appt.doctorId !== callerId) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another doctor\'s appointment' });
+    }
+
+    res.json(appt);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch appointment' }); }
 });
 
@@ -309,7 +322,8 @@ router.patch('/:id/video-status', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update video status' }); }
 });
 
-router.patch('/:id', async (req, res) => {
+// PATCH /api/appointments/:id — status update (doctors and admins only)
+router.patch('/:id', requireAuth, requireRole('doctor', 'admin'), async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'status is required' });

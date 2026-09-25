@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -50,11 +51,16 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
 
     if (email) {
       try {
-        const hash = bcrypt.hashSync('password', 10);
+        // Generate a secure random temporary password — admin must communicate this to the doctor
+        const tempPassword = crypto.randomBytes(10).toString('base64url');
+        const hash = bcrypt.hashSync(tempPassword, 10);
         await query(
           'INSERT INTO users (id, name, email, password, role, doctor_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (email) DO NOTHING',
           ['U-' + id, name, email, hash, 'doctor', id]
         );
+        // Return the temp password in the response (shown only once)
+        const { rows: created } = await query('SELECT * FROM doctors WHERE id = $1', [id]);
+        return res.status(201).json({ ...created[0], _tempPassword: tempPassword, _tempPasswordNote: 'Share this password securely with the doctor. It is shown only once.' });
       } catch (_) {}
     }
 
