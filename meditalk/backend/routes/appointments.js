@@ -215,58 +215,58 @@ router.patch('/:id/cancel', async (req, res) => {
   try {
     const { reason } = req.body || {};
     const cancelledBy = req.user.role === 'patient' ? 'patient' : req.user.role;
+
+    // Fetch appointment BEFORE update so we have old data for emails
+    const { rows: preRows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+    if (!preRows[0]) return res.status(404).json({ error: 'Appointment not found' });
+    const a = preRows[0];
+
     const { rowCount } = await query(
       "UPDATE appointments SET status='cancelled', cancelled_by=$1 WHERE id=$2",
       [cancelledBy, req.params.id]
     );
     if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
 
+    // In-app notifications
     try {
-      const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
-      if (rows[0]) {
-        const a = rows[0];
-        const patientUserId = await getUserId(a.patient_id, null);
-        const doctorUserId = await getUserId(null, a.doctor_id);
-        const npId = 'N-' + Date.now();
-        const ndId = 'N-' + (Date.now() + 1);
-        const pMsg = `Your appointment on ${a.date} at ${a.time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
-        const dMsg = `Appointment with ${a.patient_name} on ${a.date} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
+      const patientUserId = await getUserId(a.patient_id, null);
+      const doctorUserId  = await getUserId(null, a.doctor_id);
+      const npId = 'N-' + Date.now();
+      const ndId = 'N-' + (Date.now() + 1);
+      const pMsg = `Your appointment on ${a.date} at ${a.time} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
+      const dMsg = `Appointment with ${a.patient_name} on ${a.date} has been cancelled.${reason ? ' Reason: ' + reason : ''}`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
+        [npId, patientUserId, pMsg]
+      );
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
+        [ndId, doctorUserId, dMsg]
+      );
+      try { pushNotification(patientUserId, { id: npId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: pMsg }); } catch (_) {}
+      try { pushNotification(doctorUserId,  { id: ndId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: dMsg }); } catch (_) {}
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, 'User', $3, 'Appointment', $4, 'success')`,
+        [a.patient_id, a.patient_name, reason ? `Cancelled appointment. Reason: ${reason}` : 'Cancelled appointment', req.params.id]
+      );
+    } catch (_) {}
 
-        await query(
-          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          [npId, patientUserId, pMsg]
-        );
-        await query(
-          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_cancelled','Appointment Cancelled',$3,false)`,
-          [ndId, doctorUserId, dMsg]
-        );
-
-        try { pushNotification(patientUserId, { id: npId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: pMsg }); } catch (_) {}
-        try { pushNotification(doctorUserId, { id: ndId, type: 'appointment_cancelled', title: 'Appointment Cancelled', message: dMsg }); } catch (_) {}
-        await query(
-          `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-           VALUES ($1, $2, 'User', $3, 'Appointment', $4, 'success')`,
-          [a.patient_id, a.patient_name, reason ? `Cancelled appointment. Reason: ${reason}` : 'Cancelled appointment', req.params.id]
-        );
-      }
-    // Cancel reminders + send cancellation email
+    // Cancel scheduled reminders + send cancellation email
     try {
       await cancelReminders(req.params.id);
-      if (rows[0]) {
-        const a = rows[0];
-        const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
-        const patientEmail = pRows[0]?.email;
-        if (patientEmail) {
-          await enqueueEmail('send-cancellation', {
-            patientEmail,
-            patientName: a.patient_name,
-            doctorName: a.doctor_name,
-            date: a.date,
-            time: a.time,
-            cancelledBy: req.user.role === 'patient' ? 'you' : `Dr. ${a.doctor_name}`,
-            reason,
-          });
-        }
+      const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
+      const patientEmail = pRows[0]?.email;
+      if (patientEmail) {
+        await enqueueEmail('send-cancellation', {
+          patientEmail,
+          patientName: a.patient_name,
+          doctorName:  a.doctor_name,
+          date:        a.date,
+          time:        a.time,
+          cancelledBy: cancelledBy === 'patient' ? 'you' : `the clinic`,
+          reason,
+        });
       }
     } catch (_) {}
 
@@ -279,11 +279,14 @@ router.patch('/:id/reschedule', async (req, res) => {
     const { date, time } = req.body;
     if (!date || !time) return res.status(400).json({ error: 'date and time are required' });
 
-    // Check if new slot is already taken by the same doctor
-    const { rows: existing } = await query('SELECT doctor_id FROM appointments WHERE id = $1', [req.params.id]);
-    if (!existing[0]) return res.status(404).json({ error: 'Appointment not found' });
+    // Fetch full appointment BEFORE update so we have old date/time for the email
+    const { rows: preRows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+    if (!preRows[0]) return res.status(404).json({ error: 'Appointment not found' });
+    const oldDate = preRows[0].date;
+    const oldTime = preRows[0].time;
+    const doctorId = preRows[0].doctor_id;
 
-    const doctorId = existing[0].doctor_id;
+    // Conflict check: doctor already booked at new slot (exclude this appointment)
     const { rows: conflict } = await query(
       `SELECT id FROM appointments WHERE doctor_id = $1 AND date = $2 AND time = $3
          AND status NOT IN ('cancelled') AND id != $4 LIMIT 1`,
@@ -293,58 +296,55 @@ router.patch('/:id/reschedule', async (req, res) => {
       return res.status(409).json({ error: 'That time slot is already booked. Please select another.', code: 'SLOT_CONFLICT' });
     }
 
-    const { rowCount } = await query("UPDATE appointments SET date = $1, time = $2, status = 'confirmed' WHERE id = $3", [date, time, req.params.id]);
+    const { rowCount } = await query(
+      "UPDATE appointments SET date=$1, time=$2, status='confirmed' WHERE id=$3",
+      [date, time, req.params.id]
+    );
     if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
 
+    // In-app notifications
     try {
-      const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
-      if (rows[0]) {
-        const a = rows[0];
-        const patientUserId = await getUserId(a.patient_id, null);
-        const doctorUserId = await getUserId(null, a.doctor_id);
-        const nrpId = 'N-' + Date.now();
-        const nrdId = 'N-' + (Date.now() + 1);
-        const pRMsg = `Your appointment has been rescheduled to ${date} at ${time}.`;
-        const dRMsg = `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`;
+      const a = preRows[0];
+      const patientUserId = await getUserId(a.patient_id, null);
+      const doctorUserId  = await getUserId(null, a.doctor_id);
+      const nrpId = 'N-' + Date.now();
+      const nrdId = 'N-' + (Date.now() + 1);
+      const pRMsg = `Your appointment has been rescheduled to ${date} at ${time}.`;
+      const dRMsg = `Appointment with ${a.patient_name} rescheduled to ${date} at ${time}.`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
+        [nrpId, patientUserId, pRMsg]
+      );
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
+        [nrdId, doctorUserId, dRMsg]
+      );
+      try { pushNotification(patientUserId, { id: nrpId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: pRMsg }); } catch (_) {}
+      try { pushNotification(doctorUserId,  { id: nrdId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: dRMsg }); } catch (_) {}
+      await query(
+        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+         VALUES ($1, $2, 'User', 'Rescheduled appointment', 'Appointment', $3, 'success')`,
+        [a.patient_id, a.patient_name, req.params.id]
+      );
+    } catch (_) {}
 
-        await query(
-          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          [nrpId, patientUserId, pRMsg]
-        );
-        await query(
-          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Appointment Rescheduled',$3,false)`,
-          [nrdId, doctorUserId, dRMsg]
-        );
-
-        try { pushNotification(patientUserId, { id: nrpId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: pRMsg }); } catch (_) {}
-        try { pushNotification(doctorUserId, { id: nrdId, type: 'appointment_confirmed', title: 'Appointment Rescheduled', message: dRMsg }); } catch (_) {}
-        await query(
-          `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-           VALUES ($1, $2, 'User', 'Rescheduled appointment', 'Appointment', $3, 'success')`,
-          [a.patient_id, a.patient_name, req.params.id]
-        );
-      }
-    // Cancel old reminders, send reschedule email, schedule new reminders
+    // Cancel old reminders, send reschedule email with correct old/new times, schedule new reminders
     try {
       await cancelReminders(req.params.id);
-      const { rows: apptRows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
-      if (apptRows[0]) {
-        const a = apptRows[0];
-        const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
-        const patientEmail = pRows[0]?.email;
-        if (patientEmail) {
-          await enqueueEmail('send-reschedule', {
-            patientEmail,
-            patientName: a.patient_name,
-            doctorName: a.doctor_name,
-            oldDate: existing[0]?.date || date,
-            oldTime: existing[0]?.time || time,
-            newDate: date,
-            newTime: time,
-          });
-          // Re-schedule reminders for the new time
-          await scheduleReminders({ ...a, date, time }, patientEmail);
-        }
+      const a = preRows[0];
+      const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
+      const patientEmail = pRows[0]?.email;
+      if (patientEmail) {
+        await enqueueEmail('send-reschedule', {
+          patientEmail,
+          patientName: a.patient_name,
+          doctorName:  a.doctor_name,
+          oldDate,           // correct: fetched before UPDATE
+          oldTime,           // correct: fetched before UPDATE
+          newDate: date,
+          newTime: time,
+        });
+        await scheduleReminders({ ...a, date, time }, patientEmail);
       }
     } catch (_) {}
 
