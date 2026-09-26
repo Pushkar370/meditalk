@@ -14,8 +14,15 @@ import { useFetch } from "../../hooks/useFetch";
 import { greeting, formatDate } from "../../constants";
 import { getPatientById } from "../../services/patientService";
 import { getAppointments } from "../../services/appointmentService";
-import { getMedicalRecords, getPrescriptions, getAdherenceSchedules, logAdherenceDose } from "../../services/prescriptionService";
+import {
+  getMedicalRecords,
+  getPrescriptions,
+  getAdherenceSchedules,
+  logAdherenceDose,
+  getFollowUpSuggestions,
+} from "../../services/prescriptionService";
 import { getPatientVitalsHistory } from "../../services/triageService";
+import FollowUpSuggestionsCard from "../../components/appointments/FollowUpSuggestionsCard";
 import { useToast } from "../../context/ToastContext";
 import { useState } from "react";
 
@@ -29,11 +36,15 @@ export default function PatientDashboard() {
 
 
   const { data: patient, loading: patientLoading } = useFetch(() => getPatientById(patientId), [patientId]);
-  const { data: appts, loading: apptsLoading } = useFetch(() => getAppointments({ patientId }), [patientId]);
+  const { data: appts, loading: apptsLoading, reload: reloadAppts } = useFetch(() => getAppointments({ patientId }), [patientId]);
   const { data: records } = useFetch(() => getMedicalRecords(patientId), [patientId]);
   const { data: rx } = useFetch(() => getPrescriptions({ patientId }), [patientId]);
   const { data: vitalsHistory } = useFetch(() => (patientId ? getPatientVitalsHistory(patientId) : Promise.resolve([])), [patientId]);
   const { data: adherenceSchedules, reload: reloadAdherence } = useFetch(() => (patientId ? getAdherenceSchedules(patientId) : Promise.resolve([])), [patientId]);
+  const { data: followUpRes, reload: reloadFollowUps } = useFetch(
+    () => (patientId ? getFollowUpSuggestions(patientId) : Promise.resolve({ suggestions: [] })),
+    [patientId]
+  );
 
 
   if (patientLoading || apptsLoading) return <LoadingState />;
@@ -57,6 +68,17 @@ export default function PatientDashboard() {
         <h1 className="text-2xl font-bold text-ink">{greeting()}, {displayName}</h1>
         <p className="text-sm text-ink/50">Here's your personal health overview & vitals intelligence.</p>
       </div>
+
+      {/* CW-3: Follow-Up Suggestions Banner */}
+      <FollowUpSuggestionsCard
+        suggestions={followUpRes?.suggestions || []}
+        onConfirmed={() => {
+          reloadFollowUps();
+          reloadAppts();
+        }}
+        onDismissed={() => reloadFollowUps()}
+      />
+
 
       {/* AI Clinical Triage Launcher Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-sage/20 to-accent/10 p-5 border border-primary/20 shadow-sm">

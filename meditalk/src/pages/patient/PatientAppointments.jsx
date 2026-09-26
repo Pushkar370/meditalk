@@ -16,7 +16,10 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   getAvailableSlots,
+  checkInAppointment,
 } from "../../services/appointmentService";
+import { getFollowUpSuggestions } from "../../services/prescriptionService";
+import FollowUpSuggestionsCard from "../../components/appointments/FollowUpSuggestionsCard";
 import { useFetch } from "../../hooks/useFetch";
 
 // Generate and download an ICS calendar file for an appointment
@@ -61,12 +64,26 @@ export default function PatientAppointments() {
   const patientId = user?.id;
 
   const { data: appts, loading, reload } = useFetch(() => getAppointments({ patientId }), [patientId]);
+  const { data: followUpRes, reload: reloadFollowUps } = useFetch(
+    () => (patientId ? getFollowUpSuggestions(patientId) : Promise.resolve({ suggestions: [] })),
+    [patientId]
+  );
   const [tab, setTab] = useState("upcoming");
   const [toCancel, setToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
   const [toReschedule, setToReschedule] = useState(null);
   const [form, setForm] = useState({ date: "", time: "" });
   const [busy, setBusy] = useState(false);
+
+  async function handleCheckIn(appt) {
+    try {
+      await checkInAppointment(appt.id);
+      toast.success("Checked in! You are now in the waiting room queue.");
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to check in.");
+    }
+  }
 
   // --- Slot state for reschedule modal ---
   const [slots, setSlots] = useState([]);
@@ -150,6 +167,18 @@ export default function PatientAppointments() {
         action={<Button onClick={() => navigate("/patient/book-appointment")}><CalendarDays className="h-4 w-4" /> Book</Button>}
       />
 
+      {/* CW-3: Follow-Up Suggestions Banner */}
+      {tab === "upcoming" && (
+        <FollowUpSuggestionsCard
+          suggestions={followUpRes?.suggestions || []}
+          onConfirmed={() => {
+            reloadFollowUps();
+            reload();
+          }}
+          onDismissed={() => reloadFollowUps()}
+        />
+      )}
+
       <div className="flex gap-2 border-b border-sage/30">
         {TABS.map((t) => (
           <button
@@ -183,6 +212,7 @@ export default function PatientAppointments() {
               <AppointmentCard
                 appointment={a}
                 onView={() => navigate("/patient/appointments")}
+                onCheckIn={handleCheckIn}
                 onReschedule={(appt) => {
                   setToReschedule(appt);
                   setForm({ date: "", time: "" });

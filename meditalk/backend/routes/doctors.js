@@ -187,6 +187,16 @@ router.get('/:id/available-slots', requireAuth, async (req, res) => {
     const sched = schedRows[0] || { start_time: '09:00', end_time: '17:00', slot_mins: 30, break_start: '13:00', break_end: '14:00', work_days: '[1,2,3,4,5]' };
     const workDays = typeof sched.work_days === 'string' ? JSON.parse(sched.work_days) : sched.work_days;
 
+    // CW-2: Check if doctor has an availability exception (leave/vacation) on this date
+    const { rows: unavailRows } = await query(
+      'SELECT reason FROM doctor_unavailability WHERE doctor_id = $1 AND date = $2',
+      [id, date]
+    );
+    if (unavailRows.length > 0) {
+      const r = unavailRows[0].reason || 'On Leave';
+      return res.json({ date, slots: [], reason: `Doctor is unavailable on this date (${r})` });
+    }
+
     // Check if requested date falls on a working day (0=Sun, 6=Sat)
     const dayOfWeek = new Date(date + 'T00:00:00').getDay();
     if (!workDays.includes(dayOfWeek)) {
@@ -231,6 +241,159 @@ router.get('/:id/available-slots', requireAuth, async (req, res) => {
 
     res.json({ date, slots });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to generate slots' }); }
+});
+
+// CW-2: GET /api/doctors/:id/unavailability — fetch scheduled leave/exceptions
+router.get('/:id/unavailability', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await query(
+      'SELECT * FROM doctor_unavailability WHERE doctor_id = $1 ORDER BY date ASC',
+      [id]
+    );
+    res.json({ success: true, unavailability: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch doctor unavailability' });
+  }
+});
+
+// CW-2: POST /api/doctors/:id/unavailability — add a leave date (doctor self or admin)
+router.post('/:id/unavailability', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user.role !== 'admin' && req.user.id !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { date, reason } = req.body;
+    if (!date) return res.status(400).json({ error: 'Date is required (YYYY-MM-DD)' });
+
+    const unavailId = 'UNAV-' + Date.now();
+    await query(
+      `INSERT INTO doctor_unavailability (id, doctor_id, date, reason, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (doctor_id, date) DO UPDATE SET reason = $4, created_at = NOW()`,
+      [unavailId, id, date, reason || 'On Leave']
+    );
+
+    const { rows } = await query(
+      'SELECT * FROM doctor_unavailability WHERE doctor_id = $1 ORDER BY date ASC',
+      [id]
+    );
+    res.status(201).json({ success: true, unavailability: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to record unavailability' });
+  }
+});
+
+// CW-2: DELETE /api/doctors/:id/unavailability/:unavailId — remove a leave date
+router.delete('/:id/unavailability/:unavailId', requireAuth, async (req, res) => {
+  try {
+    const { id, unavailId } = req.params;
+    if (req.user.role !== 'admin' && req.user.id !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    await query('DELETE FROM doctor_unavailability WHERE id = $1 AND doctor_id = $2', [unavailId, id]);
+    res.json({ success: true, id: unavailId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete unavailability' });
+  }
+});
+
+// DA-1: GET /api/doctors/:id/analytics — Doctor-level analytics dashboard
+router.get('/:id/analytics', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.user.role !== 'admin' && req.user.id !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Appointment stats
+    const { rows: apptStats } = await query(
+      `SELECT
+         COUNT(*) as total,
+         COUNT(*) FILTER (WHERE status = 'completed') as completed,
+         COUNT(*) FILTER (WHERE status IN ('upcoming', 'confirmed')) as upcoming,
+         COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled,
+         COUNT(*) FILTER (WHERE status = 'no_show') as no_show
+       FROM appointments WHERE doctor_id = $1`,
+      [id]
+    );
+
+    // Unique patients seen
+    const { rows: patientCount } = await query(
+      `SELECT COUNT(DISTINCT patient_id) as unique_patients FROM appointments WHERE doctor_id = $1`,
+      [id]
+    );
+
+    // Top 5 Diagnoses from consultations
+    const { rows: topDiagnoses } = await query(
+      `SELECT diagnosis, COUNT(*) as count
+       FROM consultations
+       WHERE doctor_id = $1 AND diagnosis IS NOT NULL AND diagnosis != ''
+       GROUP BY diagnosis
+       ORDER BY count DESC
+       LIMIT 5`,
+      [id]
+    );
+
+    // Total prescriptions issued
+    const { rows: rxCount } = await query(
+      `SELECT COUNT(*) as total_prescriptions FROM prescriptions WHERE doctor_id = $1`,
+      [id]
+    );
+
+    // Pending refill requests
+    const { rows: refillCount } = await query(
+      `SELECT COUNT(*) as pending_refills FROM refill_requests WHERE doctor_id = $1 AND status = 'pending'`,
+      [id]
+    );
+
+    // Monthly appointment trend (last 6 months)
+    const { rows: monthlyTrend } = await query(
+      `SELECT
+         TO_CHAR(DATE(date), 'YYYY-MM') as month,
+         COUNT(*) as count,
+         COUNT(*) FILTER (WHERE status = 'completed') as completed
+       FROM appointments
+       WHERE doctor_id = $1 AND date >= TO_CHAR(NOW() - INTERVAL '6 months', 'YYYY-MM-DD')
+       GROUP BY month
+       ORDER BY month ASC`,
+      [id]
+    );
+
+    const stats = apptStats[0] || {};
+    const total = Number(stats.total) || 0;
+    const completed = Number(stats.completed) || 0;
+    const upcoming = Number(stats.upcoming) || 0;
+    const cancelled = Number(stats.cancelled) || 0;
+    const noShow = Number(stats.no_show) || 0;
+    const noShowRate = total > 0 ? Math.round((noShow / total) * 100) : 0;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    res.json({
+      success: true,
+      summary: {
+        total,
+        completed,
+        upcoming,
+        cancelled,
+        noShow,
+        noShowRate,
+        completionRate,
+        uniquePatients: Number(patientCount[0]?.unique_patients) || 0,
+        prescriptionsIssued: Number(rxCount[0]?.total_prescriptions) || 0,
+        pendingRefills: Number(refillCount[0]?.pending_refills) || 0,
+      },
+      topDiagnoses: topDiagnoses.map((d) => ({ diagnosis: d.diagnosis, count: Number(d.count) })),
+      monthlyTrend: monthlyTrend.map((m) => ({ month: m.month, count: Number(m.count), completed: Number(m.completed) })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch doctor analytics' });
+  }
 });
 
 export default router;

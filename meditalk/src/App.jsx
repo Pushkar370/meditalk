@@ -28,7 +28,7 @@ import PatientTriage from "./pages/patient/PatientTriage";
 
 import {
   DoctorDashboard, DoctorAppointments, DoctorPatients, DoctorPatientDetails, DoctorConsultation,
-  DoctorPrescriptions, DoctorCalendar,
+  DoctorPrescriptions, DoctorCalendar, DoctorAnalytics,
 } from "./pages/doctor/doctorIndex.jsx";
 import {
   AdminDashboard, AdminPatients, AdminDoctors, AdminDoctorVerification, AdminAppointments, AdminAnnouncements, AdminAnalytics, AdminAuditLogs,
@@ -79,6 +79,7 @@ export default function App() {
           <Route path="/doctor/consultation/:id" element={<DoctorConsultation />} />
           <Route path="/doctor/prescriptions" element={<DoctorPrescriptions />} />
           <Route path="/doctor/calendar" element={<DoctorCalendar />} />
+          <Route path="/doctor/analytics" element={<DoctorAnalytics />} />
           <Route path="/doctor/notifications" element={<NotificationCenter />} />
           <Route path="/doctor/settings" element={<Settings />} />
         </Route>

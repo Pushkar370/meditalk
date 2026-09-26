@@ -208,6 +208,33 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
       console.warn('[Prescriptions] Consultation summary email failed (non-fatal):', emailErr.message);
     }
 
+    // CW-3: Follow-Up Appointment Automation — create pending suggestion
+    if (followUpDate) {
+      try {
+        const { rows: drRows3 } = await query('SELECT name FROM doctors WHERE id = $1', [doctorId]);
+        const drName3 = drRows3[0]?.name || doctorId;
+        const fugId = 'FUG-' + Date.now();
+        await query(
+          `INSERT INTO follow_up_suggestions (id, consultation_id, patient_id, doctor_id, doctor_name, suggested_date, reason, instructions, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW())`,
+          [fugId, id, patientId, doctorId, drName3, followUpDate, diagnosis || reason || 'Follow-up visit', followUpInstructions || null]
+        );
+        const { rows: uRows2 } = await query('SELECT id FROM users WHERE patient_id = $1', [patientId]);
+        const pUserId2 = uRows2[0]?.id;
+        if (pUserId2) {
+          const fnId = 'N-' + (Date.now() + 2);
+          const fnMsg = `Dr. ${drName3} recommended a follow-up consultation on ${followUpDate}. One-click to book in your dashboard.`;
+          await query(
+            `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Follow-up Recommended',$3,false)`,
+            [fnId, pUserId2, fnMsg]
+          );
+          try { pushNotification(pUserId2, { id: fnId, type: 'appointment_confirmed', title: 'Follow-up Recommended', message: fnMsg }); } catch (_) {}
+        }
+      } catch (fugErr) {
+        console.warn('[Consultations] Follow-up suggestion creation failed (non-fatal):', fugErr.message);
+      }
+    }
+
     const { rows } = await query('SELECT * FROM consultations WHERE id = $1', [id]);
     res.status(201).json({ success: true, consultation: parseConsultation(rows[0]) });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create consultation' }); }
@@ -579,6 +606,336 @@ router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[Phase9] AI synthesis error:', err);
     res.status(500).json({ error: 'AI synthesis failed' });
+  }
+});
+
+// ─── CW-3: Follow-Up Appointment Suggestions ───────────────────────────────
+
+// GET /api/follow-ups/patient/:patientId — fetch pending follow-up suggestions for patient
+router.get('/follow-ups/patient/:patientId', requireAuth, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { rows } = await query(
+      `SELECT f.*, d.specialty, d.image_url as doctor_image
+       FROM follow_up_suggestions f
+       LEFT JOIN doctors d ON f.doctor_id = d.id
+       WHERE f.patient_id = $1 AND f.status = 'pending'
+       ORDER BY f.suggested_date ASC`,
+      [patientId]
+    );
+    res.json({ success: true, suggestions: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch follow-up suggestions' });
+  }
+});
+
+// POST /api/follow-ups/:id/confirm — 1-click book suggested follow-up appointment
+router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { time, type = 'video' } = req.body;
+    if (!time) return res.status(400).json({ error: 'Time slot is required' });
+
+    const { rows: sRows } = await query('SELECT * FROM follow_up_suggestions WHERE id = $1', [id]);
+    if (!sRows[0]) return res.status(404).json({ error: 'Follow-up suggestion not found' });
+    const sug = sRows[0];
+
+    // Fetch patient name and doctor specialty
+    const { rows: pRows } = await query('SELECT name FROM patients WHERE id = $1', [sug.patient_id]);
+    const { rows: dRows } = await query('SELECT specialty FROM doctors WHERE id = $1', [sug.doctor_id]);
+    const patientName = pRows[0]?.name || 'Patient';
+    const specialty = dRows[0]?.specialty || 'General Physician';
+
+    // Book appointment
+    const apptId = 'A-' + Date.now();
+    await query(
+      `INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, specialty, date, time, type, status, reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'upcoming', $10)`,
+      [apptId, sug.patient_id, patientName, sug.doctor_id, sug.doctor_name, specialty, sug.suggested_date, time, type, `Follow-up: ${sug.reason || 'Routine check'}`]
+    );
+
+    // Update suggestion status
+    await query(
+      `UPDATE follow_up_suggestions SET status = 'booked', booked_appointment_id = $1 WHERE id = $2`,
+      [apptId, id]
+    );
+
+    // In-app notification
+    const { rows: uRows } = await query('SELECT id FROM users WHERE doctor_id = $1', [sug.doctor_id]);
+    const docUserId = uRows[0]?.id;
+    if (docUserId) {
+      const nId = 'N-' + Date.now();
+      const nMsg = `${patientName} confirmed their follow-up appointment on ${sug.suggested_date} at ${time}.`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Follow-up Confirmed',$3,false)`,
+        [nId, docUserId, nMsg]
+      );
+      try { pushNotification(docUserId, { id: nId, type: 'appointment_confirmed', title: 'Follow-up Confirmed', message: nMsg }); } catch (_) {}
+    }
+
+    res.status(201).json({ success: true, appointmentId: apptId, message: 'Follow-up appointment booked successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to confirm follow-up appointment' });
+  }
+});
+
+// PATCH /api/follow-ups/:id/dismiss — dismiss follow-up suggestion
+router.patch('/follow-ups/:id/dismiss', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query("UPDATE follow_up_suggestions SET status = 'dismissed' WHERE id = $1", [id]);
+    res.json({ success: true, message: 'Follow-up suggestion dismissed' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to dismiss suggestion' });
+  }
+});
+
+// ─── CW-4: Prescription Refill Requests ───────────────────────────────────
+
+// POST /api/refills — patient requests refill on an existing prescription
+router.post('/refills', requireAuth, async (req, res) => {
+  try {
+    const { prescriptionId, patientNotes } = req.body;
+    if (!prescriptionId) return res.status(400).json({ error: 'prescriptionId is required' });
+
+    const { rows: rxRows } = await query('SELECT * FROM prescriptions WHERE id = $1', [prescriptionId]);
+    if (!rxRows[0]) return res.status(404).json({ error: 'Prescription not found' });
+    const rx = rxRows[0];
+
+    const { role, id: callerId } = req.user;
+    if (role === 'patient' && rx.patient_id !== callerId) {
+      return res.status(403).json({ error: 'You may only request refills for your own prescriptions' });
+    }
+
+    const refillId = 'REF-' + Date.now();
+    await query(
+      `INSERT INTO refill_requests (id, prescription_id, patient_id, patient_name, doctor_id, doctor_name, medications, patient_notes, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW(), NOW())`,
+      [refillId, rx.id, rx.patient_id, rx.patient_name, rx.doctor_id, rx.doctor_name, rx.medications, patientNotes || null]
+    );
+
+    // Notify doctor
+    const { rows: uRows } = await query('SELECT id FROM users WHERE doctor_id = $1', [rx.doctor_id]);
+    const doctorUserId = uRows[0]?.id;
+    if (doctorUserId) {
+      const nId = 'N-' + Date.now();
+      const nMsg = `${rx.patient_name} requested a refill on prescription #${rx.id}.`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','Refill Request Received',$3,false)`,
+        [nId, doctorUserId, nMsg]
+      );
+      try { pushNotification(doctorUserId, { id: nId, type: 'prescription_available', title: 'Refill Request Received', message: nMsg }); } catch (_) {}
+    }
+
+    res.status(201).json({ success: true, id: refillId, message: 'Refill request submitted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit refill request' });
+  }
+});
+
+// GET /api/refills/patient/:patientId — patient views their refill requests
+router.get('/refills/patient/:patientId', requireAuth, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { rows } = await query(
+      'SELECT * FROM refill_requests WHERE patient_id = $1 ORDER BY created_at DESC',
+      [patientId]
+    );
+    const parsed = rows.map((r) => ({
+      ...r,
+      medications: safeJson(r.medications, []),
+    }));
+    res.json({ success: true, refillRequests: parsed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch refill requests' });
+  }
+});
+
+// GET /api/refills/doctor/:doctorId — doctor views pending refill requests
+router.get('/refills/doctor/:doctorId', requireAuth, async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { rows } = await query(
+      `SELECT r.*, p.gender, p.blood_group, p.allergies
+       FROM refill_requests r
+       LEFT JOIN patients p ON r.patient_id = p.id
+       WHERE r.doctor_id = $1
+       ORDER BY (CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END), r.created_at DESC`,
+      [doctorId]
+    );
+    const parsed = rows.map((r) => ({
+      ...r,
+      medications: safeJson(r.medications, []),
+    }));
+    res.json({ success: true, refillRequests: parsed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch doctor refill requests' });
+  }
+});
+
+// PATCH /api/refills/:id/approve — doctor approves refill and issues new prescription
+router.patch('/refills/:id/approve', requireAuth, requireRole('doctor'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { doctorNotes, modifications } = req.body || {};
+
+    const { rows: rRows } = await query('SELECT * FROM refill_requests WHERE id = $1', [id]);
+    if (!rRows[0]) return res.status(404).json({ error: 'Refill request not found' });
+    const refill = rRows[0];
+
+    // Determine final medications (either doctor modifications or original)
+    const finalMeds = modifications && Array.isArray(modifications) && modifications.length > 0
+      ? JSON.stringify(modifications)
+      : refill.medications;
+
+    // Generate new prescription
+    const newRxId = 'RX-' + Date.now();
+    await query(
+      `INSERT INTO prescriptions (id, patient_id, patient_name, doctor_id, doctor_name, date, medications, additional_instructions, status)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, 'active')`,
+      [newRxId, refill.patient_id, refill.patient_name, refill.doctor_id, refill.doctor_name, finalMeds, doctorNotes || 'Refill renewed as requested']
+    );
+
+    // Update refill request status
+    await query(
+      `UPDATE refill_requests SET status = 'approved', doctor_notes = $1, new_prescription_id = $2, updated_at = NOW() WHERE id = $3`,
+      [doctorNotes || 'Approved', newRxId, id]
+    );
+
+    // Notify patient
+    const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [refill.patient_id]);
+    const patientUserId = uRows[0]?.id;
+    if (patientUserId) {
+      const nId = 'N-' + Date.now();
+      const nMsg = `Your prescription refill request was approved by Dr. ${refill.doctor_name}. New prescription #${newRxId} is now active.`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','Refill Approved',$3,false)`,
+        [nId, patientUserId, nMsg]
+      );
+      try { pushNotification(patientUserId, { id: nId, type: 'prescription_available', title: 'Refill Approved', message: nMsg }); } catch (_) {}
+    }
+
+    res.json({ success: true, message: 'Refill approved', newPrescriptionId: newRxId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve refill request' });
+  }
+});
+
+// PATCH /api/refills/:id/reject — doctor rejects refill
+router.patch('/refills/:id/reject', requireAuth, requireRole('doctor'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { doctorNotes } = req.body || {};
+    if (!doctorNotes) return res.status(400).json({ error: 'Please provide a reason / note for the patient' });
+
+    const { rows: rRows } = await query('SELECT * FROM refill_requests WHERE id = $1', [id]);
+    if (!rRows[0]) return res.status(404).json({ error: 'Refill request not found' });
+    const refill = rRows[0];
+
+    await query(
+      `UPDATE refill_requests SET status = 'rejected', doctor_notes = $1, updated_at = NOW() WHERE id = $2`,
+      [doctorNotes, id]
+    );
+
+    // Notify patient
+    const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [refill.patient_id]);
+    const patientUserId = uRows[0]?.id;
+    if (patientUserId) {
+      const nId = 'N-' + Date.now();
+      const nMsg = `Refill request for #${refill.prescription_id} was reviewed by Dr. ${refill.doctor_name}: ${doctorNotes}`;
+      await query(
+        `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'prescription_available','Refill Update',$3,false)`,
+        [nId, patientUserId, nMsg]
+      );
+      try { pushNotification(patientUserId, { id: nId, type: 'prescription_available', title: 'Refill Update', message: nMsg }); } catch (_) {}
+    }
+
+    res.json({ success: true, message: 'Refill request rejected' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to reject refill request' });
+  }
+});
+
+// ─── DA-4: AI Consultation Note Drafting (SOAP Format) ────────────────────
+
+async function callGeminiSoapDraft({ patientName, age, gender, reason, symptoms, vitals = {}, diagnosis, diagnosisCode, observations, history = '' }) {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+
+  const prompt = `You are an expert clinical documentation assistant for a licensed physician.
+Generate a structured, professional clinical consultation note in standard SOAP format (Subjective, Objective, Assessment, Plan) based on the following consultation inputs:
+
+Patient: ${patientName || 'Patient'} (${age ? age + ' y/o' : ''} ${gender || ''})
+Reason for Visit: ${reason || 'Consultation'}
+Reported Symptoms: ${symptoms || 'None reported'}
+Vitals: ${JSON.stringify(vitals)}
+Observations / Physical Exam: ${observations || 'Non-contributory'}
+Working Diagnosis: ${diagnosis || 'Clinical evaluation'} (ICD-10: ${diagnosisCode || 'Unspecified'})
+Relevant History / Prior Context: ${history || 'None'}
+
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "subjective": "Concise summary of patient's chief complaint, history of present illness (HPI), and reported symptom duration/quality",
+  "objective": "Documented vitals analysis (flagging abnormal values), physical/telehealth observations, and relevant findings",
+  "assessment": "Primary clinical diagnosis, differential considerations, and acuity/risk level",
+  "plan": "Step-by-step management: non-pharmacological advice, prescribed therapies, red-flag warning signs, and follow-up guidance",
+  "clinical_recommendations": "Bullet points of key clinical reminders for the patient"
+}`;
+
+  if (apiKey) {
+    for (const model of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (candidateText) {
+            const parsed = JSON.parse(candidateText);
+            return { ...parsed, source: 'gemini_ai' };
+          }
+        }
+      } catch (err) {
+        console.warn(`[GeminiSOAP-${model}] Error:`, err.message);
+      }
+    }
+  }
+
+  // Deterministic clinical fallback if Gemini is offline
+  const vitalsText = Object.entries(vitals).filter(([_, v]) => v).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(', ') || 'Within normal limits';
+  return {
+    subjective: `Patient presented for consultation regarding: ${reason || 'unspecified complaints'}. Symptoms reported: ${symptoms || 'None documented'}. Patient reports functional impact and seeks medical guidance.`,
+    objective: `Telehealth clinical evaluation. Documented vitals: ${vitalsText}. Clinical observations: ${observations || 'Patient alert and oriented, in no acute distress during video evaluation.'}`,
+    assessment: `Primary Assessment: ${diagnosis || reason || 'Clinical consultation evaluation'} (${diagnosisCode || 'Clinical evaluation'}). Condition appears stable based on presented clinical parameters.`,
+    plan: `1. Implement clinical management as discussed with patient.\n2. Adhere to prescribed medications and instructions.\n3. Return for reassessment or seek emergency care immediately if red flag symptoms develop.\n4. Follow-up as advised.`,
+    clinical_recommendations: `• Maintain regular hydration and rest\n• Monitor vitals daily\n• Seek urgent care if breathing difficulty or acute pain arises`,
+    source: 'clinical_matrix',
+  };
+}
+
+// POST /api/consultations/draft-soap-note — doctors draft AI SOAP note
+router.post('/consultations/draft-soap-note', requireAuth, requireRole('doctor'), async (req, res) => {
+  try {
+    const draft = await callGeminiSoapDraft(req.body);
+    res.json({ success: true, draft });
+  } catch (err) {
+    console.error('[Consultations] SOAP draft failed:', err);
+    res.status(500).json({ error: 'Failed to generate SOAP note draft' });
   }
 });
 

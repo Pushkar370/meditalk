@@ -1,5 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
-import { Calendar, Save, Clock, Coffee, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Calendar,
+  Save,
+  Clock,
+  Coffee,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  Palmtree,
+  CalendarOff,
+  Trash2,
+  Plus,
+  AlertCircle
+} from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Button from "../../components/ui/Button";
 import LoadingState from "../../components/ui/LoadingState";
@@ -7,8 +20,14 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
-import { getAppointments } from "../../services/appointmentService";
-import { getDoctorSchedule, saveDoctorSchedule } from "../../services/appointmentService";
+import {
+  getAppointments,
+  getDoctorSchedule,
+  saveDoctorSchedule,
+  getDoctorUnavailability,
+  addDoctorUnavailability,
+  deleteDoctorUnavailability
+} from "../../services/appointmentService";
 import { formatDate } from "../../constants";
 
 const DAYS_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -40,7 +59,21 @@ export default function DoctorCalendar() {
   const [scheduleLoaded, setScheduleLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load schedule on mount
+  // --- CW-2: Availability Exceptions / Leave State ---
+  const [unavailabilities, setUnavailabilities] = useState([]);
+  const [leaveDate, setLeaveDate] = useState("");
+  const [leaveReason, setLeaveReason] = useState("Vacation");
+  const [addingLeave, setAddingLeave] = useState(false);
+
+  const loadUnavailability = useCallback(async () => {
+    if (!doctorId) return;
+    try {
+      const res = await getDoctorUnavailability(doctorId);
+      setUnavailabilities(res.unavailability || []);
+    } catch (_) {}
+  }, [doctorId]);
+
+  // Load schedule and leave days on mount
   useEffect(() => {
     if (!doctorId) return;
     getDoctorSchedule(doctorId)
@@ -56,7 +89,19 @@ export default function DoctorCalendar() {
         setScheduleLoaded(true);
       })
       .catch(() => setScheduleLoaded(true));
-  }, [doctorId]);
+
+    loadUnavailability();
+  }, [doctorId, loadUnavailability]);
+
+  // Fast map lookup: "YYYY-MM-DD" -> leave object
+  const unavailMap = useMemo(() => {
+    const map = {};
+    for (const u of unavailabilities) {
+      const dStr = typeof u.date === "string" ? u.date.slice(0, 10) : "";
+      if (dStr) map[dStr] = u;
+    }
+    return map;
+  }, [unavailabilities]);
 
   // --- Calendar helpers ---
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -117,18 +162,49 @@ export default function DoctorCalendar() {
     }
   }
 
+  async function handleAddLeave(dateToAdd, reasonToAdd) {
+    const targetDate = dateToAdd || leaveDate;
+    const targetReason = reasonToAdd || leaveReason;
+    if (!targetDate) {
+      toast.error("Please pick a date for your leave.");
+      return;
+    }
+    setAddingLeave(true);
+    try {
+      await addDoctorUnavailability(doctorId, { date: targetDate, reason: targetReason });
+      toast.success(`Leave scheduled for ${targetDate}`);
+      setLeaveDate("");
+      await loadUnavailability();
+    } catch (err) {
+      toast.error(err.message || "Failed to schedule leave");
+    } finally {
+      setAddingLeave(false);
+    }
+  }
+
+  async function handleDeleteLeave(unavailId) {
+    try {
+      await deleteDoctorUnavailability(doctorId, unavailId);
+      toast.success("Leave date removed");
+      await loadUnavailability();
+    } catch (err) {
+      toast.error(err.message || "Failed to remove leave");
+    }
+  }
+
   if (apptLoading || !scheduleLoaded) return <LoadingState />;
 
   const selectedDateStr = selectedDay
     ? `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
     : null;
   const selectedAppts = selectedDay ? apptsOn(selectedDay) : [];
+  const selectedDayLeave = selectedDateStr ? unavailMap[selectedDateStr] : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Schedule"
-        subtitle="Configure your working hours and view your appointment calendar."
+        title="My Schedule & Availability"
+        subtitle="Configure your regular hours, block vacation/leave days, and track appointments."
       />
 
       {/* ─── Schedule Settings Card ─────────────────────── */}
@@ -140,7 +216,7 @@ export default function DoctorCalendar() {
 
         {/* Working Days */}
         <div className="mb-5">
-          <p className="text-sm font-medium text-ink/70 mb-2">Working Days</p>
+          <p className="text-sm font-medium text-ink/70 mb-2">Regular Working Days</p>
           <div className="flex flex-wrap gap-2">
             {DAYS_LABELS.map((label, idx) => (
               <button
@@ -193,7 +269,7 @@ export default function DoctorCalendar() {
           </div>
           <div className="flex items-end">
             <Button onClick={handleSave} loading={saving} className="w-full">
-              <Save className="h-4 w-4" /> Save
+              <Save className="h-4 w-4" /> Save Hours
             </Button>
           </div>
         </div>
@@ -215,6 +291,94 @@ export default function DoctorCalendar() {
             onChange={(e) => setSchedule((s) => ({ ...s, break_end: e.target.value }))}
             className="border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-amber-500 bg-white"
           />
+        </div>
+      </div>
+
+      {/* ─── CW-2: Leave & Availability Exceptions Card ──────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <Palmtree className="h-5 w-5 text-amber-600" />
+            <div>
+              <h2 className="font-semibold text-ink text-base">Leave & Time-Off Exceptions</h2>
+              <p className="text-xs text-ink/60">Block specific dates for vacation, conferences, or sick leave. Patients cannot book slots on these dates.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Add Leave Form */}
+        <div className="p-4 rounded-xl bg-sage/10 border border-sage/30 mb-4">
+          <p className="text-xs font-semibold text-ink mb-3 flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-primary" /> Schedule Leave / Vacation Day
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink/70 mb-1">Date</label>
+              <input
+                type="date"
+                value={leaveDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setLeaveDate(e.target.value)}
+                className="w-full border border-sage/40 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink/70 mb-1">Reason / Note</label>
+              <select
+                value={leaveReason}
+                onChange={(e) => setLeaveReason(e.target.value)}
+                className="w-full border border-sage/40 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary bg-white"
+              >
+                <option value="Vacation">Vacation / Holiday</option>
+                <option value="Conference / Training">Medical Conference / Training</option>
+                <option value="Sick Leave">Sick Leave</option>
+                <option value="Personal Day">Personal Day Off</option>
+                <option value="Clinical Duty / Rounds">External Clinical Duty</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={() => handleAddLeave()}
+                loading={addingLeave}
+                disabled={!leaveDate}
+                className="w-full text-xs"
+              >
+                <CalendarOff className="h-4 w-4" /> Block Date
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Scheduled Exceptions List */}
+        <div>
+          <p className="text-xs font-semibold text-ink/70 mb-2">Upcoming Scheduled Leave Days</p>
+          {unavailabilities.length === 0 ? (
+            <p className="text-xs text-ink/40 py-2">No upcoming leave dates scheduled. You are available according to your regular hours.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {unavailabilities.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Palmtree className="h-4 w-4 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-ink">{formatDate(u.date)}</p>
+                      <p className="text-[11px] text-amber-800">{u.reason || "On Leave"}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteLeave(u.id)}
+                    title="Remove leave date"
+                    className="p-1 rounded hover:bg-amber-200/60 text-ink/40 hover:text-danger transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -256,28 +420,46 @@ export default function DoctorCalendar() {
               month === new Date().getMonth() &&
               year === new Date().getFullYear();
 
+            const dayStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const leaveInfo = unavailMap[dayStr];
+
             return (
               <div
                 key={day}
                 onClick={() => setSelectedDay(isSelected ? null : day)}
                 className={
-                  "min-h-[72px] rounded-xl border p-1.5 text-left cursor-pointer transition " +
+                  "min-h-[76px] rounded-xl border p-1.5 text-left cursor-pointer transition " +
                   (isSelected
                     ? "border-primary bg-primary/10 ring-1 ring-primary"
+                    : leaveInfo
+                    ? "border-amber-300 bg-amber-50/50"
                     : isWorkingDay
                     ? "border-sage/30 hover:bg-background"
                     : "border-dashed border-sage/20 bg-sage/5 opacity-50")
                 }
               >
-                <span
-                  className={
-                    "text-[11px] font-semibold " +
-                    (isToday ? "bg-primary text-white rounded-full px-1.5 py-0.5" : "text-ink/70")
-                  }
-                >
-                  {day}
-                </span>
-                {isWorkingDay && (
+                <div className="flex items-center justify-between">
+                  <span
+                    className={
+                      "text-[11px] font-semibold " +
+                      (isToday ? "bg-primary text-white rounded-full px-1.5 py-0.5" : "text-ink/70")
+                    }
+                  >
+                    {day}
+                  </span>
+                  {leaveInfo && (
+                    <span title={leaveInfo.reason || "On Leave"}>
+                      <Palmtree className="h-3 w-3 text-amber-600" />
+                    </span>
+                  )}
+                </div>
+
+                {leaveInfo ? (
+                  <div className="mt-1 p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-900">
+                    <p className="text-[9px] font-semibold truncate leading-tight">{leaveInfo.reason || "Leave"}</p>
+                    <p className="text-[8px] text-amber-700 font-medium">Slots Blocked</p>
+                  </div>
+                ) : isWorkingDay ? (
                   <div className="mt-1 space-y-0.5">
                     {appts.slice(0, 2).map((a) => (
                       <div
@@ -296,7 +478,7 @@ export default function DoctorCalendar() {
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
               </div>
             );
           })}
@@ -307,6 +489,10 @@ export default function DoctorCalendar() {
           <Legend className="bg-success/15 text-success" label="Upcoming / Confirmed" />
           <Legend className="bg-danger/10 text-danger" label="Cancelled" />
           <Legend className="bg-sage/30 text-primary" label="Completed" />
+          <span className="inline-flex items-center gap-1.5 text-amber-700">
+            <span className="h-3 w-3 rounded bg-amber-500/20 border border-amber-500/40 inline-block" />
+            Scheduled Leave / Time-Off
+          </span>
           <span className="inline-flex items-center gap-1.5 text-ink/40">
             <span className="h-3 w-3 rounded border border-dashed border-sage/40" />
             Non-working day
@@ -316,10 +502,52 @@ export default function DoctorCalendar() {
 
       {/* ─── Day Detail Panel ──────────────────────────── */}
       {selectedDay && (
-        <div className="card">
-          <h3 className="font-semibold text-ink mb-4">
-            {formatDate(selectedDateStr)} — Appointments ({selectedAppts.length})
-          </h3>
+        <div className="card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sage/20">
+            <div>
+              <h3 className="font-semibold text-ink text-base">
+                {formatDate(selectedDateStr)}
+              </h3>
+              <p className="text-xs text-ink/60">
+                {selectedDayLeave
+                  ? `Marked as Leave: ${selectedDayLeave.reason || "On Leave"}`
+                  : `${selectedAppts.length} appointments booked`}
+              </p>
+            </div>
+
+            {/* Quick Toggle Leave Button for Selected Day */}
+            <div>
+              {selectedDayLeave ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDeleteLeave(selectedDayLeave.id)}
+                  className="text-xs text-danger border-danger/40 hover:bg-danger/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Cancel Leave (Make Available)
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAddLeave(selectedDateStr, "Personal Day")}
+                  className="text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                >
+                  <Palmtree className="h-3.5 w-3.5" /> Mark as Leave Day
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {selectedDayLeave && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>
+                You are currently marked on leave for this day ({selectedDayLeave.reason}). All booking slots are blocked for patients.
+              </span>
+            </div>
+          )}
+
           {selectedAppts.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-ink/50 py-4">
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -364,3 +592,4 @@ function Legend({ className, label }) {
     </span>
   );
 }
+

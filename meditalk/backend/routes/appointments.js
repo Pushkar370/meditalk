@@ -82,6 +82,55 @@ router.get('/', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch appointments' }); }
 });
 
+// CW-6: GET /api/appointments/queue/today — Waiting Room Queue for today (ordered by check-in / room status)
+router.get('/queue/today', async (req, res) => {
+  try {
+    const { role, id: callerId } = req.user;
+    const { doctorId } = req.query;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let sql = `SELECT * FROM appointments WHERE date = $1 AND status NOT IN ('cancelled')`;
+    const params = [todayStr];
+    let idx = 2;
+
+    if (role === 'doctor') {
+      sql += ` AND doctor_id = $${idx++}`;
+      params.push(callerId);
+    } else if (doctorId) {
+      sql += ` AND doctor_id = $${idx++}`;
+      params.push(doctorId);
+    }
+
+    sql += ` ORDER BY
+      CASE
+        WHEN check_in_status = 'in_room' THEN 1
+        WHEN check_in_status = 'checked_in' THEN 2
+        WHEN status IN ('confirmed', 'upcoming') THEN 3
+        ELSE 4
+      END,
+      time ASC`;
+
+    const { rows } = await query(sql, params);
+    const queue = rows.map((r) => {
+      const appt = mapAppt(r);
+      const waitMins = r.checked_in_at
+        ? Math.max(0, Math.floor((Date.now() - new Date(r.checked_in_at).getTime()) / 60000))
+        : null;
+      return {
+        ...appt,
+        checkInStatus: r.check_in_status || 'scheduled',
+        checkedInAt: r.checked_in_at,
+        waitMinutes: waitMins,
+      };
+    });
+
+    res.json({ success: true, date: todayStr, queue });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch waiting room queue' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
@@ -120,6 +169,18 @@ router.post('/', async (req, res) => {
           code: 'DOCTOR_UNVERIFIED',
         });
       }
+    }
+
+    // CW-2: Check if doctor has scheduled leave on this date
+    const { rows: unavailCheck } = await query(
+      'SELECT reason FROM doctor_unavailability WHERE doctor_id = $1 AND date = $2',
+      [doctorId, date]
+    );
+    if (unavailCheck.length > 0) {
+      return res.status(409).json({
+        error: `Doctor is unavailable on this date (${unavailCheck[0].reason || 'On Leave'}). Please choose another date.`,
+        code: 'DOCTOR_UNAVAILABLE',
+      });
     }
 
     // --- Double-booking collision detection ---
@@ -286,6 +347,18 @@ router.patch('/:id/reschedule', async (req, res) => {
     const oldTime = preRows[0].time;
     const doctorId = preRows[0].doctor_id;
 
+    // CW-2: Check if doctor has scheduled leave on this date
+    const { rows: unavailConflict } = await query(
+      'SELECT reason FROM doctor_unavailability WHERE doctor_id = $1 AND date = $2',
+      [doctorId, date]
+    );
+    if (unavailConflict.length > 0) {
+      return res.status(409).json({
+        error: `Doctor is unavailable on this date (${unavailConflict[0].reason || 'On Leave'}). Please choose another date.`,
+        code: 'DOCTOR_UNAVAILABLE',
+      });
+    }
+
     // Conflict check: doctor already booked at new slot (exclude this appointment)
     const { rows: conflict } = await query(
       `SELECT id FROM appointments WHERE doctor_id = $1 AND date = $2 AND time = $3
@@ -447,6 +520,92 @@ router.patch('/:id', requireAuth, requireRole('doctor', 'admin'), async (req, re
 
     res.json({ success: true, id: req.params.id, status });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update appointment' }); }
+});
+
+// CW-6: PATCH /api/appointments/:id/check-in — Patient or receptionist marks check-in
+router.patch('/:id/check-in', async (req, res) => {
+  try {
+    const { rows: aRows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+    if (!aRows[0]) return res.status(404).json({ error: 'Appointment not found' });
+    const a = aRows[0];
+
+    const { rowCount } = await query(
+      "UPDATE appointments SET check_in_status = 'checked_in', checked_in_at = NOW() WHERE id = $1",
+      [req.params.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
+
+    // Notify doctor
+    try {
+      const docUserId = await getUserId(null, a.doctor_id);
+      if (docUserId) {
+        const nId = 'N-' + Date.now();
+        const msg = `Patient ${a.patient_name} has checked in and is waiting in the clinic.`;
+        await query(
+          `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Patient Checked In',$3,false)`,
+          [nId, docUserId, msg]
+        );
+        try { pushNotification(docUserId, { id: nId, type: 'appointment_confirmed', title: 'Patient Checked In', message: msg, appointmentId: req.params.id }); } catch (_) {}
+      }
+    } catch (_) {}
+
+    res.json({ success: true, id: req.params.id, checkInStatus: 'checked_in' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to check in' });
+  }
+});
+
+// CW-6: PATCH /api/appointments/:id/queue-status — Doctor/Admin updates patient queue status
+router.patch('/:id/queue-status', requireRole('doctor', 'admin'), async (req, res) => {
+  try {
+    const { checkInStatus } = req.body;
+    const allowed = ['scheduled', 'checked_in', 'in_room', 'completed', 'no_show'];
+    if (!checkInStatus || !allowed.includes(checkInStatus)) {
+      return res.status(400).json({ error: `checkInStatus must be one of: ${allowed.join(', ')}` });
+    }
+
+    let extraSet = '';
+    const params = [checkInStatus, req.params.id];
+    if (checkInStatus === 'checked_in') {
+      extraSet = ', checked_in_at = COALESCE(checked_in_at, NOW())';
+    } else if (checkInStatus === 'completed') {
+      extraSet = ", status = 'completed'";
+    } else if (checkInStatus === 'no_show') {
+      extraSet = ", status = 'no_show'";
+    }
+
+    const { rowCount } = await query(
+      `UPDATE appointments SET check_in_status = $1 ${extraSet} WHERE id = $2`,
+      params
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
+
+    // Notify patient if called into room
+    if (checkInStatus === 'in_room') {
+      try {
+        const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+        if (rows[0]) {
+          const a = rows[0];
+          const patientUserId = await getUserId(a.patient_id, null);
+          if (patientUserId) {
+            const nId = 'N-' + Date.now();
+            const msg = `Dr. ${a.doctor_name} is ready for you! Please proceed to consultation.`;
+            await query(
+              `INSERT INTO notifications (id, user_id, type, title, message, read) VALUES ($1,$2,'appointment_confirmed','Doctor Is Ready',$3,false)`,
+              [nId, patientUserId, msg]
+            );
+            try { pushNotification(patientUserId, { id: nId, type: 'appointment_confirmed', title: 'Doctor Is Ready', message: msg, appointmentId: req.params.id }); } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    }
+
+    res.json({ success: true, id: req.params.id, checkInStatus });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update queue status' });
+  }
 });
 
 export default router;

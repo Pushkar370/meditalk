@@ -68,5 +68,51 @@ export function updateVideoStatus(id, videoStatus) {
   });
 }
 
+// --- Doctor Availability Exceptions / Leave (CW-2) ---
+export function getDoctorUnavailability(doctorId) {
+  return apiFetch(`/doctors/${doctorId}/unavailability`);
+}
+
+export function addDoctorUnavailability(doctorId, { date, reason }) {
+  return apiFetch(`/doctors/${doctorId}/unavailability`, {
+    method: 'POST',
+    body: JSON.stringify({ date, reason }),
+  });
+}
+
+export function deleteDoctorUnavailability(doctorId, unavailId) {
+  return apiFetch(`/doctors/${doctorId}/unavailability/${unavailId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ─── CW-6: Waiting Room Queue ─────────────────────────────────────────────
+
+export function getWaitingRoomQueue(doctorId = null) {
+  const qs = doctorId ? `?doctorId=${doctorId}` : '';
+  return apiFetch(`/appointments/queue/today${qs}`);
+}
+
+export function checkInAppointment(appointmentId) {
+  return apiFetch(`/appointments/${appointmentId}/check-in`, {
+    method: 'PATCH',
+  });
+}
+
+export function updateQueueStatus(appointmentId, checkInStatus) {
+  return apiFetch(`/appointments/${appointmentId}/queue-status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ checkInStatus }),
+  });
+}
+
+// ─── DA-1: Doctor Analytics ───────────────────────────────────────────────
+
+export function getDoctorAnalytics(doctorId) {
+  return apiFetch(`/doctors/${doctorId}/analytics`);
+}
+
 // Delegates to doctor service — consistent API surface
 export { getDoctors };
+
+

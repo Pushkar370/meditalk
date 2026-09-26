@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, User, FileText, CalendarDays, History, Pill, Bell, Settings, LogOut, Calendar, ShieldCheck, Megaphone, Sparkles,
+  LayoutDashboard, User, FileText, CalendarDays, History, Pill, Bell, Settings, LogOut, Calendar, ShieldCheck, Megaphone, Sparkles, BarChart2,
 } from "lucide-react";
 
 export const NAV_CONFIG = {
@@ -20,6 +20,7 @@ export const NAV_CONFIG = {
     { label: "Patients", to: "/doctor/patients", icon: User },
     { label: "Calendar", to: "/doctor/calendar", icon: Calendar },
     { label: "Prescriptions", to: "/doctor/prescriptions", icon: Pill },
+    { label: "Analytics", to: "/doctor/analytics", icon: BarChart2 },
     { label: "Notifications", to: "/doctor/notifications", icon: Bell },
     { label: "Settings", to: "/doctor/settings", icon: Settings },
   ],

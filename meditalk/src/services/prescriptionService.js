@@ -122,3 +122,63 @@ export async function logAdherenceDose(scheduleId, slot, date) {
 export async function deactivateSchedule(scheduleId) {
   return apiFetch(`/medications/adherence/${scheduleId}`, { method: 'DELETE' });
 }
+
+// ─── CW-3: Follow-Up Suggestions ──────────────────────────────────────────
+
+export function getFollowUpSuggestions(patientId) {
+  return apiFetch(`/follow-ups/patient/${patientId}`);
+}
+
+export function confirmFollowUpSuggestion(suggestionId, { time, type }) {
+  return apiFetch(`/follow-ups/${suggestionId}/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ time, type }),
+  });
+}
+
+export function dismissFollowUpSuggestion(suggestionId) {
+  return apiFetch(`/follow-ups/${suggestionId}/dismiss`, {
+    method: 'PATCH',
+  });
+}
+
+// ─── CW-4: Prescription Refill Requests ───────────────────────────────────
+
+export function requestPrescriptionRefill({ prescriptionId, patientNotes }) {
+  return apiFetch('/refills', {
+    method: 'POST',
+    body: JSON.stringify({ prescriptionId, patientNotes }),
+  });
+}
+
+export function getPatientRefills(patientId) {
+  return apiFetch(`/refills/patient/${patientId}`);
+}
+
+export function getDoctorRefills(doctorId) {
+  return apiFetch(`/refills/doctor/${doctorId}`);
+}
+
+export function approveRefill(refillId, { doctorNotes, modifications } = {}) {
+  return apiFetch(`/refills/${refillId}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ doctorNotes, modifications }),
+  });
+}
+
+export function rejectRefill(refillId, { doctorNotes }) {
+  return apiFetch(`/refills/${refillId}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ doctorNotes }),
+  });
+}
+
+// ─── DA-4: AI Consultation Note Drafting (SOAP Format) ────────────────────
+
+export function draftSoapNote(consultationContext) {
+  return apiFetch('/consultations/draft-soap-note', {
+    method: 'POST',
+    body: JSON.stringify(consultationContext),
+  });
+}
+

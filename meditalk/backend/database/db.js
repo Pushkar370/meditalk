@@ -196,6 +196,50 @@ export async function initDb() {
     // Track check-in status for CW-6 (waiting room queue)
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS check_in_status TEXT DEFAULT NULL`,
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ DEFAULT NULL`,
+    // CW-2: Doctor availability exceptions (leave/vacation)
+    `CREATE TABLE IF NOT EXISTS doctor_unavailability (
+      id TEXT PRIMARY KEY,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(doctor_id, date)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_doc_unavail_doctor ON doctor_unavailability(doctor_id)`,
+    // CW-3: Follow-up appointment auto-suggestions
+    `CREATE TABLE IF NOT EXISTS follow_up_suggestions (
+      id TEXT PRIMARY KEY,
+      consultation_id TEXT REFERENCES consultations(id) ON DELETE CASCADE,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      doctor_name TEXT,
+      suggested_date TEXT NOT NULL,
+      reason TEXT,
+      instructions TEXT,
+      status TEXT DEFAULT 'pending',
+      booked_appointment_id TEXT REFERENCES appointments(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_follow_up_patient ON follow_up_suggestions(patient_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_follow_up_doctor ON follow_up_suggestions(doctor_id)`,
+    // CW-4: Prescription refill requests
+    `CREATE TABLE IF NOT EXISTS refill_requests (
+      id TEXT PRIMARY KEY,
+      prescription_id TEXT NOT NULL REFERENCES prescriptions(id) ON DELETE CASCADE,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      doctor_name TEXT NOT NULL,
+      medications TEXT NOT NULL DEFAULT '[]',
+      patient_notes TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      doctor_notes TEXT,
+      new_prescription_id TEXT REFERENCES prescriptions(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_refill_requests_patient ON refill_requests(patient_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_refill_requests_doctor ON refill_requests(doctor_id)`,
   ];
   for (const sql of migrations) {
     try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }

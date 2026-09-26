@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { CalendarDays, Eye, Calendar, XCircle, AlertTriangle, CheckCircle2, Clock, RotateCcw } from "lucide-react";
+import {
+  CalendarDays, Eye, Calendar, XCircle, AlertTriangle, CheckCircle2,
+  Clock, RotateCcw, Users, UserCheck, RotateCw, DoorOpen
+} from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -11,17 +14,25 @@ import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
-import { getAppointments } from "../../services/appointmentService";
+import {
+  getAppointments,
+  getWaitingRoomQueue,
+  checkInAppointment,
+  updateQueueStatus
+} from "../../services/appointmentService";
 import { getDoctors } from "../../services/doctorService";
 import { cancelAppointmentAdmin, rescheduleAppointmentAdmin } from "../../services/adminService";
 import { SPECIALTIES, APPOINTMENT_STATUS_LABELS, APPOINTMENT_TYPES, formatDate } from "../../constants";
 
 export default function AdminAppointments() {
   const toast = useToast();
+  const [activeTab, setActiveTab] = useState("directory"); // 'directory' | 'queue'
   const { data: appointments, loading, reload } = useFetch(() => getAppointments());
   const { data: doctors } = useFetch(() => getDoctors());
+  const { data: queueData, reload: reloadQueue } = useFetch(() => getWaitingRoomQueue());
   const [filter, setFilter] = useState({ date: "", doctor: "", specialty: "", status: "", type: "" });
   const [view, setView] = useState(null);
+  const [queueActionBusy, setQueueActionBusy] = useState(false);
 
   // Management modals state
   const [cancellingAppt, setCancellingAppt] = useState(null);
@@ -101,9 +112,60 @@ export default function AdminAppointments() {
     });
   }
 
+  async function handleCheckIn(apptId) {
+    setQueueActionBusy(true);
+    try {
+      await checkInAppointment(apptId);
+      toast.success("Patient successfully checked in to clinic queue!");
+      reloadQueue();
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to check in patient.");
+    } finally {
+      setQueueActionBusy(false);
+    }
+  }
+
+  async function handleQueueStatus(apptId, newStatus) {
+    setQueueActionBusy(true);
+    try {
+      await updateQueueStatus(apptId, newStatus);
+      toast.success(`Queue status updated: ${newStatus}`);
+      reloadQueue();
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to update queue status.");
+    } finally {
+      setQueueActionBusy(false);
+    }
+  }
+
+  const todayQueue = queueData?.queue || [];
+  const waitingPatients = todayQueue.filter((q) => q.checkInStatus === "checked_in");
+  const inRoomPatients = todayQueue.filter((q) => q.checkInStatus === "in_room");
+  const completedToday = todayQueue.filter((q) => q.checkInStatus === "completed");
+
   const columns = [
     { key: "id", label: "ID" },
-    { key: "patientName", label: "Patient" },
+    {
+      key: "patientName",
+      label: "Patient",
+      render: (r) => (
+        <div>
+          <span className="font-semibold text-ink">{r.patientName}</span>
+          {r.checkInStatus === "checked_in" && (
+            <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <Clock className="h-2.5 w-2.5 animate-spin" /> In Waiting Room
+            </span>
+          )}
+          {r.checkInStatus === "in_room" && (
+            <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <CheckCircle2 className="h-2.5 w-2.5" /> In Consultation Room
+            </span>
+          )}
+        </div>
+      ),
+    },
     { key: "doctorName", label: "Doctor" },
     { key: "date", label: "Date", render: (r) => formatDate(r.date) },
     { key: "time", label: "Time" },
@@ -117,6 +179,18 @@ export default function AdminAppointments() {
           <Button size="sm" variant="outline" onClick={() => setView(r)} title="View Details">
             <Eye className="h-3.5 w-3.5" />
           </Button>
+          {r.date === todayStr && (r.status === "upcoming" || r.status === "confirmed") && (!r.checkInStatus || r.checkInStatus === "scheduled") && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-primary/40 text-primary hover:bg-primary/10"
+              onClick={() => handleCheckIn(r.id)}
+              disabled={queueActionBusy}
+              title="Check in patient at clinic reception"
+            >
+              <UserCheck className="h-3.5 w-3.5" /> Check In
+            </Button>
+          )}
           {r.status !== "cancelled" && r.status !== "completed" && (
             <>
               <Button
@@ -151,109 +225,310 @@ export default function AdminAppointments() {
         subtitle="Review, reschedule, or cancel patient-doctor consultations platform-wide."
       />
 
-      {/* Summary KPI chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div
-          onClick={() => setFilter({ ...filter, status: "" })}
-          className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
-            filter.status === ""
-              ? "bg-primary/10 border-primary text-primary shadow-sm"
-              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+      {/* Mode Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-sage/20 pb-3">
+        <button
+          onClick={() => setActiveTab("directory")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+            activeTab === "directory"
+              ? "bg-primary text-white shadow-sm"
+              : "bg-white text-ink/70 border border-sage/30 hover:bg-sage/10"
           }`}
         >
-          <div className="text-xs font-medium">All Consultations</div>
-          <div className="text-xl font-bold text-ink mt-1">{totalCount}</div>
-        </div>
+          <CalendarDays className="h-4 w-4" /> Appointments Directory ({totalCount})
+        </button>
 
-        <div
-          onClick={() => setFilter({ ...filter, date: todayStr })}
-          className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
-            filter.date === todayStr
-              ? "bg-sky-50 border-sky-300 text-sky-800 shadow-sm"
-              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+        <button
+          onClick={() => setActiveTab("queue")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+            activeTab === "queue"
+              ? "bg-primary text-white shadow-sm"
+              : "bg-white text-ink/70 border border-sage/30 hover:bg-sage/10"
           }`}
         >
-          <div className="text-xs font-medium flex items-center justify-between">
-            <span>Today</span>
-            <Calendar className="w-3.5 h-3.5 text-sky-600" />
-          </div>
-          <div className="text-xl font-bold text-ink mt-1">{todayCount}</div>
-        </div>
-
-        <div
-          onClick={() => setFilter({ ...filter, status: "upcoming" })}
-          className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
-            filter.status === "upcoming"
-              ? "bg-amber-50 border-amber-300 text-amber-800 shadow-sm"
-              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
-          }`}
-        >
-          <div className="text-xs font-medium flex items-center justify-between">
-            <span>Upcoming / Confirmed</span>
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
-          </div>
-          <div className="text-xl font-bold text-ink mt-1">{upcomingCount}</div>
-        </div>
-
-        <div
-          onClick={() => setFilter({ ...filter, status: "completed" })}
-          className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
-            filter.status === "completed"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm"
-              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
-          }`}
-        >
-          <div className="text-xs font-medium flex items-center justify-between">
-            <span>Completed</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="text-xl font-bold text-ink mt-1">{completedCount}</div>
-        </div>
-
-        <div
-          onClick={() => setFilter({ ...filter, status: "cancelled" })}
-          className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
-            filter.status === "cancelled"
-              ? "bg-red-50 border-red-300 text-red-800 shadow-sm"
-              : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
-          }`}
-        >
-          <div className="text-xs font-medium flex items-center justify-between">
-            <span>Cancelled</span>
-            <XCircle className="w-3.5 h-3.5 text-danger" />
-          </div>
-          <div className="text-xl font-bold text-ink mt-1">{cancelledCount}</div>
-        </div>
+          <Users className="h-4 w-4" /> Clinic Reception &amp; Today's Queue
+          {waitingPatients.length > 0 && (
+            <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 animate-pulse">
+              {waitingPatients.length} Waiting
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Filter inputs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Input type="date" value={filter.date} onChange={(e) => setFilter({ ...filter, date: e.target.value })} />
-        <Select value={filter.doctor} onChange={(e) => setFilter({ ...filter, doctor: e.target.value })}>
-          <option value="">All Doctors</option>
-          {(doctors || []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </Select>
-        <Select value={filter.specialty} onChange={(e) => setFilter({ ...filter, specialty: e.target.value })}>
-          <option value="">All Specialties</option>
-          {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Select>
-        <Select value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
-          <option value="">All Statuses</option>
-          {Object.keys(APPOINTMENT_STATUS_LABELS).map((s) => <option key={s} value={s}>{APPOINTMENT_STATUS_LABELS[s]}</option>)}
-        </Select>
-        <Select value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })}>
-          <option value="">All Types</option>
-          {APPOINTMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </Select>
-      </div>
+      {activeTab === "queue" ? (
+        /* ─── CW-6: Clinic Reception & Waiting Room Queue Management ──────── */
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="card p-4 bg-white border border-sage/30">
+              <span className="text-xs font-semibold text-ink/60 uppercase">Today's Visits</span>
+              <p className="text-2xl font-bold text-ink mt-1">{todayQueue.length}</p>
+            </div>
+            <div className="card p-4 bg-amber-50/70 border border-amber-200">
+              <span className="text-xs font-semibold text-amber-700 uppercase">Waiting in Lobby</span>
+              <p className="text-2xl font-bold text-amber-900 mt-1">{waitingPatients.length}</p>
+            </div>
+            <div className="card p-4 bg-emerald-50/70 border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-700 uppercase">In Consultation</span>
+              <p className="text-2xl font-bold text-emerald-900 mt-1">{inRoomPatients.length}</p>
+            </div>
+            <div className="card p-4 bg-sage/20 border border-sage/40">
+              <span className="text-xs font-semibold text-ink/60 uppercase">Completed Today</span>
+              <p className="text-2xl font-bold text-ink mt-1">{completedToday.length}</p>
+            </div>
+          </div>
 
-      <div className="card">
-        {rows.length === 0 ? (
-          <EmptyState icon={CalendarDays} title="No appointments match filters" />
-        ) : (
-          <DataTable columns={columns} data={rows} />
-        )}
-      </div>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-ink text-base flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" /> Live Clinic Floor Queue
+            </h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                reloadQueue();
+                reload();
+              }}
+              disabled={queueActionBusy}
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${queueActionBusy ? "animate-spin" : ""}`} /> Refresh Floor
+            </Button>
+          </div>
+
+          {todayQueue.length === 0 ? (
+            <div className="card">
+              <EmptyState
+                icon={CalendarDays}
+                title="No appointments scheduled for today"
+                description="Patients scheduled for today will automatically populate here for check-in and queue triage."
+              />
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {todayQueue.map((item, idx) => {
+                const isWaiting = item.checkInStatus === "checked_in";
+                const isInRoom = item.checkInStatus === "in_room";
+                const isDone = item.checkInStatus === "completed" || item.status === "completed";
+                const isScheduled = !item.checkInStatus || item.checkInStatus === "scheduled";
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition border ${
+                      isWaiting
+                        ? "border-amber-300 bg-amber-50/30 shadow-sm"
+                        : isInRoom
+                        ? "border-emerald-300 bg-emerald-50/30 shadow-sm"
+                        : "border-sage/30 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 mt-0.5 ${
+                        isWaiting ? "bg-amber-100 text-amber-800 border border-amber-300" :
+                        isInRoom ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                        "bg-sage/20 text-ink/60"
+                      }`}>
+                        {isWaiting ? `#${idx + 1}` : isInRoom ? "ROOM" : `${item.time}`}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-ink text-base">{item.patientName}</h4>
+                          <span className="text-xs text-ink/50">→ Dr. {item.doctorName}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-sage/20 text-ink/60 font-medium">
+                            {item.type}
+                          </span>
+                          {isWaiting && (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              Waiting ~{item.waitMinutes ?? 0}m
+                            </span>
+                          )}
+                          {isInRoom && (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              In Consultation
+                            </span>
+                          )}
+                          {isDone && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sage/30 text-ink/70">
+                              Completed
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-ink/70 mt-1">
+                          Reason: <span className="italic">{item.reason || "General visit"}</span>
+                          {item.checkedInAt && (
+                            <span className="ml-2 text-ink/40">
+                              · Arrived at {new Date(item.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      {isScheduled && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          loading={queueActionBusy}
+                          onClick={() => handleCheckIn(item.id)}
+                        >
+                          <UserCheck className="h-3.5 w-3.5" /> Check In Patient
+                        </Button>
+                      )}
+
+                      {isWaiting && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            loading={queueActionBusy}
+                            onClick={() => handleQueueStatus(item.id, "in_room")}
+                          >
+                            <DoorOpen className="h-3.5 w-3.5" /> Call to Room
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-danger hover:bg-danger/10"
+                            disabled={queueActionBusy}
+                            onClick={() => handleQueueStatus(item.id, "no_show")}
+                          >
+                            Mark No-Show
+                          </Button>
+                        </>
+                      )}
+
+                      {isInRoom && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-emerald-400 text-emerald-800 hover:bg-emerald-100"
+                          loading={queueActionBusy}
+                          onClick={() => handleQueueStatus(item.id, "completed")}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Mark Completed
+                        </Button>
+                      )}
+
+                      <Button size="sm" variant="outline" onClick={() => setView(item)}>
+                        Details
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ─── Platform Appointments Directory View ──────────────────────── */
+        <>
+          {/* Summary KPI chips */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div
+              onClick={() => setFilter({ ...filter, status: "" })}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+                filter.status === ""
+                  ? "bg-primary/10 border-primary text-primary shadow-sm"
+                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+              }`}
+            >
+              <div className="text-xs font-medium">All Consultations</div>
+              <div className="text-xl font-bold text-ink mt-1">{totalCount}</div>
+            </div>
+
+            <div
+              onClick={() => setFilter({ ...filter, date: todayStr })}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+                filter.date === todayStr
+                  ? "bg-sky-50 border-sky-300 text-sky-800 shadow-sm"
+                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+              }`}
+            >
+              <div className="text-xs font-medium flex items-center justify-between">
+                <span>Today</span>
+                <Calendar className="w-3.5 h-3.5 text-sky-600" />
+              </div>
+              <div className="text-xl font-bold text-ink mt-1">{todayCount}</div>
+            </div>
+
+            <div
+              onClick={() => setFilter({ ...filter, status: "upcoming" })}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+                filter.status === "upcoming"
+                  ? "bg-amber-50 border-amber-300 text-amber-800 shadow-sm"
+                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+              }`}
+            >
+              <div className="text-xs font-medium flex items-center justify-between">
+                <span>Upcoming / Confirmed</span>
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+              </div>
+              <div className="text-xl font-bold text-ink mt-1">{upcomingCount}</div>
+            </div>
+
+            <div
+              onClick={() => setFilter({ ...filter, status: "completed" })}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+                filter.status === "completed"
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm"
+                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+              }`}
+            >
+              <div className="text-xs font-medium flex items-center justify-between">
+                <span>Completed</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              <div className="text-xl font-bold text-ink mt-1">{completedCount}</div>
+            </div>
+
+            <div
+              onClick={() => setFilter({ ...filter, status: "cancelled" })}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+                filter.status === "cancelled"
+                  ? "bg-red-50 border-red-300 text-red-800 shadow-sm"
+                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+              }`}
+            >
+              <div className="text-xs font-medium flex items-center justify-between">
+                <span>Cancelled</span>
+                <XCircle className="w-3.5 h-3.5 text-danger" />
+              </div>
+              <div className="text-xl font-bold text-ink mt-1">{cancelledCount}</div>
+            </div>
+          </div>
+
+          {/* Filter inputs */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Input type="date" value={filter.date} onChange={(e) => setFilter({ ...filter, date: e.target.value })} />
+            <Select value={filter.doctor} onChange={(e) => setFilter({ ...filter, doctor: e.target.value })}>
+              <option value="">All Doctors</option>
+              {(doctors || []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </Select>
+            <Select value={filter.specialty} onChange={(e) => setFilter({ ...filter, specialty: e.target.value })}>
+              <option value="">All Specialties</option>
+              {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+            <Select value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })}>
+              <option value="">All Statuses</option>
+              {Object.keys(APPOINTMENT_STATUS_LABELS).map((s) => <option key={s} value={s}>{APPOINTMENT_STATUS_LABELS[s]}</option>)}
+            </Select>
+            <Select value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })}>
+              <option value="">All Types</option>
+              {APPOINTMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          </div>
+
+          <div className="card">
+            {rows.length === 0 ? (
+              <EmptyState icon={CalendarDays} title="No appointments match filters" />
+            ) : (
+              <DataTable columns={columns} data={rows} />
+            )}
+          </div>
+        </>
+      )}
 
       {/* View Details Modal */}
       <Modal

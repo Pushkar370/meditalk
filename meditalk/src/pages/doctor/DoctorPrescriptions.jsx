@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Pill, Plus, Trash2, FileDown, Send, ChevronDown, Check, AlertTriangle, ShieldAlert, ShieldCheck, X, Info } from "lucide-react";
+import {
+  Pill, Plus, Trash2, FileDown, Send, ChevronDown, Check,
+  AlertTriangle, ShieldAlert, ShieldCheck, X, Info, RotateCcw,
+  MessageSquare, CheckCircle2, AlertCircle
+} from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
@@ -14,7 +18,14 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
 import { getPatients } from "../../services/patientService";
-import { getPrescriptions, savePrescription, checkDrugSafety } from "../../services/prescriptionService";
+import {
+  getPrescriptions,
+  savePrescription,
+  checkDrugSafety,
+  getDoctorRefills,
+  approveRefill,
+  rejectRefill,
+} from "../../services/prescriptionService";
 import { PrescriptionPreview } from "../patient/PatientPrescriptions";
 import { formatDate } from "../../constants";
 import { searchDrugs } from "../../data/drugCatalog";
@@ -255,47 +266,292 @@ export default function DoctorPrescriptions() {
     setCreating(true);
   }
 
+  // CW-4: Refill State & Actions
+  const [activeTab, setActiveTab] = useState("prescriptions");
+  const [approvingRefill, setApprovingRefill] = useState(null);
+  const [rejectingRefill, setRejectingRefill] = useState(null);
+  const [doctorRefillNote, setDoctorRefillNote] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const { data: refillsData, reload: reloadRefills } = useFetch(
+    () => (doctorId ? getDoctorRefills(doctorId) : Promise.resolve({ refillRequests: [] })),
+    [doctorId]
+  );
+  const refillRequests = refillsData?.refillRequests || [];
+  const pendingCount = refillRequests.filter((r) => r.status === "pending").length;
+
+  async function handleApprove() {
+    if (!approvingRefill) return;
+    setActionBusy(true);
+    try {
+      await approveRefill(approvingRefill.id, { doctorNotes: doctorRefillNote || "Approved renewal" });
+      toast.success(`Refill approved! New prescription created for ${approvingRefill.patient_name}.`);
+      setApprovingRefill(null);
+      setDoctorRefillNote("");
+      reloadRefills();
+      reload();
+    } catch (err) {
+      toast.error(err.message || "Failed to approve refill.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    if (!rejectingRefill || !doctorRefillNote.trim()) {
+      toast.error("Please provide a note/reason for declining.");
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await rejectRefill(rejectingRefill.id, { doctorNotes: doctorRefillNote });
+      toast.info("Refill request declined.");
+      setRejectingRefill(null);
+      setDoctorRefillNote("");
+      reloadRefills();
+    } catch (err) {
+      toast.error(err.message || "Failed to decline refill.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   if (loading) return <LoadingState />;
   const list = rx || [];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Prescriptions"
-        subtitle="Create and manage digital prescriptions for your patients."
+        title="Prescriptions & Refill Tasks"
+        subtitle="Create prescriptions, manage medication safety, and process refill requests."
         action={<Button onClick={openNew}><Plus className="h-4 w-4" /> New Prescription</Button>}
       />
 
-      {list.length === 0 ? (
-        <div className="card"><EmptyState icon={Pill} title="No prescriptions yet" message="Create a new prescription for a patient." /></div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {list.map((p) => (
-            <div key={p.id} className="card group">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-sage/20 flex items-center justify-center">
-                    <Pill className="h-5 w-5 text-primary" />
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-sage/30">
+        <button
+          onClick={() => setActiveTab("prescriptions")}
+          className={
+            "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition " +
+            (activeTab === "prescriptions"
+              ? "border-primary text-primary"
+              : "border-transparent text-ink/50 hover:text-ink")
+          }
+        >
+          All Prescriptions ({list.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("refills")}
+          className={
+            "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition flex items-center gap-2 " +
+            (activeTab === "refills"
+              ? "border-primary text-primary"
+              : "border-transparent text-ink/50 hover:text-ink")
+          }
+        >
+          <span>Refill Requests ({refillRequests.length})</span>
+          {pendingCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white">
+              {pendingCount} Pending
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === "prescriptions" ? (
+        list.length === 0 ? (
+          <div className="card"><EmptyState icon={Pill} title="No prescriptions yet" message="Create a new prescription for a patient." /></div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {list.map((p) => (
+              <div key={p.id} className="card group">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-sage/20 flex items-center justify-center">
+                      <Pill className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-ink">Rx #{p.id}</p>
+                      <p className="text-xs text-ink/50">{formatDate(p.date)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-ink">Rx #{p.id}</p>
-                    <p className="text-xs text-ink/50">{formatDate(p.date)}</p>
-                  </div>
+                  <StatusBadge status={p.status} />
                 </div>
-                <StatusBadge status={p.status} />
+                <p className="text-sm text-ink/70 mt-3">{(p.medications || []).length} medication(s) · {p.patientName}</p>
+                {p.diagnosis && <p className="text-xs text-ink/50 mt-1">Dx: {p.diagnosis}</p>}
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" onClick={() => setViewRx(p)}>View</Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDownloadPdf(p)}>
+                    <FileDown className="h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
               </div>
-              <p className="text-sm text-ink/70 mt-3">{(p.medications || []).length} medication(s) · {p.patientName}</p>
-              {p.diagnosis && <p className="text-xs text-ink/50 mt-1">Dx: {p.diagnosis}</p>}
-              <div className="mt-3 flex gap-2 flex-wrap">
-                <Button size="sm" variant="outline" onClick={() => setViewRx(p)}>View</Button>
-                <Button size="sm" variant="ghost" onClick={() => handleDownloadPdf(p)}>
-                  <FileDown className="h-3.5 w-3.5" /> PDF
-                </Button>
+            ))}
+          </div>
+        )
+      ) : (
+        /* CW-4: Refill Requests View */
+        refillRequests.length === 0 ? (
+          <div className="card">
+            <EmptyState
+              icon={RotateCcw}
+              title="No refill requests"
+              message="No patients have requested prescription refills at this time."
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {refillRequests.map((r) => (
+              <div key={r.id} className="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-ink text-sm">Refill for #{r.prescription_id}</span>
+                    <span className="font-bold text-ink">· {r.patient_name}</span>
+                    <span className="text-xs text-ink/50">· Requested {formatDate(r.created_at)}</span>
+                  </div>
+
+                  {/* Medications requested */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(r.medications || []).map((m, idx) => (
+                      <span key={idx} className="px-2.5 py-1 rounded-md text-xs bg-sage/20 text-ink font-medium">
+                        {m.medicine || m.name} ({m.dosage}) · {m.frequency}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Notes */}
+                  {r.patient_notes && (
+                    <p className="text-xs text-ink/80 bg-sage/10 p-2 rounded-lg">
+                      <span className="font-semibold text-ink">Patient reason:</span> "{r.patient_notes}"
+                    </p>
+                  )}
+
+                  {r.doctor_notes && (
+                    <p className="text-xs text-teal-800 bg-teal-50 border border-teal-200 p-2 rounded-lg">
+                      <span className="font-semibold">My Note:</span> {r.doctor_notes}
+                    </p>
+                  )}
+                </div>
+
+                <div className="shrink-0 flex items-center gap-2">
+                  {r.status === "pending" ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setApprovingRefill(r);
+                          setDoctorRefillNote("Refill approved for ongoing management");
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Approve & Renew Rx
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setRejectingRefill(r);
+                          setDoctorRefillNote("");
+                        }}
+                        className="text-xs text-danger border-danger/40 hover:bg-danger/10"
+                      >
+                        <X className="h-3.5 w-3.5" /> Decline
+                      </Button>
+                    </>
+                  ) : r.status === "approved" ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approved (Rx #{r.new_prescription_id})
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                      Declined
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* CW-4: Approve Refill Modal */}
+      <Modal
+        open={!!approvingRefill}
+        onClose={() => setApprovingRefill(null)}
+        title="Approve Prescription Refill"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setApprovingRefill(null)}>Cancel</Button>
+            <Button onClick={handleApprove} loading={actionBusy} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Check className="h-4 w-4" /> Confirm Approval & Issue Rx
+            </Button>
+          </>
+        }
+      >
+        {approvingRefill && (
+          <div className="space-y-4 text-xs">
+            <p className="text-ink/70">
+              Approving this request will automatically generate a new active prescription for <span className="font-semibold text-ink">{approvingRefill.patient_name}</span> with the same medication regimen and notify the patient.
+            </p>
+            <div>
+              <p className="font-semibold text-ink mb-1">Medications to Renew:</p>
+              <div className="space-y-1">
+                {(approvingRefill.medications || []).map((m, idx) => (
+                  <div key={idx} className="p-2 rounded bg-sage/10 border border-sage/20 flex justify-between">
+                    <span>{m.medicine || m.name} ({m.dosage})</span>
+                    <span className="text-ink/60">{m.frequency}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+            <div>
+              <label className="block font-semibold text-ink mb-1">Doctor's Clinical Instructions / Note</label>
+              <textarea
+                value={doctorRefillNote}
+                onChange={(e) => setDoctorRefillNote(e.target.value)}
+                placeholder="e.g. Approved 30-day supply. Continue daily monitoring."
+                rows={2}
+                className="w-full border border-sage/40 rounded-xl p-2.5 text-xs focus:outline-none focus:border-primary resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* CW-4: Reject Refill Modal */}
+      <Modal
+        open={!!rejectingRefill}
+        onClose={() => setRejectingRefill(null)}
+        title="Decline Refill Request"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setRejectingRefill(null)}>Cancel</Button>
+            <Button onClick={handleReject} loading={actionBusy} className="bg-danger hover:bg-danger/90 text-white">
+              Decline Refill
+            </Button>
+          </>
+        }
+      >
+        {rejectingRefill && (
+          <div className="space-y-3 text-xs">
+            <p className="text-ink/70">
+              Please provide a clinical explanation for declining this refill request for <span className="font-semibold text-ink">{rejectingRefill.patient_name}</span>. This explanation will be sent to the patient.
+            </p>
+            <div>
+              <label className="block font-semibold text-ink mb-1">Reason for Declining *</label>
+              <textarea
+                value={doctorRefillNote}
+                onChange={(e) => setDoctorRefillNote(e.target.value)}
+                placeholder="e.g. Consultation required prior to renewal due to blood pressure monitoring needs."
+                rows={3}
+                className="w-full border border-sage/40 rounded-xl p-2.5 text-xs focus:outline-none focus:border-primary resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* View / Download Modal */}
       <Modal
