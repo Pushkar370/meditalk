@@ -19,7 +19,7 @@ function getResendClient() {
   return resendInstance;
 }
 
-const FROM = process.env.EMAIL_FROM || 'MediTalk <noreply@meditalk.care>';
+const FROM = process.env.EMAIL_FROM || 'MediTalk <onboarding@resend.dev>';
 const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // ── Shared HTML shell ─────────────────────────────────────────────────────────
@@ -80,8 +80,12 @@ async function sendEmail({ to, subject, html }) {
     return { id: 'dev-mode', success: true };
   }
   try {
-    const result = await client.emails.send({ from: FROM, to, subject, html });
-    return { id: result.id, success: true };
+    const { data, error } = await client.emails.send({ from: FROM, to, subject, html });
+    if (error) {
+      console.error('[EmailService] Resend send error:', error.message || error);
+      return { success: false, error: error.message || error };
+    }
+    return { id: data?.id, success: true };
   } catch (err) {
     console.error('[EmailService] Send failed:', err.message);
     return { success: false, error: err.message };
