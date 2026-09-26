@@ -6,7 +6,19 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendInstance = null;
+function getResendClient() {
+  if (!resendInstance && process.env.RESEND_API_KEY) {
+    try {
+      resendInstance = new Resend(process.env.RESEND_API_KEY);
+    } catch (e) {
+      console.warn('[EmailService] Failed to initialize Resend client:', e.message);
+      resendInstance = null;
+    }
+  }
+  return resendInstance;
+}
+
 const FROM = process.env.EMAIL_FROM || 'MediTalk <noreply@meditalk.care>';
 const BASE_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
@@ -61,13 +73,14 @@ function htmlShell(title, bodyHtml) {
 
 // ── Core send wrapper ─────────────────────────────────────────────────────────
 async function sendEmail({ to, subject, html }) {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResendClient();
+  if (!client) {
     // Dev fallback — log the email instead of sending
-    console.log(`\n📧 [EMAIL - DEV MODE] To: ${to}\nSubject: ${subject}\n`);
+    console.log(`\n📧 [EMAIL - SIMULATION/DEV MODE] To: ${to}\nSubject: ${subject}\n`);
     return { id: 'dev-mode', success: true };
   }
   try {
-    const result = await resend.emails.send({ from: FROM, to, subject, html });
+    const result = await client.emails.send({ from: FROM, to, subject, html });
     return { id: result.id, success: true };
   } catch (err) {
     console.error('[EmailService] Send failed:', err.message);
