@@ -154,7 +154,7 @@ router.put('/:id/schedule', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     // Allow doctor to update their own schedule or admin to update any
-    if (req.user.role !== 'admin' && req.user.id !== id) {
+    if (req.user.role !== 'admin' && req.user.id !== id && req.user.userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { work_days, start_time, end_time, slot_mins, break_start, break_end } = req.body;
@@ -262,7 +262,7 @@ router.get('/:id/unavailability', requireAuth, async (req, res) => {
 router.post('/:id/unavailability', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    if (req.user.role !== 'admin' && req.user.id !== id) {
+    if (req.user.role !== 'admin' && req.user.id !== id && req.user.userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { date, reason } = req.body;
@@ -291,7 +291,7 @@ router.post('/:id/unavailability', requireAuth, async (req, res) => {
 router.delete('/:id/unavailability/:unavailId', requireAuth, async (req, res) => {
   try {
     const { id, unavailId } = req.params;
-    if (req.user.role !== 'admin' && req.user.id !== id) {
+    if (req.user.role !== 'admin' && req.user.id !== id && req.user.userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
     await query('DELETE FROM doctor_unavailability WHERE id = $1 AND doctor_id = $2', [unavailId, id]);
@@ -306,7 +306,7 @@ router.delete('/:id/unavailability/:unavailId', requireAuth, async (req, res) =>
 router.get('/:id/analytics', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    if (req.user.role !== 'admin' && req.user.id !== id) {
+    if (req.user.role !== 'admin' && req.user.id !== id && req.user.userId !== id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

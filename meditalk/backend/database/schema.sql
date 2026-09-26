@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- MediTalk Database Schema — Complete & Canonical
 -- This file is the single source of truth for the DB structure.
 -- ALL tables and columns (including Phase 5-9 additions) are here.

@@ -12,7 +12,7 @@
  * pg-boss stores jobs in the same PostgreSQL DB — no Redis needed.
  */
 
-import PgBoss from 'pg-boss';
+import { PgBoss } from 'pg-boss';
 import {
   sendAppointmentConfirmation,
   sendAppointmentReminder24h,
@@ -48,6 +48,21 @@ export async function initJobQueue(connectionString) {
 
   await boss.start();
   console.log('⚙️  Job queue started (pg-boss)');
+
+  // ── Ensure Queues Exist ──────────────────────────────────────────────────
+  const queueNames = [
+    'send-confirmation',
+    'reminder-24h',
+    'reminder-2h',
+    'send-cancellation',
+    'send-reschedule',
+    'send-consultation-summary',
+    'send-password-reset',
+    'send-welcome',
+  ];
+  for (const q of queueNames) {
+    try { await boss.createQueue(q); } catch (_) {}
+  }
 
   // ── Register Workers ──────────────────────────────────────────────────────
 

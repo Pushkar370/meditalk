@@ -8,6 +8,7 @@
     "client": "vite",
     "server": "node backend/server.js",
     "seed": "node backend/database/seed.js",
+    "test": "node test_suite.mjs",
     "build": "npm install && vite build",
     "start": "node backend/server.js",
     "preview": "vite preview"

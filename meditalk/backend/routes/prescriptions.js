@@ -616,7 +616,7 @@ router.get('/follow-ups/patient/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
     const { rows } = await query(
-      `SELECT f.*, d.specialty, d.image_url as doctor_image
+      `SELECT f.*, d.specialty
        FROM follow_up_suggestions f
        LEFT JOIN doctors d ON f.doctor_id = d.id
        WHERE f.patient_id = $1 AND f.status = 'pending'
@@ -641,10 +641,19 @@ router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
     if (!sRows[0]) return res.status(404).json({ error: 'Follow-up suggestion not found' });
     const sug = sRows[0];
 
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'patient' && sug.patient_id !== callerId && sug.patient_id !== userId) {
+      return res.status(403).json({ error: 'You may only confirm follow-ups for yourself' });
+    }
+    if (sug.status === 'booked') {
+      return res.status(400).json({ error: 'Follow-up appointment has already been booked' });
+    }
+
     // Fetch patient name and doctor specialty
-    const { rows: pRows } = await query('SELECT name FROM patients WHERE id = $1', [sug.patient_id]);
+    const { rows: pRows } = await query('SELECT name, email FROM patients WHERE id = $1', [sug.patient_id]);
     const { rows: dRows } = await query('SELECT specialty FROM doctors WHERE id = $1', [sug.doctor_id]);
     const patientName = pRows[0]?.name || 'Patient';
+    const patientEmail = pRows[0]?.email || null;
     const specialty = dRows[0]?.specialty || 'General Physician';
 
     // Book appointment
@@ -672,6 +681,21 @@ router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
         [nId, docUserId, nMsg]
       );
       try { pushNotification(docUserId, { id: nId, type: 'appointment_confirmed', title: 'Follow-up Confirmed', message: nMsg }); } catch (_) {}
+    }
+
+    if (patientEmail) {
+      try {
+        await enqueueEmail('send-confirmation', {
+          appointmentId: apptId,
+          patientEmail,
+          patientName,
+          doctorName: sug.doctor_name,
+          specialty,
+          date: sug.suggested_date,
+          time,
+          type,
+        });
+      } catch (_) {}
     }
 
     res.status(201).json({ success: true, appointmentId: apptId, message: 'Follow-up appointment booked successfully' });
@@ -705,8 +729,8 @@ router.post('/refills', requireAuth, async (req, res) => {
     if (!rxRows[0]) return res.status(404).json({ error: 'Prescription not found' });
     const rx = rxRows[0];
 
-    const { role, id: callerId } = req.user;
-    if (role === 'patient' && rx.patient_id !== callerId) {
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'patient' && rx.patient_id !== callerId && rx.patient_id !== userId) {
       return res.status(403).json({ error: 'You may only request refills for your own prescriptions' });
     }
 

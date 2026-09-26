@@ -39,7 +39,7 @@ export function getPool() {
       ssl: requiresSsl ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 20000,
       keepAlive: true,
       keepAliveInitialDelayMillis: 10000,
     });
@@ -103,7 +103,10 @@ export async function query(text, params) {
 // Run schema SQL on startup (idempotent CREATE TABLE IF NOT EXISTS)
 export async function initDb() {
   const schemaPath = path.join(__dirname, 'schema.sql');
-  const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+  let schemaSql = fs.readFileSync(schemaPath, 'utf8');
+  if (schemaSql.charCodeAt(0) === 0xFEFF) {
+    schemaSql = schemaSql.slice(1);
+  }
   const p = getPool();
   await p.query(schemaSql);
 
