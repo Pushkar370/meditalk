@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { query } from '../database/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+import { enqueueEmail } from '../services/jobQueue.js';
+
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
@@ -223,9 +225,17 @@ router.post('/forgot-password', async (req, res) => {
       [user.id, resetToken, expiresAt]
     );
 
-    // TODO: Send email here using your email provider (Resend, SendGrid, Nodemailer)
-    // Example: await sendResetEmail(email, `https://yourapp.com/reset-password?token=${resetToken}`);
-    // For now, we log it to the console in development only:
+    // Send password reset email via job queue
+    try {
+      await enqueueEmail('send-password-reset', {
+        email: user.email,
+        name: user.name,
+        resetToken,
+      });
+    } catch (emailErr) {
+      console.warn('[Auth] Failed to queue reset email (non-fatal):', emailErr.message);
+    }
+
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[DEV] Password reset token for ${email}: ${resetToken}`);
     }

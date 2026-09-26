@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+import { enqueueEmail, scheduleReminders, cancelReminders } from '../services/jobQueue.js';
+
 
 
 const router = Router();
@@ -25,6 +27,10 @@ function mapAppt(r) {
     videoStatus: r.video_status || null,
     urgency: r.urgency || 'routine',
     triageSummary,
+    cancelledBy: r.cancelled_by || null,
+    noShowReason: r.no_show_reason || null,
+    checkInStatus: r.check_in_status || null,
+    checkedInAt: r.checked_in_at || null,
   };
 }
 
@@ -185,6 +191,21 @@ router.post('/', async (req, res) => {
       );
     } catch (_) {}
 
+    // Email: send confirmation + schedule reminders
+    try {
+      const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [patientId]);
+      const patientEmail = pRows[0]?.email;
+      if (patientEmail) {
+        const apptObj = { id, patient_name: patientName, doctor_name: doctorName, specialty, date, time, type };
+        // Queue immediate confirmation email
+        await enqueueEmail('send-confirmation', { ...apptObj, patientEmail, appointmentId: id });
+        // Schedule 24h and 2h reminders
+        await scheduleReminders(apptObj, patientEmail);
+      }
+    } catch (emailErr) {
+      console.warn('[Appointments] Email scheduling failed (non-fatal):', emailErr.message);
+    }
+
     const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [id]);
     res.status(201).json({ success: true, appointment: mapAppt(rows[0]) });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create appointment' }); }
@@ -193,7 +214,11 @@ router.post('/', async (req, res) => {
 router.patch('/:id/cancel', async (req, res) => {
   try {
     const { reason } = req.body || {};
-    const { rowCount } = await query("UPDATE appointments SET status = 'cancelled' WHERE id = $1", [req.params.id]);
+    const cancelledBy = req.user.role === 'patient' ? 'patient' : req.user.role;
+    const { rowCount } = await query(
+      "UPDATE appointments SET status='cancelled', cancelled_by=$1 WHERE id=$2",
+      [cancelledBy, req.params.id]
+    );
     if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
 
     try {
@@ -223,6 +248,25 @@ router.patch('/:id/cancel', async (req, res) => {
            VALUES ($1, $2, 'User', $3, 'Appointment', $4, 'success')`,
           [a.patient_id, a.patient_name, reason ? `Cancelled appointment. Reason: ${reason}` : 'Cancelled appointment', req.params.id]
         );
+      }
+    // Cancel reminders + send cancellation email
+    try {
+      await cancelReminders(req.params.id);
+      if (rows[0]) {
+        const a = rows[0];
+        const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
+        const patientEmail = pRows[0]?.email;
+        if (patientEmail) {
+          await enqueueEmail('send-cancellation', {
+            patientEmail,
+            patientName: a.patient_name,
+            doctorName: a.doctor_name,
+            date: a.date,
+            time: a.time,
+            cancelledBy: req.user.role === 'patient' ? 'you' : `Dr. ${a.doctor_name}`,
+            reason,
+          });
+        }
       }
     } catch (_) {}
 
@@ -280,10 +324,59 @@ router.patch('/:id/reschedule', async (req, res) => {
           [a.patient_id, a.patient_name, req.params.id]
         );
       }
+    // Cancel old reminders, send reschedule email, schedule new reminders
+    try {
+      await cancelReminders(req.params.id);
+      const { rows: apptRows } = await query('SELECT * FROM appointments WHERE id = $1', [req.params.id]);
+      if (apptRows[0]) {
+        const a = apptRows[0];
+        const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [a.patient_id]);
+        const patientEmail = pRows[0]?.email;
+        if (patientEmail) {
+          await enqueueEmail('send-reschedule', {
+            patientEmail,
+            patientName: a.patient_name,
+            doctorName: a.doctor_name,
+            oldDate: existing[0]?.date || date,
+            oldTime: existing[0]?.time || time,
+            newDate: date,
+            newTime: time,
+          });
+          // Re-schedule reminders for the new time
+          await scheduleReminders({ ...a, date, time }, patientEmail);
+        }
+      }
     } catch (_) {}
 
     res.json({ success: true, id: req.params.id });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to reschedule appointment' }); }
+});
+
+// PATCH /api/appointments/:id/mark-no-show — doctors/admins record a no-show (CW-7)
+router.patch('/:id/mark-no-show', requireRole('doctor', 'admin'), async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const { rowCount } = await query(
+      "UPDATE appointments SET status='no_show', no_show_reason=$1 WHERE id=$2",
+      [reason || null, req.params.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Appointment not found' });
+
+    // Audit log
+    try {
+      const { rows } = await query('SELECT * FROM appointments WHERE id=$1', [req.params.id]);
+      if (rows[0]) {
+        const a = rows[0];
+        await query(
+          `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
+           VALUES ($1, $2, 'Doctor', 'Marked appointment as no-show', 'Appointment', $3, 'success')`,
+          [a.doctor_id, a.doctor_name, req.params.id]
+        );
+      }
+    } catch (_) {}
+
+    res.json({ success: true, id: req.params.id, status: 'no_show' });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to mark no-show' }); }
 });
 
 // PATCH /api/appointments/:id/video-status — update video call lifecycle

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+import { enqueueEmail } from '../services/jobQueue.js';
+
 import { runDrugSafetyCheck } from '../data/drugInteractions.js';
 
 
@@ -171,6 +173,41 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
     if (appointmentId) {
       try { await query("UPDATE appointments SET status = 'completed' WHERE id = $1", [appointmentId]); } catch (_) {}
     }
+
+    // Send consultation summary email to patient
+    try {
+      const { rows: ptRows } = await query('SELECT name, email FROM patients WHERE id = $1', [patientId]);
+      const pt = ptRows[0];
+      if (pt?.email) {
+        const { rows: drRows2 } = await query('SELECT name FROM doctors WHERE id = $1', [doctorId]);
+        const drName2 = drRows2[0]?.name || 'Doctor';
+        // Get prescribed medications from the prescriptions table if linked by appointmentId
+        let medications = [];
+        if (appointmentId) {
+          const { rows: rxRows } = await query(
+            'SELECT medications FROM prescriptions WHERE patient_id=$1 AND doctor_id=$2 ORDER BY date DESC LIMIT 1',
+            [patientId, doctorId]
+          );
+          if (rxRows[0]) {
+            try { medications = JSON.parse(rxRows[0].medications); } catch (_) {}
+          }
+        }
+        await enqueueEmail('send-consultation-summary', {
+          patientEmail: pt.email,
+          patientName: pt.name,
+          doctorName: drName2,
+          date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          diagnosis,
+          treatmentPlan,
+          medications,
+          followUpDate,
+          followUpInstructions,
+        });
+      }
+    } catch (emailErr) {
+      console.warn('[Prescriptions] Consultation summary email failed (non-fatal):', emailErr.message);
+    }
+
     const { rows } = await query('SELECT * FROM consultations WHERE id = $1', [id]);
     res.status(201).json({ success: true, consultation: parseConsultation(rows[0]) });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create consultation' }); }

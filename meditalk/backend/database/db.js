@@ -190,6 +190,12 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`,
+    // CW-7: No-show tracking — new columns on appointments
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_by TEXT`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS no_show_reason TEXT`,
+    // Track check-in status for CW-6 (waiting room queue)
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS check_in_status TEXT DEFAULT NULL`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ DEFAULT NULL`,
   ];
   for (const sql of migrations) {
     try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }

@@ -30,6 +30,8 @@ import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 import triageRoutes from './routes/triage.js';
 import pharmacyRoutes from './routes/pharmacy.js';
+import { initJobQueue } from './services/jobQueue.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -258,6 +260,15 @@ let server;
 async function startServer() {
   try {
     await initDb();
+
+    // Start job queue (pg-boss) — must run after DB is initialized
+    try {
+      await initJobQueue(process.env.DATABASE_URL);
+    } catch (qErr) {
+      // Queue failure is non-fatal — app runs without background jobs
+      console.warn('⚠️  Job queue failed to start:', qErr.message);
+    }
+
     server = app.listen(PORT, () => {
       console.log(`🚀 MediTalk API running at http://localhost:${PORT}`);
       console.log(`   Health: http://localhost:${PORT}/api/health`);

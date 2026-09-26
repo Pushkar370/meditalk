@@ -253,18 +253,59 @@ export default function DoctorConsultation() {
         subtitle={`Patient: ${patient.name} (${patient.id})`}
       />
 
-      {/* Patient Summary */}
-      <Card>
-        <div className="flex items-center gap-3">
+      {/* ─── CW-5: Pinned Patient Clinical Snapshot ──────────────────────── */}
+      <Card className="border-l-4 border-l-primary">
+        <div className="flex items-start gap-4 flex-wrap">
           <Avatar name={patient.name} size="md" />
-          <div>
-            <p className="font-semibold text-ink">{patient.name}</p>
-            <p className="text-xs text-ink/50">
-              {patient.gender || "—"} · {patient.bloodGroup || patient.blood_group || "—"} ·{" "}
-              {Array.isArray(patient.allergies)
-                ? patient.allergies.join(", ") || "No allergies"
-                : patient.allergies || "No allergies"}
-            </p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="font-bold text-ink text-lg">{patient.name}</p>
+              <span className="text-xs text-ink/40">#{patient.id}</span>
+              {patient.gender && <span className="px-2 py-0.5 rounded-full bg-sage/20 text-xs text-ink/60">{patient.gender}</span>}
+              {(patient.bloodGroup || patient.blood_group) && (
+                <span className="px-2 py-0.5 rounded-full bg-red-50 border border-red-100 text-xs font-bold text-red-700">
+                  🩸 {patient.bloodGroup || patient.blood_group}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              {/* Allergies — highlighted prominently */}
+              <div className="p-2 rounded-xl bg-red-50 border border-red-100">
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">⚠️ Allergies</p>
+                {(() => {
+                  const allergies = Array.isArray(patient.allergies)
+                    ? patient.allergies
+                    : (patient.allergies ? [patient.allergies] : []);
+                  return allergies.length > 0
+                    ? <div className="flex flex-wrap gap-1">{allergies.map((a, i) => <span key={i} className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">{a}</span>)}</div>
+                    : <p className="text-xs text-ink/40 italic">No known allergies</p>;
+                })()}
+              </div>
+              {/* Chronic Conditions */}
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-100">
+                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Chronic Conditions</p>
+                {(() => {
+                  const conds = Array.isArray(patient.chronicConditions || patient.chronic_conditions)
+                    ? (patient.chronicConditions || patient.chronic_conditions)
+                    : [];
+                  return conds.length > 0
+                    ? <div className="flex flex-wrap gap-1">{conds.map((c, i) => <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs">{c}</span>)}</div>
+                    : <p className="text-xs text-ink/40 italic">None recorded</p>;
+                })()}
+              </div>
+              {/* Current Medications */}
+              <div className="p-2 rounded-xl bg-blue-50 border border-blue-100">
+                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">Current Medications</p>
+                {(() => {
+                  const meds = Array.isArray(patient.currentMedications || patient.current_medications)
+                    ? (patient.currentMedications || patient.current_medications)
+                    : [];
+                  return meds.length > 0
+                    ? <div className="flex flex-wrap gap-1">{meds.map((m, i) => <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">{typeof m === 'string' ? m : m.name}</span>)}</div>
+                    : <p className="text-xs text-ink/40 italic">None on record</p>;
+                })()}
+              </div>
+            </div>
           </div>
         </div>
       </Card>
