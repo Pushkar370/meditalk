@@ -771,7 +771,7 @@ export default function DoctorConsultation() {
                   type="button"
                   onClick={handlePingLatePatient}
                   disabled={pingingPatient}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition shadow-sm disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 transition shadow-sm disabled:opacity-50"
                   title="Send immediate WhatsApp video link to patient"
                 >
                   <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />

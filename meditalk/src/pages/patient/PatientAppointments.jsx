@@ -272,17 +272,18 @@ export default function PatientAppointments() {
                   )}
                 </div>
               )}
-              {/* Calendar & WhatsApp quick actions for upcoming/confirmed appointments */}
+              {/* Calendar quick actions for upcoming/confirmed appointments */}
               {(a.status === "upcoming" || a.status === "confirmed") && (
-                <div className="grid grid-cols-3 gap-1.5 mt-1">
+                <div className="grid grid-cols-2 gap-2 mt-1">
                   <a
                     href={generateGoogleCalendarUrl(a)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 transition text-center"
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
                     title="Add to Google Calendar"
                   >
-                    <Calendar className="h-3 w-3" /> Google Cal
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    <span>Google Cal</span>
                   </a>
                   <button
                     type="button"
@@ -290,22 +291,11 @@ export default function PatientAppointments() {
                       downloadIcsFile(a);
                       toast.success("iCal invite downloaded!");
                     }}
-                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 text-ink/70 text-[11px] font-semibold hover:bg-slate-100 transition"
+                    className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
                     title="Download iCal for Apple, Outlook, Android"
                   >
-                    <Download className="h-3 w-3" /> iCal (.ics)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const text = buildAppointmentWhatsAppText(a, "reminder_2h");
-                      const link = generateWhatsAppLink(user?.phone || a.patient_phone || "", text);
-                      window.open(link, "_blank");
-                    }}
-                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 transition"
-                    title="Open on WhatsApp"
-                  >
-                    <MessageSquare className="h-3 w-3 text-emerald-600" /> WhatsApp
+                    <Download className="h-3.5 w-3.5 text-ink/70" />
+                    <span>iCal (.ics)</span>
                   </button>
                 </div>
               )}

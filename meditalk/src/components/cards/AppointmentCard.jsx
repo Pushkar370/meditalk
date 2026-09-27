@@ -75,7 +75,7 @@ export default function AppointmentCard({
             type="button"
             onClick={() => onWhatsApp(a)}
             title="WhatsApp Alert & Calendar"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold transition"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold transition shadow-sm"
           >
             <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
             WhatsApp

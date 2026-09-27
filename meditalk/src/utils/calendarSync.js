@@ -133,7 +133,8 @@ export function downloadIcsFile(appointment) {
  */
 export function buildAppointmentWhatsAppText(appointment, type = "confirmation") {
   const patient = appointment.patient_name || appointment.patientName || "Patient";
-  const doctor = appointment.doctor_name || appointment.doctorName || "Doctor";
+  const rawDoctor = (appointment.doctor_name || appointment.doctorName || "Doctor").trim();
+  const doctor = rawDoctor.replace(/^Dr\.?\s*/i, "");
   const specialty = appointment.specialty || "Specialist";
   const isVideo = appointment.type === "video";
   const joinUrl = isVideo && appointment.id ? `${window.location.origin}/video/${appointment.id}` : `${window.location.origin}/patient/appointments`;

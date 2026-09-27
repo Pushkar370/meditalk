@@ -76,7 +76,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-600/15 text-teal-800 dark:text-teal-300">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-600/15 text-teal-800">
                     Recommended Follow-Up
                   </span>
                   <span className="text-xs font-semibold text-ink">Dr. {sug.doctor_name}</span>
@@ -91,7 +91,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
                   </p>
                 )}
                 {sug.instructions && (
-                  <p className="text-[11px] text-teal-900 dark:text-teal-300 mt-1 italic bg-teal-500/10 px-2 py-1 rounded-md inline-block">
+                  <p className="text-[11px] text-teal-900 mt-1 italic bg-teal-500/10 px-2 py-1 rounded-md inline-block">
                     "{sug.instructions}"
                   </p>
                 )}
@@ -120,7 +120,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
 
           {/* Inline Slot Picker when user clicks confirm */}
           {selectedSug?.id === sug.id && (
-            <div className="mt-4 pt-3 border-t border-teal-500/20 bg-white/70 dark:bg-ink/10 rounded-xl p-3">
+            <div className="mt-4 pt-3 border-t border-teal-500/20 bg-white/80 border border-sage/20 rounded-xl p-3">
               <p className="text-xs font-semibold text-ink mb-2 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-teal-600" />
                 Select a time slot for {formatDate(sug.suggested_date)}:

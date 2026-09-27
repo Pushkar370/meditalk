@@ -199,61 +199,63 @@ export default function BookAppointment() {
     const googleCalUrl = generateGoogleCalendarUrl(confirmedAppt);
     const waText = buildAppointmentWhatsAppText(confirmedAppt, "confirmation");
     const waLink = confirmedAppt.whatsappLink || generateWhatsAppLink(waSentTo || patientPhone || user?.phone, waText);
+    const rawDocName = (confirmedAppt.doctorName || confirmedAppt.doctor_name || "Doctor").trim();
+    const doctorDisplayName = rawDocName.startsWith("Dr.") ? rawDocName : `Dr. ${rawDocName}`;
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
         <PageHeader title="Appointment Confirmed" subtitle="Your telehealth consultation has been successfully scheduled." />
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
+        <div className="card space-y-6">
           {/* Header */}
-          <div className="flex items-center gap-3.5 pb-5 border-b border-slate-100 dark:border-slate-800">
-            <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/80 dark:border-emerald-800 shrink-0">
+          <div className="flex items-center gap-3.5 pb-5 border-b border-sage/20">
+            <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 shrink-0 shadow-sm">
               <CheckCircle2 className="h-6 w-6" />
             </div>
             <div>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                Booking Confirmed
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                ✓ Booking Confirmed
               </span>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                Dr. {confirmedAppt.doctorName || confirmedAppt.doctor_name}
+              <h2 className="text-xl font-bold text-ink mt-1">
+                {doctorDisplayName}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Confirmation ID: <span className="font-mono text-slate-700 dark:text-slate-300">#{confirmedAppt.id}</span>
+              <p className="text-xs text-ink/60">
+                Confirmation ID: <span className="font-mono font-semibold text-ink">#{confirmedAppt.id}</span>
               </p>
             </div>
           </div>
 
           {/* Details Table */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-5 border-b border-slate-100 dark:border-slate-800 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-sage/10 border border-sage/25 text-xs">
             <div>
-              <p className="text-slate-400 font-medium">Specialty</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{confirmedAppt.specialty || "General Medicine"}</p>
+              <p className="text-ink/60 font-medium">Specialty</p>
+              <p className="font-semibold text-ink mt-0.5">{confirmedAppt.specialty || "General Medicine"}</p>
             </div>
             <div>
-              <p className="text-slate-400 font-medium">Date</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{formatDate(confirmedAppt.date)}</p>
+              <p className="text-ink/60 font-medium">Date</p>
+              <p className="font-semibold text-ink mt-0.5">{formatDate(confirmedAppt.date)}</p>
             </div>
             <div>
-              <p className="text-slate-400 font-medium">Time</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{confirmedAppt.time}</p>
+              <p className="text-ink/60 font-medium">Time</p>
+              <p className="font-semibold text-ink mt-0.5">{confirmedAppt.time}</p>
             </div>
             <div>
-              <p className="text-slate-400 font-medium">Mode</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+              <p className="text-ink/60 font-medium">Mode</p>
+              <p className="font-semibold text-ink mt-0.5">
                 {isVideo ? "🎥 Video Call" : "🏥 In-Person"}
               </p>
             </div>
           </div>
 
           {/* WhatsApp Permission & Delivery Section */}
-          <div className="my-6 p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+          <div className="p-4 sm:p-5 rounded-xl bg-emerald-50/70 border border-emerald-200">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <div className="h-9 w-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                 <MessageSquare className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="wa-optin" className="text-xs font-bold text-slate-900 dark:text-white cursor-pointer">
+                  <label htmlFor="wa-optin" className="text-xs font-bold text-ink cursor-pointer">
                     WhatsApp Consultation Details & Reminders
                   </label>
                   <input
@@ -261,10 +263,10 @@ export default function BookAppointment() {
                     type="checkbox"
                     checked={waOptIn}
                     onChange={(e) => setWaOptIn(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="h-4 w-4 rounded border-sage/40 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[11px] text-ink/70 mt-0.5">
                   Receive your appointment confirmation, direct video room link, and a 2-hour reminder on your WhatsApp.
                 </p>
 
@@ -273,7 +275,7 @@ export default function BookAppointment() {
                     {!waSentTo ? (
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-ink/50">
                             +91
                           </span>
                           <input
@@ -281,14 +283,14 @@ export default function BookAppointment() {
                             placeholder="Enter 10-digit mobile number"
                             value={patientPhone.replace(/^\+?91/, "")}
                             onChange={(e) => setPatientPhone(e.target.value)}
-                            className="w-full pl-11 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className="w-full pl-11 pr-3 py-2 text-xs rounded-lg border border-sage/40 bg-white text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                           />
                         </div>
                         <button
                           type="button"
                           onClick={handleSendWhatsApp}
                           disabled={waSending}
-                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
                         >
                           {waSending ? (
                             <>
@@ -302,8 +304,8 @@ export default function BookAppointment() {
                         </button>
                       </div>
                     ) : (
-                      <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2 text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                      <div className="p-3 rounded-lg bg-white border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
+                        <div className="flex items-center gap-2 text-xs font-medium text-emerald-900">
                           <Check className="h-4 w-4 text-emerald-600 shrink-0" />
                           <span>Details dispatched to <strong>{waSentTo}</strong></span>
                         </div>
@@ -311,7 +313,7 @@ export default function BookAppointment() {
                           href={waLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-white dark:bg-slate-800 border border-emerald-300 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-50 transition"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-sm"
                         >
                           <ExternalLink className="h-3 w-3" /> Open in WhatsApp
                         </a>
@@ -324,8 +326,8 @@ export default function BookAppointment() {
           </div>
 
           {/* Calendar Sync Options */}
-          <div className="pt-2 pb-5 border-b border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2.5">
+          <div className="pt-2 pb-2">
+            <p className="text-xs font-semibold text-ink/70 mb-2.5">
               Add to your calendar:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -333,10 +335,10 @@ export default function BookAppointment() {
                 href={googleCalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-medium transition shadow-sm"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
               >
-                <Calendar className="h-3.5 w-3.5 text-blue-600" />
-                Add to Google Calendar
+                <Calendar className="h-3.5 w-3.5 text-primary" />
+                <span className="font-semibold text-ink">Add to Google Calendar</span>
               </a>
               <button
                 type="button"
@@ -344,16 +346,16 @@ export default function BookAppointment() {
                   downloadIcsFile(confirmedAppt);
                   toast.success("iCal invite downloaded!");
                 }}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-medium transition shadow-sm"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
               >
-                <Download className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
-                Download iCal (.ics) for Apple/Outlook
+                <Download className="h-3.5 w-3.5 text-ink/70" />
+                <span className="font-semibold text-ink">Download iCal (.ics) for Apple/Outlook</span>
               </button>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-sage/20">
             <Button
               variant="outline"
               onClick={() => {

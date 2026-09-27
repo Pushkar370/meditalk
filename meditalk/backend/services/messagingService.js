@@ -43,6 +43,9 @@ export function buildWhatsAppTemplate(type, data = {}) {
     customText = '',
   } = data;
 
+  const rawDoctor = (doctorName || 'Doctor').trim();
+  const cleanDoctor = rawDoctor.replace(/^Dr\.?\s*/i, '');
+
   const apptUrl = `${BASE_URL}/patient/appointments`;
   const videoUrl = appointmentId ? `${BASE_URL}/video/${appointmentId}` : apptUrl;
 
@@ -51,7 +54,7 @@ export function buildWhatsAppTemplate(type, data = {}) {
       return (
         `🏥 *MediTalk Appointment Confirmed*\n\n` +
         `Hello *${patientName}*,\n` +
-        `Your appointment has been confirmed with *Dr. ${doctorName}* (${specialty}).\n\n` +
+        `Your appointment has been confirmed with *Dr. ${cleanDoctor}* (${specialty}).\n\n` +
         `📅 *Date:* ${date}\n` +
         `⏰ *Time:* ${time}\n` +
         `🩺 *Type:* ${appointmentType}\n\n` +
@@ -63,7 +66,7 @@ export function buildWhatsAppTemplate(type, data = {}) {
       return (
         `⏰ *MediTalk Reminder: Appointment Tomorrow*\n\n` +
         `Hello *${patientName}*,\n` +
-        `You have an upcoming consultation with *Dr. ${doctorName}* tomorrow.\n\n` +
+        `You have an upcoming consultation with *Dr. ${cleanDoctor}* tomorrow.\n\n` +
         `📅 *Date:* ${date}\n` +
         `⏰ *Time:* ${time}\n` +
         `🔗 *Appointment Link:* ${apptUrl}\n\n` +
@@ -74,16 +77,16 @@ export function buildWhatsAppTemplate(type, data = {}) {
       return (
         `🔔 *MediTalk Alert: Appointment in 2 Hours*\n\n` +
         `Hello *${patientName}*,\n` +
-        `Your consultation with *Dr. ${doctorName}* begins at *${time}*.\n\n` +
+        `Your consultation with *Dr. ${cleanDoctor}* begins at *${time}*.\n\n` +
         `🎥 *Join Video Consultation:* ${videoUrl}\n\n` +
         `_Please ensure your camera and microphone are tested and working._`
       );
 
     case 'patient_late_ping':
       return (
-        `🏥 *Dr. ${doctorName} is waiting for you in your video consultation room!*\n\n` +
+        `🏥 *Dr. ${cleanDoctor} is waiting for you in your video consultation room!*\n\n` +
         `Hello *${patientName}*,\n` +
-        `Your consultation with *Dr. ${doctorName}* (${specialty}) is ready to start.\n\n` +
+        `Your consultation with *Dr. ${cleanDoctor}* (${specialty}) is ready to start.\n\n` +
         `👉 *Tap here to enter the video room now:*\n${videoUrl}\n\n` +
         `_If you are experiencing any technical issues, please reply directly to this message._`
       );
@@ -92,7 +95,7 @@ export function buildWhatsAppTemplate(type, data = {}) {
       return (
         `💊 *MediTalk: Digital Prescription Issued*\n\n` +
         `Hello *${patientName}*,\n` +
-        `Dr. ${doctorName} has issued your verified digital prescription.\n\n` +
+        `Dr. ${cleanDoctor} has issued your verified digital prescription.\n\n` +
         `📦 *Order Medicines & Download PDF:* ${BASE_URL}/patient/prescriptions\n\n` +
         `_Adhere strictly to prescribed dosages and instructions._`
       );
