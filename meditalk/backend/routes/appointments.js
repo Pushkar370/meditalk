@@ -3,6 +3,11 @@ import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
 import { enqueueEmail, scheduleReminders, cancelReminders } from '../services/jobQueue.js';
+import {
+  sendWhatsAppMessage,
+  buildWhatsAppTemplate,
+  generateWhatsAppLink,
+} from '../services/messagingService.js';
 
 
 
@@ -252,23 +257,57 @@ router.post('/', async (req, res) => {
       );
     } catch (_) {}
 
-    // Email: send confirmation + schedule reminders
+    // Email & WhatsApp: send confirmation + schedule reminders
+    let whatsappLink = null;
     try {
-      const { rows: pRows } = await query('SELECT email FROM patients WHERE id = $1', [patientId]);
+      const { rows: pRows } = await query('SELECT email, phone FROM patients WHERE id = $1', [patientId]);
       const patientEmail = pRows[0]?.email;
+      const patientPhone = pRows[0]?.phone;
+      const apptObj = { id, patient_name: patientName, doctor_name: doctorName, specialty, date, time, type };
+
       if (patientEmail) {
-        const apptObj = { id, patient_name: patientName, doctor_name: doctorName, specialty, date, time, type };
         // Queue immediate confirmation email
         await enqueueEmail('send-confirmation', { ...apptObj, patientEmail, appointmentId: id });
-        // Schedule 24h and 2h reminders
-        await scheduleReminders(apptObj, patientEmail);
+        // Schedule 24h and 2h email reminders
+        await scheduleReminders(apptObj, patientEmail, patientPhone);
       }
-    } catch (emailErr) {
-      console.warn('[Appointments] Email scheduling failed (non-fatal):', emailErr.message);
+
+      if (patientPhone) {
+        // Build instant WhatsApp click-to-chat link
+        const waText = buildWhatsAppTemplate('confirmation', {
+          patientName,
+          doctorName,
+          specialty,
+          date,
+          time,
+          appointmentType: type === 'video' ? 'Video Consultation' : 'In-Clinic Visit',
+          appointmentId: id,
+        });
+        whatsappLink = generateWhatsAppLink(patientPhone, waText);
+
+        // Queue or dispatch automated WhatsApp alert
+        try {
+          await sendWhatsAppMessage({
+            to: patientPhone,
+            type: 'confirmation',
+            data: {
+              patientName,
+              doctorName,
+              specialty,
+              date,
+              time,
+              appointmentType: type === 'video' ? 'Video Consultation' : 'In-Clinic Visit',
+              appointmentId: id,
+            },
+          });
+        } catch (_) {}
+      }
+    } catch (msgErr) {
+      console.warn('[Appointments] Notification scheduling failed (non-fatal):', msgErr.message);
     }
 
     const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [id]);
-    res.status(201).json({ success: true, appointment: mapAppt(rows[0]) });
+    res.status(201).json({ success: true, appointment: mapAppt(rows[0]), whatsappLink });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create appointment' }); }
 });
 

@@ -1,8 +1,16 @@
-import { Calendar, Clock, Stethoscope, Video } from "lucide-react";
+import { Calendar, Clock, Stethoscope, Video, MessageSquare } from "lucide-react";
 import StatusBadge from "../ui/StatusBadge";
 import Button from "../ui/Button";
 
-export default function AppointmentCard({ appointment, onView, onReschedule, onCancel, onCheckIn, noCard = false }) {
+export default function AppointmentCard({
+  appointment,
+  onView,
+  onReschedule,
+  onCancel,
+  onCheckIn,
+  onWhatsApp,
+  noCard = false,
+}) {
   const a = appointment;
   const isToday = a.date === new Date().toISOString().slice(0, 10);
   const isUpcoming = a.status === "upcoming" || a.status === "confirmed";
@@ -61,6 +69,17 @@ export default function AppointmentCard({ appointment, onView, onReschedule, onC
           <Button size="sm" variant="outline" onClick={() => onView(a)}>
             View Details
           </Button>
+        )}
+        {onWhatsApp && a.status !== "cancelled" && (
+          <button
+            type="button"
+            onClick={() => onWhatsApp(a)}
+            title="WhatsApp Alert & Calendar"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-semibold transition"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+            WhatsApp
+          </button>
         )}
         {onReschedule && a.status !== "cancelled" && a.status !== "completed" && (
           <Button size="sm" variant="secondary" onClick={() => onReschedule(a)}>

@@ -30,6 +30,7 @@ import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 import triageRoutes from './routes/triage.js';
 import pharmacyRoutes from './routes/pharmacy.js';
+import messagingRoutes from './routes/messaging.js';
 import { initJobQueue } from './services/jobQueue.js';
 
 
@@ -181,6 +182,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/triage', triageRoutes);
 app.use('/api', pharmacyRoutes);
+app.use('/api/messaging', messagingRoutes);
 
 // Deep Healthcheck Endpoint
 app.get('/api/health', async (_req, res) => {

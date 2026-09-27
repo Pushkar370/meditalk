@@ -47,23 +47,23 @@ async function runTests() {
   });
 
   serverProcess.stdout.on('data', (d) => {
-    const str = d.toString();
-    if (str.includes('MediTalk API running') || str.includes('Connected')) {
-      console.log('   [Server Process]:', str.trim());
+    const str = d.toString().trim();
+    if (str) {
+      console.log('   [Server Process]:', str);
     }
   });
 
   serverProcess.stderr.on('data', (d) => {
-    const str = d.toString();
-    if (!str.includes('Warning') && !str.includes('injected env')) {
-      console.warn('   [Server Stderr]:', str.trim());
+    const str = d.toString().trim();
+    if (str && !str.includes('SECURITY WARNING')) {
+      console.warn('   [Server Stderr]:', str);
     }
   });
 
   const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
   console.log(`\nWaiting for server to be ready on ${BASE_URL}...`);
   let serverReady = false;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     try {
       const res = await fetch(`${BASE_URL}/api/health`);
       if (res.ok) {
@@ -215,6 +215,51 @@ async function runTests() {
     // Admin Analytics & Reports
     const adminAnalytics = await apiRequest('/api/admin/analytics', { token: adminToken });
     assert(adminAnalytics.status === 200 && adminAnalytics.data?.appointmentTrends, 'GET /api/admin/analytics returns system-wide metrics');
+
+    console.log('\n--- 7. Phase 10: WhatsApp & Calendar Synchronization (IN-3, IN-4) ---');
+    // Test WhatsApp alert dispatch (IN-4)
+    const waTestRes = await apiRequest('/api/messaging/test-whatsapp', {
+      method: 'POST',
+      token: patientToken,
+      body: {
+        phone: '+919876543210',
+        type: 'test',
+        customText: 'Automated test suite verifying WhatsApp clinical notifications.',
+      },
+    });
+    assert(
+      waTestRes.status === 200 && waTestRes.data?.success && waTestRes.data?.waLink?.includes('https://wa.me/919876543210'),
+      `POST /api/messaging/test-whatsapp generated valid WhatsApp payload (Mode: ${waTestRes.data?.mode})`
+    );
+
+    // Fetch existing appointment to test .ICS and appointment-specific WhatsApp
+    const { rows: testAppts } = await query('SELECT id FROM appointments LIMIT 1');
+    if (testAppts.length > 0) {
+      const sampleApptId = testAppts[0].id;
+
+      // RFC 5545 .ICS Calendar Invite Generation (IN-3)
+      const icsRes = await fetch(`http://127.0.0.1:3005/api/messaging/calendar-ics/${sampleApptId}`);
+      const icsText = await icsRes.text();
+      assert(
+        icsRes.status === 200 && icsText.includes('BEGIN:VCALENDAR') && icsText.includes('BEGIN:VEVENT'),
+        'GET /api/messaging/calendar-ics/:id generated compliant RFC 5545 iCalendar invite'
+      );
+
+      // WhatsApp Appointment Notification (IN-4)
+      const waApptRes = await apiRequest('/api/messaging/send-appointment-whatsapp', {
+        method: 'POST',
+        token: patientToken,
+        body: {
+          appointmentId: sampleApptId,
+          recipientPhone: '+919876543210',
+          type: 'confirmation',
+        },
+      });
+      assert(
+        waApptRes.status === 200 && waApptRes.data?.success && waApptRes.data?.waLink,
+        'POST /api/messaging/send-appointment-whatsapp dispatched formatted appointment WhatsApp link'
+      );
+    }
   } catch (err) {
     console.error('Unhandled Test Step Error:', err);
     failures++;

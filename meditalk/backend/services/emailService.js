@@ -94,9 +94,40 @@ async function sendEmail({ to, subject, html }) {
 
 // ── Email Templates ───────────────────────────────────────────────────────────
 
+function buildGoogleCalendarLink({ doctorName, specialty, date, time, type, appointmentId }) {
+  try {
+    let [t, modifier] = (time || '10:00 AM').trim().split(/\s+/);
+    let [hours, minutes] = t.split(':').map(Number);
+    if (modifier) {
+      if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
+      if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    const startObj = new Date(`${date}T${pad(hours)}:${pad(minutes || 0)}:00`);
+    const endObj = new Date(startObj.getTime() + 30 * 60 * 1000);
+    const formatUtc = (dt) =>
+      dt.getUTCFullYear() +
+      pad(dt.getUTCMonth() + 1) +
+      pad(dt.getUTCDate()) +
+      'T' +
+      pad(dt.getUTCHours()) +
+      pad(dt.getUTCMinutes()) +
+      pad(dt.getUTCSeconds()) +
+      'Z';
+    const dates = `${formatUtc(startObj)}/${formatUtc(endObj)}`;
+    const eventTitle = `MediTalk: Consultation with Dr. ${doctorName} (${specialty || 'General Medicine'})`;
+    const details = `MediTalk Consultation with Dr. ${doctorName}. Mode: ${type === 'video' ? 'Video Consultation' : 'In-Clinic Visit'}. Access: ${BASE_URL}/patient/appointments`;
+    const location = type === 'video' ? `${BASE_URL}/video/${appointmentId}` : 'MediTalk Healthcare Center';
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${dates}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+  } catch {
+    return 'https://calendar.google.com';
+  }
+}
+
 /** Appointment confirmation email to patient */
 export async function sendAppointmentConfirmation({ to, patientName, doctorName, specialty, date, time, type, appointmentId }) {
   const urgencyLabel = type === 'video' ? '🎥 Video Consultation' : '🏥 In-Clinic Visit';
+  const googleCalUrl = buildGoogleCalendarLink({ doctorName, specialty, date, time, type, appointmentId });
   const html = htmlShell('Appointment Confirmed — MediTalk', `
     <h2>Appointment Confirmed ✅</h2>
     <p>Hi <strong>${patientName}</strong>,</p>
@@ -109,7 +140,10 @@ export async function sendAppointmentConfirmation({ to, patientName, doctorName,
       <div class="row"><span class="label">Type</span><span class="value">${urgencyLabel}</span></div>
     </div>
     <p>Please arrive 5–10 minutes early. For video consultations, make sure your camera and microphone are working.</p>
-    <a class="btn" href="${BASE_URL}/patient/appointments">View My Appointments →</a>
+    <div style="margin-top:16px;">
+      <a class="btn" href="${BASE_URL}/patient/appointments">View My Appointments →</a>
+      <a class="btn" style="background:#10b981;margin-left:8px;" href="${googleCalUrl}" target="_blank">📅 Add to Google Calendar</a>
+    </div>
   `);
   return sendEmail({ to, subject: `Appointment Confirmed — ${date} at ${time} with Dr. ${doctorName}`, html });
 }

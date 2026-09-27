@@ -23,6 +23,7 @@ import {
   sendPasswordReset,
   sendWelcomeWithTempPassword,
 } from './emailService.js';
+import { sendWhatsAppMessage } from './messagingService.js';
 
 let boss = null;
 
@@ -59,6 +60,8 @@ export async function initJobQueue(connectionString) {
     'send-consultation-summary',
     'send-password-reset',
     'send-welcome',
+    'send-whatsapp-confirmation',
+    'send-whatsapp-reminder',
   ];
   for (const q of queueNames) {
     try { await boss.createQueue(q); } catch (_) {}
@@ -173,6 +176,32 @@ export async function initJobQueue(connectionString) {
     console.log(`[Queue] Welcome email sent → ${d.email}`);
   });
 
+  // Automated WhatsApp confirmation worker
+  await boss.work('send-whatsapp-confirmation', async ([job]) => {
+    const d = job.data;
+    if (d.phone) {
+      await sendWhatsAppMessage({
+        to: d.phone,
+        type: 'confirmation',
+        data: d,
+      });
+      console.log(`[Queue] WhatsApp confirmation sent → ${d.phone}`);
+    }
+  });
+
+  // Automated WhatsApp reminder worker
+  await boss.work('send-whatsapp-reminder', async ([job]) => {
+    const d = job.data;
+    if (d.phone) {
+      await sendWhatsAppMessage({
+        to: d.phone,
+        type: d.reminderType || 'reminder_2h',
+        data: d,
+      });
+      console.log(`[Queue] WhatsApp reminder sent → ${d.phone}`);
+    }
+  });
+
   return boss;
 }
 
@@ -182,13 +211,15 @@ export async function initJobQueue(connectionString) {
  * Schedule both reminders for a new appointment.
  * @param {object} appt - appointment details
  * @param {string} patientEmail - patient's email address
+ * @param {string} [patientPhone] - optional patient phone for WhatsApp reminder
  */
-export async function scheduleReminders(appt, patientEmail) {
-  if (!boss || !patientEmail) return;
+export async function scheduleReminders(appt, patientEmail, patientPhone = null) {
+  if (!boss || (!patientEmail && !patientPhone)) return;
 
   const jobData = {
     appointmentId: appt.id,
     patientEmail,
+    phone: patientPhone,
     patientName: appt.patient_name || appt.patientName,
     doctorName: appt.doctor_name || appt.doctorName,
     specialty: appt.specialty,
@@ -213,7 +244,7 @@ export async function scheduleReminders(appt, patientEmail) {
 
   // Only schedule if the reminder time is still in the future
   try {
-    if (reminder24hAt > new Date(now + 60000)) {
+    if (patientEmail && reminder24hAt > new Date(now + 60000)) {
       await boss.sendAt('reminder-24h', jobData, reminder24hAt, {
         singletonKey: `reminder-24h-${appt.id}`,
         singletonSeconds: 60,
@@ -221,12 +252,20 @@ export async function scheduleReminders(appt, patientEmail) {
       console.log(`[Queue] 24h reminder scheduled for ${reminder24hAt.toISOString()}`);
     }
 
-    if (reminder2hAt > new Date(now + 60000)) {
+    if (patientEmail && reminder2hAt > new Date(now + 60000)) {
       await boss.sendAt('reminder-2h', jobData, reminder2hAt, {
         singletonKey: `reminder-2h-${appt.id}`,
         singletonSeconds: 60,
       });
       console.log(`[Queue] 2h reminder scheduled for ${reminder2hAt.toISOString()}`);
+    }
+
+    if (patientPhone && reminder2hAt > new Date(now + 60000)) {
+      await boss.sendAt('send-whatsapp-reminder', { ...jobData, reminderType: 'reminder_2h' }, reminder2hAt, {
+        singletonKey: `whatsapp-reminder-2h-${appt.id}`,
+        singletonSeconds: 60,
+      });
+      console.log(`[Queue] 2h WhatsApp reminder scheduled for ${reminder2hAt.toISOString()}`);
     }
   } catch (err) {
     console.warn('[Queue] Failed to schedule reminders:', err.message);

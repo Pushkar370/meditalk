@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Loader2, CalendarX, Video, AlertTriangle, Download, CheckCircle2 } from "lucide-react";
+import {
+  CalendarDays,
+  Loader2,
+  CalendarX,
+  Video,
+  AlertTriangle,
+  Download,
+  CheckCircle2,
+  Calendar,
+  MessageSquare,
+  Smartphone,
+  ExternalLink,
+} from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import AppointmentCard from "../../components/cards/AppointmentCard";
 import Button from "../../components/ui/Button";
@@ -9,6 +21,7 @@ import Input from "../../components/ui/Input";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
+import WhatsAppNotificationModal from "../../components/appointments/WhatsAppNotificationModal";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -21,6 +34,12 @@ import {
 import { getFollowUpSuggestions } from "../../services/prescriptionService";
 import FollowUpSuggestionsCard from "../../components/appointments/FollowUpSuggestionsCard";
 import { useFetch } from "../../hooks/useFetch";
+import {
+  generateGoogleCalendarUrl,
+  downloadIcsFile,
+  generateWhatsAppLink,
+  buildAppointmentWhatsAppText,
+} from "../../utils/calendarSync";
 
 // Generate and download an ICS calendar file for an appointment
 function downloadICS(appt) {
@@ -74,6 +93,7 @@ export default function PatientAppointments() {
   const [toReschedule, setToReschedule] = useState(null);
   const [form, setForm] = useState({ date: "", time: "" });
   const [busy, setBusy] = useState(false);
+  const [selectedApptForWa, setSelectedApptForWa] = useState(null);
 
   async function handleCheckIn(appt) {
     try {
@@ -167,6 +187,46 @@ export default function PatientAppointments() {
         action={<Button onClick={() => navigate("/patient/book-appointment")}><CalendarDays className="h-4 w-4" /> Book</Button>}
       />
 
+      {/* WhatsApp Alerts & Calendar Sync Interactive Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-primary/5 border border-emerald-500/30 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="h-11 w-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-ink text-sm">WhatsApp Alerts & 1-Click Calendar Sync</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600/15 text-emerald-800 dark:text-emerald-300">
+                ACTIVE
+              </span>
+            </div>
+            <p className="text-xs text-ink/70 mt-0.5">
+              Receive WhatsApp confirmations, 2-hour video call alerts, and synchronize appointments with Google Calendar or Apple iCal.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const firstAppt = (appts || []).find((x) => x.status === "upcoming" || x.status === "confirmed") || {
+              id: "TEST-WA-" + Date.now().toString().slice(-4),
+              doctorName: "Dr. Sarah Jenkins",
+              specialty: "Cardiology",
+              date: new Date().toISOString().slice(0, 10),
+              time: "10:30 AM",
+              type: "video",
+              patientName: user?.name,
+              patient_phone: user?.phone,
+            };
+            setSelectedApptForWa(firstAppt);
+          }}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm shrink-0"
+        >
+          <Smartphone className="h-3.5 w-3.5" />
+          Test WhatsApp on My Phone
+        </button>
+      </div>
+
       {/* CW-3: Follow-Up Suggestions Banner */}
       {tab === "upcoming" && (
         <FollowUpSuggestionsCard
@@ -213,6 +273,7 @@ export default function PatientAppointments() {
                 appointment={a}
                 onView={() => navigate("/patient/appointments")}
                 onCheckIn={handleCheckIn}
+                onWhatsApp={(appt) => setSelectedApptForWa(appt)}
                 onReschedule={(appt) => {
                   setToReschedule(appt);
                   setForm({ date: "", time: "" });
@@ -248,14 +309,38 @@ export default function PatientAppointments() {
                   )}
                 </div>
               )}
-              {/* CW-1: Add to Calendar for upcoming/confirmed appointments */}
+              {/* Calendar & WhatsApp quick actions for upcoming/confirmed appointments */}
               {(a.status === "upcoming" || a.status === "confirmed") && (
-                <button
-                  onClick={() => downloadICS(a)}
-                  className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg border border-sage/30 bg-sage/5 text-ink/50 text-xs font-medium hover:bg-sage/15 hover:text-ink/80 transition mt-1"
-                >
-                  <Download className="h-3 w-3" /> Add to Calendar (.ics)
-                </button>
+                <div className="grid grid-cols-3 gap-1.5 mt-1">
+                  <a
+                    href={generateGoogleCalendarUrl(a)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 transition text-center"
+                    title="Add to Google Calendar"
+                  >
+                    <Calendar className="h-3 w-3" /> Google Cal
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadIcsFile(a);
+                      toast.success("iCal invite downloaded!");
+                    }}
+                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 text-ink/70 text-[11px] font-semibold hover:bg-slate-100 transition"
+                    title="Download iCal for Apple, Outlook, Android"
+                  >
+                    <Download className="h-3 w-3" /> iCal (.ics)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedApptForWa(a)}
+                    className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold hover:bg-emerald-100 transition"
+                    title="WhatsApp Alert & Sharing"
+                  >
+                    <MessageSquare className="h-3 w-3 text-emerald-600" /> WhatsApp
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -386,6 +471,13 @@ export default function PatientAppointments() {
           )}
         </div>
       </Modal>
+
+      {/* WhatsApp Modal */}
+      <WhatsAppNotificationModal
+        isOpen={!!selectedApptForWa}
+        onClose={() => setSelectedApptForWa(null)}
+        appointment={selectedApptForWa}
+      />
     </div>
   );
 }

@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays, Video, AlertTriangle, AlertCircle, Sparkles,
-  Clock, UserCheck, CheckCircle2, RotateCw, Users
+  Clock, UserCheck, CheckCircle2, RotateCw, Users, MessageSquare
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
 import StatusBadge from "../../components/ui/StatusBadge";
 import Button from "../../components/ui/Button";
+import WhatsAppNotificationModal from "../../components/appointments/WhatsAppNotificationModal";
 import SearchBar from "../../components/ui/SearchBar";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
@@ -56,6 +57,7 @@ export default function DoctorAppointments() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [queueActionBusy, setQueueActionBusy] = useState(false);
+  const [selectedApptForWa, setSelectedApptForWa] = useState(null);
 
   const { data: appts, loading, reload } = useFetch(() => getAppointments({ doctorId }), [doctorId]);
   const { data: queueData, reload: reloadQueue } = useFetch(
@@ -135,6 +137,16 @@ export default function DoctorAppointments() {
       label: "Actions",
       render: (r) => (
         <div className="flex items-center gap-2">
+          {r.status !== "cancelled" && (
+            <button
+              type="button"
+              onClick={() => setSelectedApptForWa(r)}
+              title="Send WhatsApp Reminder / Alert"
+              className="p-1.5 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition shadow-sm"
+            >
+              <MessageSquare className="h-4 w-4 text-emerald-600" />
+            </button>
+          )}
           <Button size="sm" variant="outline" onClick={() => navigate(`/doctor/patients/${r.patientId}`)}>
             View Patient
           </Button>
@@ -327,6 +339,13 @@ export default function DoctorAppointments() {
           <DataTable columns={columns} data={list} />
         )}
       </div>
+
+      {/* WhatsApp Modal */}
+      <WhatsAppNotificationModal
+        isOpen={!!selectedApptForWa}
+        onClose={() => setSelectedApptForWa(null)}
+        appointment={selectedApptForWa}
+      />
     </div>
   );
 }
