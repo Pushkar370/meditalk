@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Stethoscope, Activity, Pill, Save, FileText, CheckCircle2,
   Video, PhoneOff, Phone, ChevronDown, ChevronUp, Sparkles, AlertTriangle, AlertCircle, ArrowDownToLine,
-  Building2, Check, ShieldAlert, ShieldCheck, X, Wand2, Plus, Info, RefreshCw
+  Building2, Check, ShieldAlert, ShieldCheck, X, Wand2, Plus, Info, RefreshCw, MessageSquare
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -27,6 +27,7 @@ import {
 import { getAppointmentById, updateVideoStatus } from "../../services/appointmentService";
 import { searchICD10 } from "../../data/icd10";
 import { searchDrugs } from "../../data/drugCatalog";
+import { generateWhatsAppLink, buildAppointmentWhatsAppText } from "../../utils/calendarSync";
 
 // ─── Vital thresholds ─────────────────────────────────
 const VITALS = [
@@ -332,6 +333,67 @@ export default function DoctorConsultation() {
       toast.error(err.message || "Failed to update video status.");
     } finally {
       setVideoUpdating(false);
+    }
+  }
+
+  const [pingingPatient, setPingingPatient] = useState(false);
+
+  async function handlePingLatePatient() {
+    if (!apptId) {
+      toast.error("No appointment linked to this consultation.");
+      return;
+    }
+    const patientPhone = patient?.phone || appointment?.patient_phone;
+    setPingingPatient(true);
+    try {
+      const res = await fetch("/api/messaging/send-appointment-whatsapp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify({
+          appointmentId: apptId,
+          recipientPhone: patientPhone,
+          type: "patient_late_ping",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`WhatsApp join alert sent to ${patient?.name || "patient"}!`);
+      } else {
+        const text = buildAppointmentWhatsAppText(
+          {
+            ...appointment,
+            patientName: patient?.name,
+            doctorName,
+            specialty: appointment?.specialty || "Specialist",
+            id: apptId,
+            type: "video",
+          },
+          "patient_late_ping"
+        );
+        const link = generateWhatsAppLink(patientPhone, text);
+        window.open(link, "_blank");
+        toast.info("Opened WhatsApp with urgent consultation link.");
+      }
+    } catch (err) {
+      const text = buildAppointmentWhatsAppText(
+        {
+          ...appointment,
+          patientName: patient?.name,
+          doctorName,
+          specialty: appointment?.specialty || "Specialist",
+          id: apptId,
+          type: "video",
+        },
+        "patient_late_ping"
+      );
+      const link = generateWhatsAppLink(patientPhone, text);
+      window.open(link, "_blank");
+      toast.info("Opened WhatsApp with urgent consultation link.");
+    } finally {
+      setPingingPatient(false);
     }
   }
 
@@ -702,6 +764,21 @@ export default function DoctorConsultation() {
                   <PhoneOff className="h-3.5 w-3.5" /> End Call
                 </Button>
               )}
+
+              {/* Ping late patient on WhatsApp */}
+              {videoStatus !== "ended" && (
+                <button
+                  type="button"
+                  onClick={handlePingLatePatient}
+                  disabled={pingingPatient}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition shadow-sm disabled:opacity-50"
+                  title="Send immediate WhatsApp video link to patient"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+                  {pingingPatient ? "Sending..." : "Ping Patient on WhatsApp"}
+                </button>
+              )}
+
               <button
                 onClick={() => setVideoOpen((v) => !v)}
                 className="p-1.5 rounded-lg border border-sage/40 hover:bg-sage/10 transition"

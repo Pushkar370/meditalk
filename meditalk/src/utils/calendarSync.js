@@ -131,12 +131,32 @@ export function downloadIcsFile(appointment) {
 /**
  * Builds formatted clinical WhatsApp text for an appointment
  */
-export function buildAppointmentWhatsAppText(appointment) {
+export function buildAppointmentWhatsAppText(appointment, type = "confirmation") {
   const patient = appointment.patient_name || appointment.patientName || "Patient";
   const doctor = appointment.doctor_name || appointment.doctorName || "Doctor";
   const specialty = appointment.specialty || "Specialist";
   const isVideo = appointment.type === "video";
   const joinUrl = isVideo && appointment.id ? `${window.location.origin}/video/${appointment.id}` : `${window.location.origin}/patient/appointments`;
+
+  if (type === "patient_late_ping") {
+    return (
+      `🏥 *Dr. ${doctor} is waiting for you in your video consultation room!*\n\n` +
+      `Hello *${patient}*,\n` +
+      `Your consultation with *Dr. ${doctor}* (${specialty}) is ready to start.\n\n` +
+      `👉 *Tap here to enter the video room now:*\n${joinUrl}\n\n` +
+      `_If you are experiencing any technical issues, please reply directly to this message._`
+    );
+  }
+
+  if (type === "reminder_2h") {
+    return (
+      `🔔 *MediTalk Alert: Appointment in 2 Hours*\n\n` +
+      `Hello *${patient}*,\n` +
+      `Your consultation with *Dr. ${doctor}* begins at *${appointment.time}*.\n\n` +
+      `🎥 *Join Video Consultation:* ${joinUrl}\n\n` +
+      `_Please ensure your camera and microphone are tested and working._`
+    );
+  }
 
   return (
     `🏥 *MediTalk Appointment Confirmed*\n\n` +

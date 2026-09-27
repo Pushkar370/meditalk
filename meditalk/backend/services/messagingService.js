@@ -79,6 +79,15 @@ export function buildWhatsAppTemplate(type, data = {}) {
         `_Please ensure your camera and microphone are tested and working._`
       );
 
+    case 'patient_late_ping':
+      return (
+        `🏥 *Dr. ${doctorName} is waiting for you in your video consultation room!*\n\n` +
+        `Hello *${patientName}*,\n` +
+        `Your consultation with *Dr. ${doctorName}* (${specialty}) is ready to start.\n\n` +
+        `👉 *Tap here to enter the video room now:*\n${videoUrl}\n\n` +
+        `_If you are experiencing any technical issues, please reply directly to this message._`
+      );
+
     case 'prescription_ready':
       return (
         `💊 *MediTalk: Digital Prescription Issued*\n\n` +

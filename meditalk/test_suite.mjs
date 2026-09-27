@@ -259,6 +259,21 @@ async function runTests() {
         waApptRes.status === 200 && waApptRes.data?.success && waApptRes.data?.waLink,
         'POST /api/messaging/send-appointment-whatsapp dispatched formatted appointment WhatsApp link'
       );
+
+      // Doctor Late-Patient Ping Alert (IN-4)
+      const waLatePingRes = await apiRequest('/api/messaging/send-appointment-whatsapp', {
+        method: 'POST',
+        token: doctorToken,
+        body: {
+          appointmentId: sampleApptId,
+          recipientPhone: '+919876543210',
+          type: 'patient_late_ping',
+        },
+      });
+      assert(
+        waLatePingRes.status === 200 && waLatePingRes.data?.success && waLatePingRes.data?.waLink,
+        'POST /api/messaging/send-appointment-whatsapp dispatched Doctor late-patient video room join alert'
+      );
     }
   } catch (err) {
     console.error('Unhandled Test Step Error:', err);

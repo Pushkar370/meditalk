@@ -23,7 +23,6 @@ import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
 import LoadingState from "../../components/ui/LoadingState";
-import WhatsAppNotificationModal from "../../components/appointments/WhatsAppNotificationModal";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getDoctors, bookAppointment, getAvailableSlots } from "../../services/appointmentService";
@@ -69,7 +68,10 @@ export default function BookAppointment() {
   const [slotsError, setSlotsError] = useState("");
 
   const [confirmedAppt, setConfirmedAppt] = useState(null);
-  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waOptIn, setWaOptIn] = useState(true);
+  const [patientPhone, setPatientPhone] = useState(user?.phone || "");
+  const [waSending, setWaSending] = useState(false);
+  const [waSentTo, setWaSentTo] = useState(null);
 
   // Fetch slots whenever doctor + date are both selected (step 3)
   useEffect(() => {
@@ -139,128 +141,219 @@ export default function BookAppointment() {
     }
   }
 
+  async function handleSendWhatsApp() {
+    const rawDigits = patientPhone.replace(/[^\d]/g, "");
+    if (!rawDigits || rawDigits.length < 10) {
+      toast.error("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    setWaSending(true);
+    try {
+      const res = await fetch("/api/messaging/send-appointment-whatsapp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify({
+          appointmentId: confirmedAppt.id,
+          recipientPhone: patientPhone.trim(),
+          type: "confirmation",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWaSentTo(data.to || patientPhone.trim());
+        toast.success("Appointment details sent to WhatsApp!");
+        if (data.waLink) {
+          setConfirmedAppt((prev) => ({ ...prev, whatsappLink: data.waLink }));
+        }
+      } else {
+        const fallbackLink = generateWhatsAppLink(
+          patientPhone.trim(),
+          buildAppointmentWhatsAppText(confirmedAppt, "confirmation")
+        );
+        setConfirmedAppt((prev) => ({ ...prev, whatsappLink: fallbackLink }));
+        setWaSentTo(patientPhone.trim());
+        window.open(fallbackLink, "_blank");
+        toast.success("Opened WhatsApp with your appointment details!");
+      }
+    } catch (err) {
+      const fallbackLink = generateWhatsAppLink(
+        patientPhone.trim(),
+        buildAppointmentWhatsAppText(confirmedAppt, "confirmation")
+      );
+      setConfirmedAppt((prev) => ({ ...prev, whatsappLink: fallbackLink }));
+      setWaSentTo(patientPhone.trim());
+      window.open(fallbackLink, "_blank");
+      toast.info("Opened WhatsApp with your appointment details.");
+    } finally {
+      setWaSending(false);
+    }
+  }
+
   if (doctorsLoading) return <LoadingState />;
 
   if (confirmedAppt) {
     const isVideo = confirmedAppt.type === "video" || confirmedAppt.type === "Video consultation";
     const googleCalUrl = generateGoogleCalendarUrl(confirmedAppt);
-    const waText = buildAppointmentWhatsAppText(confirmedAppt);
-    const waLink = confirmedAppt.whatsappLink || generateWhatsAppLink(confirmedAppt.patient_phone || user?.phone, waText);
+    const waText = buildAppointmentWhatsAppText(confirmedAppt, "confirmation");
+    const waLink = confirmedAppt.whatsappLink || generateWhatsAppLink(waSentTo || patientPhone || user?.phone, waText);
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-        <PageHeader title="Booking Confirmation" subtitle="Your telehealth consultation has been successfully scheduled." />
+      <div className="max-w-2xl mx-auto space-y-6">
+        <PageHeader title="Appointment Confirmed" subtitle="Your telehealth consultation has been successfully scheduled." />
 
-        <div className="card border-2 border-emerald-500/30 bg-gradient-to-b from-emerald-50/50 via-white to-sage/10 dark:from-emerald-950/20 dark:via-slate-900 dark:to-slate-900 p-6 sm:p-8 rounded-2xl shadow-xl text-center">
-          <div className="mx-auto h-16 w-16 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-4 animate-scale-up">
-            <CheckCircle2 className="h-9 w-9" />
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
+          {/* Header */}
+          <div className="flex items-center gap-3.5 pb-5 border-b border-slate-100 dark:border-slate-800">
+            <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/80 dark:border-emerald-800 shrink-0">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Booking Confirmed
+              </span>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                Dr. {confirmedAppt.doctorName || confirmedAppt.doctor_name}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Confirmation ID: <span className="font-mono text-slate-700 dark:text-slate-300">#{confirmedAppt.id}</span>
+              </p>
+            </div>
           </div>
 
-          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-            Appointment Confirmed
-          </span>
-
-          <h2 className="text-xl sm:text-2xl font-bold text-ink mt-3">
-            You're all set with Dr. {confirmedAppt.doctorName || confirmedAppt.doctor_name}!
-          </h2>
-          <p className="text-xs sm:text-sm text-ink/70 mt-1 max-w-md mx-auto">
-            A confirmation email has been dispatched. Sync with your calendar or send a WhatsApp alert below.
-          </p>
-
-          {/* Details Card */}
-          <div className="my-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-sage/30 dark:border-slate-700 p-4 sm:p-5 text-left shadow-sm space-y-2.5">
-            <Summary label="Doctor" value={`Dr. ${confirmedAppt.doctorName || confirmedAppt.doctor_name} (${confirmedAppt.specialty})`} />
-            <Summary label="Scheduled Date" value={formatDate(confirmedAppt.date)} />
-            <Summary label="Consultation Time" value={confirmedAppt.time} />
-            <Summary label="Consultation Mode" value={isVideo ? "🎥 Video Call (Telehealth)" : "🏥 In-Person Clinic Visit"} />
-            <Summary label="Appointment ID" value={confirmedAppt.id} />
+          {/* Details Table */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-5 border-b border-slate-100 dark:border-slate-800 text-xs">
+            <div>
+              <p className="text-slate-400 font-medium">Specialty</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{confirmedAppt.specialty || "General Medicine"}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 font-medium">Date</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{formatDate(confirmedAppt.date)}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 font-medium">Time</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{confirmedAppt.time}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 font-medium">Mode</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                {isVideo ? "🎥 Video Call" : "🏥 In-Person"}
+              </p>
+            </div>
           </div>
 
-          {/* Action Grid: Calendar & WhatsApp */}
-          <div className="grid sm:grid-cols-2 gap-3 text-left">
-            {/* Google Calendar */}
-            <a
-              href={googleCalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/40 dark:border-blue-900 text-blue-900 dark:text-blue-200 hover:bg-blue-100/70 transition shadow-sm"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
-                  <Calendar className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold">Google Calendar</p>
-                  <p className="text-[11px] opacity-75">1-click calendar sync</p>
-                </div>
+          {/* WhatsApp Permission & Delivery Section */}
+          <div className="my-6 p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                <MessageSquare className="h-4 w-4" />
               </div>
-              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-            </a>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="wa-optin" className="text-xs font-bold text-slate-900 dark:text-white cursor-pointer">
+                    WhatsApp Consultation Details & Reminders
+                  </label>
+                  <input
+                    id="wa-optin"
+                    type="checkbox"
+                    checked={waOptIn}
+                    onChange={(e) => setWaOptIn(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Receive your appointment confirmation, direct video room link, and a 2-hour reminder on your WhatsApp.
+                </p>
 
-            {/* iCal (.ICS) */}
-            <button
-              type="button"
-              onClick={() => {
-                downloadIcsFile(confirmedAppt);
-                toast.success("iCal invite downloaded!");
-              }}
-              className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-ink hover:bg-slate-100 dark:hover:bg-slate-700/80 transition shadow-sm"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-slate-700 text-white flex items-center justify-center shrink-0">
-                  <Download className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold">Download iCal (.ICS)</p>
-                  <p className="text-[11px] text-ink/60">Apple, Outlook, Android</p>
-                </div>
+                {waOptIn && (
+                  <div className="mt-3.5 space-y-3">
+                    {!waSentTo ? (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                            +91
+                          </span>
+                          <input
+                            type="tel"
+                            placeholder="Enter 10-digit mobile number"
+                            value={patientPhone.replace(/^\+?91/, "")}
+                            onChange={(e) => setPatientPhone(e.target.value)}
+                            className="w-full pl-11 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSendWhatsApp}
+                          disabled={waSending}
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
+                        >
+                          {waSending ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending...
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-3.5 w-3.5" /> Send to WhatsApp
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2 text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                          <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                          <span>Details dispatched to <strong>{waSentTo}</strong></span>
+                        </div>
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-white dark:bg-slate-800 border border-emerald-300 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-50 transition"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Open in WhatsApp
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <Download className="h-3.5 w-3.5 opacity-60" />
-            </button>
-
-            {/* Direct WhatsApp Click-to-Chat */}
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-100/70 transition shadow-sm"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <MessageSquare className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold">Open on WhatsApp</p>
-                  <p className="text-[11px] opacity-75">App & WhatsApp Web</p>
-                </div>
-              </div>
-              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-            </a>
-
-            {/* Custom WhatsApp Testing Modal */}
-            <button
-              type="button"
-              onClick={() => setWaModalOpen(true)}
-              className="flex items-center justify-between p-3.5 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition shadow-sm"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center shrink-0">
-                  <Smartphone className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold">Send to My Phone / Others</p>
-                  <p className="text-[11px] opacity-75">Interactive WhatsApp tool</p>
-                </div>
-              </div>
-              <ArrowRight className="h-3.5 w-3.5 opacity-60" />
-            </button>
+            </div>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 border-t border-sage/20 dark:border-slate-800 mt-6">
-            <Button onClick={() => navigate("/patient/appointments")} className="w-full sm:w-auto shadow-md">
-              View My Appointments <ArrowRight className="h-4 w-4 ml-1.5" />
-            </Button>
+          {/* Calendar Sync Options */}
+          <div className="pt-2 pb-5 border-b border-slate-100 dark:border-slate-800">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2.5">
+              Add to your calendar:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <a
+                href={googleCalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-medium transition shadow-sm"
+              >
+                <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                Add to Google Calendar
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  downloadIcsFile(confirmedAppt);
+                  toast.success("iCal invite downloaded!");
+                }}
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-medium transition shadow-sm"
+              >
+                <Download className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+                Download iCal (.ics) for Apple/Outlook
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5">
             <Button
               variant="outline"
               onClick={() => {
@@ -276,20 +369,17 @@ export default function BookAppointment() {
                   symptoms: "",
                   triageSummary: null,
                 });
+                setWaSentTo(null);
               }}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto text-xs"
             >
               Book Another Visit
             </Button>
+            <Button onClick={() => navigate("/patient/appointments")} className="w-full sm:w-auto text-xs">
+              Go to My Appointments <ArrowRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
           </div>
         </div>
-
-        {/* WhatsApp Modal */}
-        <WhatsAppNotificationModal
-          isOpen={waModalOpen}
-          onClose={() => setWaModalOpen(false)}
-          appointment={confirmedAppt}
-        />
       </div>
     );
   }
