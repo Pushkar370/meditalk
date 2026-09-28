@@ -783,10 +783,9 @@ export default function DoctorConsultation() {
         </div>
       )}
 
-      {/* ─── Video Panel ───────────────────────────────── */}
       {roomId && (
         <div className="card">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
               <Video className="h-4 w-4 text-primary" />
               <span className="font-semibold text-ink text-sm">Video Consultation</span>
@@ -794,7 +793,7 @@ export default function DoctorConsultation() {
                 {badge.label}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Doctor controls */}
               {!videoStatus && (
                 <Button size="sm" onClick={() => handleVideoStatus("waiting")} loading={videoUpdating}>
