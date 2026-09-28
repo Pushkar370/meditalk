@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import {
-  CalendarClock, CalendarDays, Pill, FileText, Plus,
+  CalendarClock, CalendarDays, CalendarPlus, Pill, FileText, Plus,
   HeartPulse, Activity, FlaskConical, Sparkles, ArrowRight,
   Gauge, Thermometer, Droplets, ShieldCheck, Check,
   Video, Calendar, Clock, Stethoscope, Download, ExternalLink, MessageSquare,
@@ -70,6 +70,10 @@ export default function PatientDashboard() {
 
   const displayName = patient?.name?.split(" ")[0] || user?.name?.split(" ")[0] || "there";
   const latestVitals = (vitalsHistory && vitalsHistory.length > 0) ? vitalsHistory[vitalsHistory.length - 1] : null;
+  const hasVitals = !!(
+    latestVitals &&
+    (latestVitals.bp || latestVitals.hr || latestVitals.temp || latestVitals.spo2)
+  );
 
   return (
     <div className="space-y-6">
@@ -264,68 +268,87 @@ export default function PatientDashboard() {
                 <h3 className="font-semibold text-ink">Biometric Vitals Intelligence</h3>
               </div>
               <span className="text-xs text-ink/50">
-                {latestVitals ? `Last measured: ${formatDate(latestVitals.date)}` : "Clinical Telemetry"}
+                {hasVitals && latestVitals?.date ? `Last measured: ${formatDate(latestVitals.date)}` : "Clinical Telemetry"}
               </span>
             </div>
 
-            {/* Vitals Telemetry Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
-                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
-                  <span>Blood Pressure</span>
-                  <Gauge className="h-3.5 w-3.5 text-primary" />
+            {/* Vitals Telemetry Grid or Authentic Empty State */}
+            {hasVitals ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
+                  <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                    <span>Blood Pressure</span>
+                    <Gauge className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <p className="text-lg font-bold text-ink">
+                    {latestVitals.bp || "—"} <span className="text-xs font-normal text-ink/40">mmHg</span>
+                  </p>
+                  <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                    {latestVitals.systolic ? (latestVitals.systolic < 125 ? "Optimal" : "Elevated") : "Recorded"}
+                  </span>
                 </div>
-                <p className="text-lg font-bold text-ink">
-                  {latestVitals?.bp || "120/80"} <span className="text-xs font-normal text-ink/40">mmHg</span>
-                </p>
-                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
-                  {latestVitals?.systolic ? (latestVitals.systolic < 125 ? "Optimal" : "Elevated") : "Target"}
-                </span>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
-                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
-                  <span>Heart Rate</span>
-                  <Activity className="h-3.5 w-3.5 text-rose-500" />
+                <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
+                  <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                    <span>Heart Rate</span>
+                    <Activity className="h-3.5 w-3.5 text-rose-500" />
+                  </div>
+                  <p className="text-lg font-bold text-ink">
+                    {latestVitals.hr || "—"} <span className="text-xs font-normal text-ink/40">bpm</span>
+                  </p>
+                  <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                    {latestVitals.hr ? (latestVitals.hr > 100 ? "Elevated" : latestVitals.hr < 60 ? "Low" : "Normal Range") : "Recorded"}
+                  </span>
                 </div>
-                <p className="text-lg font-bold text-ink">
-                  {latestVitals?.hr || "72"} <span className="text-xs font-normal text-ink/40">bpm</span>
-                </p>
-                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
-                  Normal Range
-                </span>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
-                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
-                  <span>SpO₂ Oxygen</span>
-                  <Droplets className="h-3.5 w-3.5 text-sky-500" />
+                <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
+                  <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                    <span>SpO₂ Oxygen</span>
+                    <Droplets className="h-3.5 w-3.5 text-sky-500" />
+                  </div>
+                  <p className="text-lg font-bold text-ink">
+                    {latestVitals.spo2 || "—"} <span className="text-xs font-normal text-ink/40">%</span>
+                  </p>
+                  <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600">
+                    {latestVitals.spo2 ? (latestVitals.spo2 >= 95 ? "Optimal" : "Requires Attention") : "Recorded"}
+                  </span>
                 </div>
-                <p className="text-lg font-bold text-ink">
-                  {latestVitals?.spo2 || "98"} <span className="text-xs font-normal text-ink/40">%</span>
-                </p>
-                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600">
-                  Optimal
-                </span>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
-                <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
-                  <span>Temperature</span>
-                  <Thermometer className="h-3.5 w-3.5 text-amber-500" />
+                <div className="p-3.5 rounded-xl bg-white border border-sage/30 shadow-sm hover:border-primary/40 transition">
+                  <div className="flex items-center justify-between text-xs text-ink/50 mb-1">
+                    <span>Temperature</span>
+                    <Thermometer className="h-3.5 w-3.5 text-amber-500" />
+                  </div>
+                  <p className="text-lg font-bold text-ink">
+                    {latestVitals.temp || "—"} <span className="text-xs font-normal text-ink/40">°C</span>
+                  </p>
+                  <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
+                    {latestVitals.temp ? (latestVitals.temp > 37.5 ? "Febrile" : "Afebrile") : "Recorded"}
+                  </span>
                 </div>
-                <p className="text-lg font-bold text-ink">
-                  {latestVitals?.temp || "36.8"} <span className="text-xs font-normal text-ink/40">°C</span>
-                </p>
-                <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
-                  Afebrile
-                </span>
               </div>
-            </div>
+            ) : (
+              <div className="p-5 rounded-xl bg-sage/10 border border-sage/30 text-center mb-4 flex flex-col items-center justify-center">
+                <HeartPulse className="h-8 w-8 text-primary/60 mb-2" />
+                <h4 className="font-semibold text-ink text-sm">No Vitals Recorded Yet</h4>
+                <p className="text-xs text-ink/60 mt-1 max-w-md">
+                  Your biometric vitals (blood pressure, heart rate, oxygen saturation, and temperature) will be automatically recorded during doctor consultations or clinical triage.
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <Button size="sm" variant="outline" onClick={() => navigate("/patient/triage")}>
+                    <Sparkles className="h-3.5 w-3.5 mr-1" /> Check Symptoms
+                  </Button>
+                  <Button size="sm" onClick={() => navigate("/patient/book-appointment")}>
+                    <CalendarPlus className="h-3.5 w-3.5 mr-1" /> Book Consultation
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Historical Consultation Telemetry Log */}
-            {vitalsHistory && vitalsHistory.length > 0 ? (
-              <div className="overflow-x-auto">
+            {vitalsHistory && vitalsHistory.length > 0 && (
+              <div className="overflow-x-auto border-t border-sage/20 pt-3">
+                <p className="text-[11px] font-semibold text-ink/50 uppercase tracking-wider mb-2">Past Consultations Telemetry</p>
                 <table className="w-full text-xs text-left">
                   <thead>
                     <tr className="border-b border-sage/30 text-ink/50 font-medium">
@@ -350,11 +373,6 @@ export default function PatientDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 text-xs text-ink/70 flex items-center justify-between">
-                <span>Clinical consultation vitals will log historical trends here automatically.</span>
-                <span className="font-semibold text-primary">Live Tracking Enabled</span>
               </div>
             )}
           </div>
