@@ -100,6 +100,27 @@ export async function query(text, params) {
   return p.query(text, params);
 }
 
+// Helper: check if a doctor has a legitimate clinical relationship with a patient
+// (via past or upcoming appointments, consultations, or issued prescriptions)
+export async function hasClinicalRelationship(doctorId, patientId) {
+  if (!doctorId || !patientId) return false;
+  let resolvedDocId = doctorId;
+  if (typeof resolvedDocId === 'string' && resolvedDocId.startsWith('U-')) {
+    const { rows: u } = await query('SELECT doctor_id FROM users WHERE id = $1', [resolvedDocId]);
+    if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
+  }
+  const { rows } = await query(
+    `SELECT 1 FROM appointments WHERE doctor_id = $1 AND patient_id = $2
+     UNION
+     SELECT 1 FROM consultations WHERE doctor_id = $1 AND patient_id = $2
+     UNION
+     SELECT 1 FROM prescriptions WHERE doctor_id = $1 AND patient_id = $2
+     LIMIT 1`,
+    [resolvedDocId, patientId]
+  );
+  return rows.length > 0;
+}
+
 // Run schema SQL on startup (idempotent CREATE TABLE IF NOT EXISTS)
 export async function initDb() {
   const schemaPath = path.join(__dirname, 'schema.sql');

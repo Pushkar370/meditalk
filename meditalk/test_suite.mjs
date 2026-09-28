@@ -275,6 +275,47 @@ async function runTests() {
         'POST /api/messaging/send-appointment-whatsapp dispatched Doctor late-patient video room join alert'
       );
     }
+
+    console.log('\n--- 8. Security & Clinical Access Scoping (Serious Problems 1 & 2) ---');
+    // Doctor cannot view patient directory of other doctors
+    const docPatients = await apiRequest('/api/patients', { token: doctorToken });
+    assert(docPatients.status === 200 && Array.isArray(docPatients.data), 'GET /api/patients returns scoped patient roster for doctor');
+
+    // Admin can view full directory
+    const admPatients = await apiRequest('/api/patients', { token: adminToken });
+    assert(admPatients.status === 200 && admPatients.data.length >= docPatients.data.length, 'Admin sees full patient directory');
+
+    // Find an unassigned patient (not under Dr. Sneha's care)
+    const unassignedPatient = admPatients.data.find(p => !docPatients.data.some(dp => dp.id === p.id));
+    if (unassignedPatient) {
+      // Doctor attempting to access unassigned patient profile -> 403
+      const blockedProfile = await apiRequest(`/api/patients/${unassignedPatient.id}`, { token: doctorToken });
+      assert(blockedProfile.status === 403, 'GET /api/patients/:id blocks doctor without clinical relationship (403)');
+
+      // Doctor attempting to access unassigned patient vitals -> 403
+      const blockedVitals = await apiRequest(`/api/patients/${unassignedPatient.id}/vitals-history`, { token: doctorToken });
+      assert(blockedVitals.status === 403, 'GET /api/patients/:id/vitals-history blocks doctor without clinical relationship (403)');
+
+      // Doctor attempting to access unassigned patient consultations -> 403
+      const blockedConsults = await apiRequest(`/api/consultations?patientId=${unassignedPatient.id}`, { token: doctorToken });
+      assert(blockedConsults.status === 403, 'GET /api/consultations?patientId=... blocks doctor without clinical relationship (403)');
+
+      // Doctor attempting to access unassigned patient prescriptions -> 403
+      const blockedPrescriptions = await apiRequest(`/api/prescriptions?patientId=${unassignedPatient.id}`, { token: doctorToken });
+      assert(blockedPrescriptions.status === 403, 'GET /api/prescriptions?patientId=... blocks doctor without clinical relationship (403)');
+
+      // Doctor attempting to access unassigned patient medical records -> 403
+      const blockedRecords = await apiRequest(`/api/medical-records?patientId=${unassignedPatient.id}`, { token: doctorToken });
+      assert(blockedRecords.status === 403, 'GET /api/medical-records?patientId=... blocks doctor without clinical relationship (403)');
+
+      // Admin can access any patient profile -> 200
+      const adminProfile = await apiRequest(`/api/patients/${unassignedPatient.id}`, { token: adminToken });
+      assert(adminProfile.status === 200, 'GET /api/patients/:id allows admin access to any patient (200)');
+    }
+
+    // Doctor can access assigned patient profile -> 200
+    const assignedProfile = await apiRequest(`/api/patients/${patientId}`, { token: doctorToken });
+    assert(assignedProfile.status === 200, 'GET /api/patients/:id allows doctor to access assigned patient (200)');
   } catch (err) {
     console.error('Unhandled Test Step Error:', err);
     failures++;

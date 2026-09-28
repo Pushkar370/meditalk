@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query } from '../database/db.js';
+import { query, hasClinicalRelationship } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
 import { enqueueEmail } from '../services/jobQueue.js';
@@ -42,6 +42,24 @@ router.get('/prescriptions', requireAuth, async (req, res) => {
       // Patients can only see their own prescriptions
       conditions.push('patient_id = $' + idx++);
       params.push(callerId);
+    } else if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (patientId) {
+        const allowed = await hasClinicalRelationship(callerDocId, patientId);
+        if (!allowed) {
+          return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+        }
+        conditions.push('patient_id = $' + idx++);
+        params.push(patientId);
+      } else {
+        let resolvedDocId = callerDocId;
+        if (typeof resolvedDocId === 'string' && resolvedDocId.startsWith('U-')) {
+          const { rows: u } = await query('SELECT doctor_id FROM users WHERE id = $1', [resolvedDocId]);
+          if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
+        }
+        conditions.push('doctor_id = $' + idx++);
+        params.push(resolvedDocId);
+      }
     } else {
       if (patientId) { conditions.push('patient_id = $' + idx++); params.push(patientId); }
       if (doctorId) { conditions.push('doctor_id = $' + idx++); params.push(doctorId); }
@@ -63,6 +81,13 @@ router.get('/prescriptions/:id', requireAuth, async (req, res) => {
     const { role, id: callerId } = req.user;
     if (role === 'patient' && rx.patientId !== callerId) {
       return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s prescription' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, rx.patientId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
     res.json(rx);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch prescription' }); }
@@ -123,6 +148,24 @@ router.get('/consultations', requireAuth, async (req, res) => {
     if (role === 'patient') {
       conditions.push('patient_id = $' + idx++);
       params.push(callerId);
+    } else if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (patientId) {
+        const allowed = await hasClinicalRelationship(callerDocId, patientId);
+        if (!allowed) {
+          return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+        }
+        conditions.push('patient_id = $' + idx++);
+        params.push(patientId);
+      } else {
+        let resolvedDocId = callerDocId;
+        if (typeof resolvedDocId === 'string' && resolvedDocId.startsWith('U-')) {
+          const { rows: u } = await query('SELECT doctor_id FROM users WHERE id = $1', [resolvedDocId]);
+          if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
+        }
+        conditions.push('doctor_id = $' + idx++);
+        params.push(resolvedDocId);
+      }
     } else {
       if (patientId) { conditions.push('patient_id = $' + idx++); params.push(patientId); }
       if (doctorId) { conditions.push('doctor_id = $' + idx++); params.push(doctorId); }
@@ -272,6 +315,31 @@ router.get('/medical-records', requireAuth, async (req, res) => {
     if (role === 'patient') {
       conditions.push('patient_id = $' + idx++);
       params.push(callerId);
+    } else if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (patientId) {
+        const allowed = await hasClinicalRelationship(callerDocId, patientId);
+        if (!allowed) {
+          return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+        }
+        conditions.push('patient_id = $' + idx++);
+        params.push(patientId);
+      } else {
+        let resolvedDocId = callerDocId;
+        if (typeof resolvedDocId === 'string' && resolvedDocId.startsWith('U-')) {
+          const { rows: u } = await query('SELECT doctor_id FROM users WHERE id = $1', [resolvedDocId]);
+          if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
+        }
+        conditions.push(`patient_id IN (
+          SELECT patient_id FROM appointments WHERE doctor_id = $${idx}
+          UNION
+          SELECT patient_id FROM consultations WHERE doctor_id = $${idx}
+          UNION
+          SELECT patient_id FROM prescriptions WHERE doctor_id = $${idx}
+        )`);
+        params.push(resolvedDocId);
+        idx++;
+      }
     } else {
       if (patientId) { conditions.push('patient_id = $' + idx++); params.push(patientId); }
     }

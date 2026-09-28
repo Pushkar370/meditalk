@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { query } from '../database/db.js';
+import { query, hasClinicalRelationship } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -70,7 +70,7 @@ router.get('/', requireAuth, requireRole('doctor', 'admin'), async (req, res) =>
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch patients' }); }
 });
 
-// GET /api/patients/:id — patient themselves, doctor, or admin
+// GET /api/patients/:id — patient themselves, doctor (with clinical relationship), or admin
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
@@ -78,6 +78,14 @@ router.get('/:id', requireAuth, async (req, res) => {
     // Patients can only view their own profile
     if (role === 'patient' && callerId !== id) {
       return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s profile' });
+    }
+    // Doctors must have a clinical relationship with the patient
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, id);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
     const { rows } = await query('SELECT * FROM patients WHERE id = $1', [id]);
     if (!rows[0]) return res.status(404).json({ error: 'Patient not found' });
@@ -192,6 +200,14 @@ router.get('/:id/vitals-history', requireAuth, async (req, res) => {
     // Patients can only access their own vitals
     if (role === 'patient' && callerId !== id) {
       return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s vitals history' });
+    }
+    // Doctors must have a clinical relationship with the patient
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, id);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
 
     const { rows } = await query(
