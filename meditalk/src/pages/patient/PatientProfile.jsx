@@ -14,7 +14,7 @@ import { useFetch } from "../../hooks/useFetch";
 import { GENDERS } from "../../constants";
 
 export default function PatientProfile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const toast = useToast();
   const patientId = user?.id;
 
@@ -41,6 +41,9 @@ export default function PatientProfile() {
     setSaving(true);
     try {
       await updatePatient(patientId, form);
+      if (updateUser) {
+        updateUser({ name: form.name, email: form.email, phone: form.phone });
+      }
       toast.success("Profile updated successfully.");
       setEditing(false);
       reload();
