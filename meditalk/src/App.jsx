@@ -10,7 +10,6 @@ import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import NotificationCenter from "./pages/NotificationCenter";
-import Placeholder from "./pages/Placeholder";
 
 import PatientLayout from "./layouts/PatientLayout";
 import DoctorLayout from "./layouts/DoctorLayout";
