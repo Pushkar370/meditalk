@@ -11,12 +11,15 @@ import {
   Calendar,
   MessageSquare,
   ExternalLink,
+  Clock,
+  Stethoscope,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import AppointmentCard from "../../components/cards/AppointmentCard";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Input from "../../components/ui/Input";
+import StatusBadge from "../../components/ui/StatusBadge";
 import ConfirmationModal from "../../components/ui/ConfirmationModal";
 import EmptyState from "../../components/ui/EmptyState";
 import LoadingState from "../../components/ui/LoadingState";
@@ -32,6 +35,7 @@ import {
 import { getFollowUpSuggestions } from "../../services/prescriptionService";
 import FollowUpSuggestionsCard from "../../components/appointments/FollowUpSuggestionsCard";
 import { useFetch } from "../../hooks/useFetch";
+import { formatDate } from "../../constants";
 import {
   generateGoogleCalendarUrl,
   downloadIcsFile,
@@ -39,40 +43,12 @@ import {
   buildAppointmentWhatsAppText,
 } from "../../utils/calendarSync";
 
-// Generate and download an ICS calendar file for an appointment
-function downloadICS(appt) {
-  const dateStr = appt.date?.replace(/-/g, '');
-  const [h, m] = (appt.time || '09:00').replace(/\s*(AM|PM)/i, '').split(':').map(Number);
-  const isPM = /PM/i.test(appt.time || '');
-  const hour24 = isPM && h !== 12 ? h + 12 : (!isPM && h === 12 ? 0 : h);
-  const start = `${dateStr}T${String(hour24).padStart(2,'0')}${String(m||0).padStart(2,'0')}00`;
-  const endHour = (hour24 + 1) % 24;
-  const end = `${dateStr}T${String(endHour).padStart(2,'0')}${String(m||0).padStart(2,'0')}00`;
-  const ics = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MediTalk//EN',
-    'BEGIN:VEVENT',
-    `UID:${appt.id}@meditalk`,
-    `DTSTART:${start}`,
-    `DTEND:${end}`,
-    `SUMMARY:Appointment with Dr. ${appt.doctorName}`,
-    `DESCRIPTION:${appt.specialty || ''} ${appt.type || ''} consultation. Reason: ${appt.reason || ''}`,
-    `STATUS:CONFIRMED`,
-    'END:VEVENT', 'END:VCALENDAR'
-  ].join('\r\n');
-  const blob = new Blob([ics], { type: 'text/calendar' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `meditalk-appointment-${appt.id}.ics`;
-  a.click();
-}
-
 const TABS = [
   { key: "upcoming", label: "Upcoming" },
   { key: "completed", label: "Completed" },
   { key: "cancelled", label: "Cancelled" },
   { key: "no_show", label: "No-Show" },
 ];
-
 
 export default function PatientAppointments() {
   const { user } = useAuth();
@@ -86,6 +62,7 @@ export default function PatientAppointments() {
     [patientId]
   );
   const [tab, setTab] = useState("upcoming");
+  const [toView, setToView] = useState(null);
   const [toCancel, setToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
   const [toReschedule, setToReschedule] = useState(null);
@@ -230,13 +207,8 @@ export default function PatientAppointments() {
             <div key={a.id} className="flex flex-col gap-2">
               <AppointmentCard
                 appointment={a}
-                onView={() => navigate("/patient/appointments")}
+                onView={(appt) => setToView(appt)}
                 onCheckIn={handleCheckIn}
-                onWhatsApp={(appt) => {
-                  const text = buildAppointmentWhatsAppText(appt, "reminder_2h");
-                  const link = generateWhatsAppLink(user?.phone || appt.patient_phone || "", text);
-                  window.open(link, "_blank");
-                }}
                 onReschedule={(appt) => {
                   setToReschedule(appt);
                   setForm({ date: "", time: "" });
@@ -270,33 +242,6 @@ export default function PatientAppointments() {
                       Doctor is preparing the call…
                     </div>
                   )}
-                </div>
-              )}
-              {/* Calendar quick actions for upcoming/confirmed appointments */}
-              {(a.status === "upcoming" || a.status === "confirmed") && (
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <a
-                    href={generateGoogleCalendarUrl(a)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
-                    title="Add to Google Calendar"
-                  >
-                    <Calendar className="h-3.5 w-3.5 text-primary" />
-                    <span>Google Cal</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      downloadIcsFile(a);
-                      toast.success("iCal invite downloaded!");
-                    }}
-                    className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
-                    title="Download iCal for Apple, Outlook, Android"
-                  >
-                    <Download className="h-3.5 w-3.5 text-ink/70" />
-                    <span>iCal (.ics)</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -429,6 +374,191 @@ export default function PatientAppointments() {
         </div>
       </Modal>
 
+      {/* ── View Details Modal with Calendar & WhatsApp Actions (Option 2) ─── */}
+      <Modal
+        open={!!toView}
+        onClose={() => setToView(null)}
+        title="Appointment Details"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              {toView && (toView.status === "upcoming" || toView.status === "confirmed") && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const appt = toView;
+                      setToView(null);
+                      setToReschedule(appt);
+                      setForm({ date: "", time: "" });
+                      setSlots([]);
+                      setSlotsError("");
+                    }}
+                  >
+                    Reschedule
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-danger hover:bg-danger/10"
+                    onClick={() => {
+                      const appt = toView;
+                      setToView(null);
+                      setToCancel(appt);
+                      setCancelReason("");
+                    }}
+                  >
+                    Cancel Visit
+                  </Button>
+                </>
+              )}
+            </div>
+            <Button size="sm" onClick={() => setToView(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {toView && (
+          <div className="space-y-4">
+            {/* Doctor & Status Header */}
+            <div className="flex items-start justify-between gap-3 p-4 rounded-xl bg-sage/10 border border-sage/25">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-white border border-sage/30 flex items-center justify-center text-primary shadow-sm">
+                  <Stethoscope className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-ink text-base">
+                    {toView.doctorName?.startsWith("Dr.") ? toView.doctorName : `Dr. ${toView.doctorName || "Doctor"}`}
+                  </h4>
+                  <p className="text-xs text-ink/60">{toView.specialty || "Specialist"}</p>
+                  <p className="text-[11px] font-mono text-ink/50 mt-0.5">
+                    Confirmation ID: #{toView.id}
+                  </p>
+                </div>
+              </div>
+              <StatusBadge status={toView.status} />
+            </div>
+
+            {/* Visit Details Grid */}
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-white border border-sage/30 text-xs">
+              <div className="space-y-1">
+                <span className="text-ink/50 block">Date</span>
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary" /> {formatDate(toView.date)}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-ink/50 block">Time</span>
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-primary" /> {toView.time}
+                </span>
+              </div>
+              <div className="col-span-2 space-y-1 pt-2 border-t border-sage/20">
+                <span className="text-ink/50 block">Consultation Mode</span>
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  {toView.type?.toLowerCase().includes("video") ? (
+                    <>
+                      <Video className="h-3.5 w-3.5 text-primary" /> Video Consultation
+                    </>
+                  ) : (
+                    <>
+                      <Stethoscope className="h-3.5 w-3.5 text-primary" /> In-Person Clinic Visit
+                    </>
+                  )}
+                </span>
+              </div>
+              {toView.reason && (
+                <div className="col-span-2 space-y-1 pt-2 border-t border-sage/20">
+                  <span className="text-ink/50 block">Reason for Visit</span>
+                  <p className="text-ink font-medium">{toView.reason}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Live Video Action */}
+            {toView.type?.toLowerCase().includes("video") &&
+              (toView.status === "upcoming" || toView.status === "confirmed") && (
+                <div>
+                  <button
+                    onClick={() => {
+                      setToView(null);
+                      navigate(`/patient/consultation/${toView.id}`);
+                    }}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-sm"
+                  >
+                    <Video className="h-4 w-4" />
+                    Enter Video Room / Waiting Lobby
+                  </button>
+                </div>
+              )}
+
+            {/* WhatsApp Notification & Sharing */}
+            {(toView.status === "upcoming" || toView.status === "confirmed") && (
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                      <MessageSquare className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-950">WhatsApp Consultation Details</p>
+                      <p className="text-[11px] text-emerald-800/80 mt-0.5">
+                        Open appointment confirmation & reminders directly on WhatsApp.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={generateWhatsAppLink(
+                      user?.phone || toView.patient_phone || "",
+                      buildAppointmentWhatsAppText(toView, "reminder_2h")
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-sm shrink-0"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Calendar Synchronization */}
+            {(toView.status === "upcoming" || toView.status === "confirmed") && (
+              <div className="p-3.5 rounded-xl bg-white border border-sage/30">
+                <p className="text-xs font-semibold text-ink/70 mb-2.5">
+                  Add to your calendar:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={generateGoogleCalendarUrl(toView)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
+                  >
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    <span>Google Cal</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadIcsFile(toView);
+                      toast.success("iCal invite downloaded!");
+                    }}
+                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-sage/40 bg-white hover:bg-sage/10 text-ink text-xs font-medium transition shadow-sm"
+                  >
+                    <Download className="h-3.5 w-3.5 text-ink/70" />
+                    <span>iCal (.ics)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
     </div>
   );
