@@ -77,9 +77,14 @@ export default function DoctorPatientDetails() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/doctor/patients")}>
-        <ArrowLeft className="h-4 w-4" /> Back to patients
-      </Button>
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/doctor/patients")}>
+          <ArrowLeft className="h-4 w-4" /> Back to patients
+        </Button>
+        <Button size="sm" onClick={() => navigate(`/doctor/consultation/${id}`)} className="flex items-center gap-1.5 shadow-sm">
+          <Stethoscope className="h-4 w-4" /> Start Consultation
+        </Button>
+      </div>
 
       <Card>
         <div className="flex items-center gap-4 flex-wrap">

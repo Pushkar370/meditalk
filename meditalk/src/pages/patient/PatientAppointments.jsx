@@ -13,6 +13,10 @@ import {
   ExternalLink,
   Clock,
   Stethoscope,
+  ClipboardList,
+  Printer,
+  FileText,
+  Pill,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import AppointmentCard from "../../components/cards/AppointmentCard";
@@ -32,7 +36,7 @@ import {
   getAvailableSlots,
   checkInAppointment,
 } from "../../services/appointmentService";
-import { getFollowUpSuggestions } from "../../services/prescriptionService";
+import { getFollowUpSuggestions, getConsultations } from "../../services/prescriptionService";
 import FollowUpSuggestionsCard from "../../components/appointments/FollowUpSuggestionsCard";
 import { useFetch } from "../../hooks/useFetch";
 import { formatDate } from "../../constants";
@@ -68,6 +72,28 @@ export default function PatientAppointments() {
   const [toReschedule, setToReschedule] = useState(null);
   const [form, setForm] = useState({ date: "", time: "" });
   const [busy, setBusy] = useState(false);
+  const [avsData, setAvsData] = useState(null);
+  const [avsLoading, setAvsLoading] = useState(false);
+
+  useEffect(() => {
+    if (toView?.status === "completed") {
+      setAvsLoading(true);
+      getConsultations({ appointmentId: toView.id, patientId: user?.id })
+        .then((res) => {
+          if (res && res.length > 0) {
+            setAvsData(res[0]);
+          } else {
+            getConsultations({ patientId: user?.id, doctorId: toView.doctor_id || toView.doctorId })
+              .then((fallback) => setAvsData(fallback?.[0] || null))
+              .catch(() => setAvsData(null));
+          }
+        })
+        .catch(() => setAvsData(null))
+        .finally(() => setAvsLoading(false));
+    } else {
+      setAvsData(null);
+    }
+  }, [toView, user?.id]);
 
   async function handleCheckIn(appt) {
     try {
@@ -554,6 +580,120 @@ export default function PatientAppointments() {
                     <span>iCal (.ics)</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* After-Visit Summary (AVS) for Completed Appointments */}
+            {toView.status === "completed" && (
+              <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 via-sage/10 to-white border border-primary/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    <h5 className="font-bold text-xs uppercase tracking-wider text-primary">After-Visit Summary (AVS)</h5>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    <Printer className="h-3 w-3" /> Print / Save PDF
+                  </button>
+                </div>
+
+                {avsLoading ? (
+                  <div className="flex items-center gap-2 py-4 justify-center text-xs text-ink/60">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading clinical summary...
+                  </div>
+                ) : avsData ? (
+                  <div className="space-y-2.5 text-xs text-ink">
+                    {avsData.diagnosis && (
+                      <div className="p-2.5 rounded-lg bg-white border border-sage/30">
+                        <span className="font-semibold text-ink/60 block text-[11px] uppercase tracking-wider">Clinical Diagnosis</span>
+                        <p className="font-bold text-ink mt-0.5">{avsData.diagnosis}</p>
+                        {avsData.diagnosisCode && (
+                          <span className="inline-block mt-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                            ICD-10: {avsData.diagnosisCode}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {avsData.treatmentPlan && (
+                      <div className="p-2.5 rounded-lg bg-white border border-sage/30">
+                        <span className="font-semibold text-ink/60 block text-[11px] uppercase tracking-wider">Treatment Plan & Doctor's Advice</span>
+                        <p className="mt-0.5 text-ink/90 whitespace-pre-line">{avsData.treatmentPlan}</p>
+                      </div>
+                    )}
+
+                    {avsData.observations && (
+                      <div className="p-2.5 rounded-lg bg-white border border-sage/30">
+                        <span className="font-semibold text-ink/60 block text-[11px] uppercase tracking-wider">Clinical Observations</span>
+                        <p className="mt-0.5 text-ink/80">{avsData.observations}</p>
+                      </div>
+                    )}
+
+                    {(avsData.followUpDate || avsData.followUpInstructions) && (
+                      <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                        <span className="font-bold text-emerald-900 block text-[11px] uppercase tracking-wider">Follow-Up Care</span>
+                        {avsData.followUpDate && <p className="font-semibold text-emerald-800 mt-0.5">Recommended Date: {avsData.followUpDate}</p>}
+                        {avsData.followUpInstructions && <p className="text-emerald-700 text-[11px] mt-0.5">{avsData.followUpInstructions}</p>}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          setToView(null);
+                          navigate("/patient/prescriptions");
+                        }}
+                      >
+                        <Pill className="h-3.5 w-3.5 mr-1" /> View Linked Prescriptions
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          setToView(null);
+                          navigate("/patient/records");
+                        }}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1" /> View Health Records
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-white border border-sage/30 text-xs text-ink/70 space-y-2">
+                    <p>Consultation completed. The clinical summary has been filed to your patient medical records.</p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          setToView(null);
+                          navigate("/patient/prescriptions");
+                        }}
+                      >
+                        <Pill className="h-3.5 w-3.5 mr-1" /> View Prescriptions
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                        onClick={() => {
+                          setToView(null);
+                          navigate("/patient/records");
+                        }}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1" /> View Health Records
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

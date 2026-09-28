@@ -52,3 +52,21 @@ export async function changePassword({ currentPassword, nextPassword }) {
     body: JSON.stringify({ currentPassword, nextPassword }),
   });
 }
+
+export async function getUserProfile() {
+  return apiFetch('/auth/profile');
+}
+
+export async function updateUserProfile(payload) {
+  return apiFetch('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUserPreferences(preferences) {
+  return apiFetch('/auth/preferences', {
+    method: 'PUT',
+    body: JSON.stringify({ preferences }),
+  });
+}

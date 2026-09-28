@@ -122,9 +122,14 @@ export async function initDb() {
     `ALTER TABLE doctors ADD COLUMN IF NOT EXISTS rejection_notes TEXT`,
     // notifications timestamp compatibility
     `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`,
+    // user profile & settings persistence
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences TEXT DEFAULT '{}'`,
     // Phase 8: AI triage summary and urgency level
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS triage_summary TEXT`,
     `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS urgency TEXT DEFAULT 'routine'`,
+    // Consultation linkage to appointments
+    `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS appointment_id TEXT`,
     // doctor_schedules table guard (created in schema but may be missing in old DBs)
     `CREATE TABLE IF NOT EXISTS doctor_schedules (
       id          TEXT PRIMARY KEY,

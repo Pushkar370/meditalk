@@ -194,6 +194,91 @@ router.put('/password', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/auth/profile — returns current user account & preferences
+router.get('/profile', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const { rows } = await query('SELECT id, name, email, role, phone, preferences, patient_id, doctor_id, created_at FROM users WHERE id = $1', [userId]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    let prefs = {};
+    if (typeof user.preferences === 'string') {
+      try { prefs = JSON.parse(user.preferences || '{}'); } catch (_) { prefs = {}; }
+    } else if (typeof user.preferences === 'object') {
+      prefs = user.preferences || {};
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        patientId: user.patient_id,
+        doctorId: user.doctor_id,
+        createdAt: user.created_at,
+        preferences: prefs,
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user profile.' });
+  }
+});
+
+// PUT /api/auth/profile — updates account info (name, email, phone)
+router.put('/profile', requireAuth, async (req, res) => {
+  const { name, email, phone } = req.body;
+  const userId = req.user.userId || req.user.id;
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required.' });
+  }
+
+  try {
+    const { rows: existing } = await query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, userId]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'This email is already in use by another account.' });
+    }
+
+    const { rows } = await query(
+      'UPDATE users SET name = $1, email = $2, phone = $3 WHERE id = $4 RETURNING id, name, email, role, phone, patient_id, doctor_id',
+      [name.trim(), email.trim(), phone ? phone.trim() : null, userId]
+    );
+    const updated = rows[0];
+
+    // Also sync to patients or doctors table if linked
+    if (updated?.patient_id) {
+      await query('UPDATE patients SET name = $1, email = $2, phone = COALESCE($3, phone) WHERE id = $4', [updated.name, updated.email, updated.phone, updated.patient_id]);
+    }
+    if (updated?.doctor_id) {
+      await query('UPDATE doctors SET name = $1, email = $2, phone = COALESCE($3, phone) WHERE id = $4', [updated.name, updated.email, updated.phone, updated.doctor_id]);
+    }
+
+    res.json({ success: true, message: 'Profile updated successfully.', user: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update profile.' });
+  }
+});
+
+// PUT /api/auth/preferences — updates user notification & appointment preferences
+router.put('/preferences', requireAuth, async (req, res) => {
+  const { preferences } = req.body;
+  const userId = req.user.userId || req.user.id;
+
+  try {
+    const prefsJson = JSON.stringify(preferences || {});
+    await query('UPDATE users SET preferences = $1 WHERE id = $2', [prefsJson, userId]);
+    res.json({ success: true, message: 'Preferences saved successfully.', preferences });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save preferences.' });
+  }
+});
+
 // ── Password Reset Flow (H-5 Fix) ────────────────────────────────────────────
 
 // POST /api/auth/forgot-password

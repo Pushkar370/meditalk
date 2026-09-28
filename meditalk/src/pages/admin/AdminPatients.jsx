@@ -32,6 +32,7 @@ export default function AdminPatients() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(null);
+  const [viewingPatient, setViewingPatient] = useState(null);
   const [form, setForm] = useState({});
   const [toggle, setToggle] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -101,9 +102,13 @@ export default function AdminPatients() {
       label: "Actions",
       render: (r) => (
         <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => { setEditing(r); setForm(r); }}><Eye className="h-3.5 w-3.5" /></Button>
-          <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-          <Button size="sm" variant={r.status === "active" ? "secondary" : "success"} onClick={() => setToggle({ id: r.id, next: r.status === "active" ? "inactive" : "active" })}>
+          <Button size="sm" variant="outline" onClick={() => setViewingPatient(r)} title="View Patient Details">
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => openEdit(r)} title="Edit Patient Details">
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant={r.status === "active" ? "secondary" : "success"} onClick={() => setToggle({ id: r.id, next: r.status === "active" ? "inactive" : "active" })} title={r.status === "active" ? "Deactivate" : "Activate"}>
             <Power className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -133,6 +138,90 @@ export default function AdminPatients() {
           </>
         )}
       </div>
+
+      {/* ── View Patient Details Modal ─── */}
+      <Modal
+        open={!!viewingPatient}
+        onClose={() => setViewingPatient(null)}
+        title="Patient Details"
+        size="md"
+        footer={
+          <div className="flex justify-between w-full">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const p = viewingPatient;
+                setViewingPatient(null);
+                openEdit(p);
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1" /> Edit Profile
+            </Button>
+            <Button size="sm" onClick={() => setViewingPatient(null)}>Close</Button>
+          </div>
+        }
+      >
+        {viewingPatient && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3.5 p-4 rounded-xl bg-sage/10 border border-sage/25">
+              <div className="h-12 w-12 rounded-xl bg-white border border-sage/30 flex items-center justify-center font-bold text-primary text-lg shadow-sm">
+                {viewingPatient.name?.charAt(0) || "P"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-ink text-base">{viewingPatient.name}</h4>
+                <p className="text-xs text-ink/60">ID: <span className="font-mono">{viewingPatient.id}</span> · {viewingPatient.gender || "—"}</p>
+                <p className="text-[11px] text-ink/50 mt-0.5">Registered: {formatDate(viewingPatient.registeredAt)}</p>
+              </div>
+              <StatusBadge status={viewingPatient.status} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-white border border-sage/30 text-xs">
+              <div>
+                <span className="text-ink/50 block">Email Address</span>
+                <span className="font-medium text-ink break-all">{viewingPatient.email || "—"}</span>
+              </div>
+              <div>
+                <span className="text-ink/50 block">Phone</span>
+                <span className="font-medium text-ink">{viewingPatient.phone || "—"}</span>
+              </div>
+              <div className="pt-2 border-t border-sage/20">
+                <span className="text-ink/50 block">Date of Birth / Age</span>
+                <span className="font-medium text-ink">{viewingPatient.dob ? `${viewingPatient.dob} (${ageFrom(viewingPatient.dob)} yrs)` : "—"}</span>
+              </div>
+              <div className="pt-2 border-t border-sage/20">
+                <span className="text-ink/50 block">Blood Group</span>
+                <span className="font-semibold text-danger">{viewingPatient.bloodGroup || viewingPatient.blood_group || "—"}</span>
+              </div>
+              {viewingPatient.address && (
+                <div className="col-span-2 pt-2 border-t border-sage/20">
+                  <span className="text-ink/50 block">Residential Address</span>
+                  <span className="font-medium text-ink">{viewingPatient.address}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-surface border border-sage/20 text-xs space-y-2">
+              <div>
+                <span className="font-semibold text-ink/70 block mb-1">Recorded Allergies</span>
+                <p className="text-ink/80">
+                  {Array.isArray(viewingPatient.allergies) && viewingPatient.allergies.length > 0
+                    ? viewingPatient.allergies.join(", ")
+                    : "No known drug/food allergies recorded."}
+                </p>
+              </div>
+              <div>
+                <span className="font-semibold text-ink/70 block mb-1">Chronic Conditions</span>
+                <p className="text-ink/80">
+                  {Array.isArray(viewingPatient.chronicConditions) && viewingPatient.chronicConditions.length > 0
+                    ? viewingPatient.chronicConditions.join(", ")
+                    : "No chronic health conditions on file."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? "Edit Patient" : "Add Patient"} size="lg"
         footer={<><Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button><Button onClick={save} loading={saving}>Save</Button></>}>

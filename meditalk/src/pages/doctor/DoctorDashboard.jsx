@@ -45,7 +45,7 @@ export default function DoctorDashboard() {
       label: "Action",
       render: (row) => (
         <div className="flex gap-2">
-          <Button size="sm" variant="primary" onClick={() => navigate(`/doctor/consultation/${row.patientId}`)}>
+          <Button size="sm" variant="primary" onClick={() => navigate(`/doctor/consultation/${row.patientId}?apptId=${row.id}`)}>
             <Play className="h-3.5 w-3.5" /> Start
           </Button>
           <Button size="sm" variant="outline" onClick={() => navigate(`/doctor/patients/${row.patientId}`)}>

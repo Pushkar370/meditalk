@@ -28,6 +28,7 @@ export function getConsultations(filters = {}) {
   const params = new URLSearchParams();
   if (filters.patientId) params.set('patientId', filters.patientId);
   if (filters.doctorId) params.set('doctorId', filters.doctorId);
+  if (filters.appointmentId) params.set('appointmentId', filters.appointmentId);
   const qs = params.toString();
   return apiFetch(`/consultations${qs ? `?${qs}` : ''}`);
 }

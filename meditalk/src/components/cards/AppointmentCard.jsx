@@ -66,8 +66,13 @@ export default function AppointmentCard({
           </Button>
         )}
         {onView && (
-          <Button size="sm" variant="outline" onClick={() => onView(a)}>
-            View Details
+          <Button
+            size="sm"
+            variant={a.status === "completed" ? "primary" : "outline"}
+            onClick={() => onView(a)}
+            className={a.status === "completed" ? "shadow-sm" : ""}
+          >
+            {a.status === "completed" ? "After-Visit Summary (AVS)" : "View Details"}
           </Button>
         )}
         {onWhatsApp && a.status !== "cancelled" && (

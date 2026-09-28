@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles, AlertCircle, AlertTriangle, CheckCircle2, Info, ArrowRight,
-  RotateCcw, Calendar, Stethoscope, ShieldAlert, HeartPulse, ChevronRight
+  RotateCcw, Calendar, Stethoscope, ShieldAlert, HeartPulse, ChevronRight, PhoneCall
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -337,9 +337,36 @@ export default function PatientTriage() {
                 <p className="text-sm pt-1 leading-relaxed opacity-90">{result.urgencyReason}</p>
 
                 {result.urgency === "emergency" && (
-                  <div className="mt-3 p-3 rounded-xl bg-danger text-white text-xs font-medium flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 shrink-0" />
-                    <span>Immediate Action: If you feel acute crushing pain, fainting, or severe breathing distress, please call emergency services immediately or go to the nearest emergency room.</span>
+                  <div className="mt-4 p-4 rounded-xl bg-danger/10 border-2 border-danger text-danger space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-sm">Critical Clinical Safety Alert</h4>
+                        <p className="text-xs leading-relaxed mt-0.5 text-ink/80">
+                          These symptoms may indicate an acute medical emergency. Telehealth visits cannot substitute for emergency room or immediate paramedic intervention. If you or the patient is having chest pain, severe shortness of breath, sudden facial drooping or weakness, call emergency services right away.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <a
+                        href="tel:112"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-bold hover:bg-danger/90 transition shadow-sm"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" /> Call 112 (National Emergency)
+                      </a>
+                      <a
+                        href="tel:108"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-danger/90 text-white text-xs font-bold hover:bg-danger transition shadow-sm"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" /> Call 108 (Ambulance)
+                      </a>
+                      <a
+                        href="tel:911"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-danger text-danger text-xs font-semibold hover:bg-danger/5 transition shadow-sm"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" /> Call 911
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

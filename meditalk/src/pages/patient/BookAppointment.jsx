@@ -16,6 +16,9 @@ import {
   ArrowRight,
   Smartphone,
   Share2,
+  ShieldAlert,
+  PhoneCall,
+  AlertTriangle,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DoctorCard from "../../components/cards/DoctorCard";
@@ -72,6 +75,7 @@ export default function BookAppointment() {
   const [patientPhone, setPatientPhone] = useState(user?.phone || "");
   const [waSending, setWaSending] = useState(false);
   const [waSentTo, setWaSentTo] = useState(null);
+  const [dismissEmergencyWarning, setDismissEmergencyWarning] = useState(false);
 
   // Fetch slots whenever doctor + date are both selected (step 3)
   useEffect(() => {
@@ -389,6 +393,52 @@ export default function BookAppointment() {
   return (
     <div className="space-y-6">
       <PageHeader title="Book Appointment" subtitle="A few simple steps to schedule your visit." />
+
+      {/* Emergency Red-Flag Intercept */}
+      {sel.triageSummary?.urgency === "emergency" && !dismissEmergencyWarning && (
+        <div className="p-5 rounded-2xl bg-danger/10 border-2 border-danger text-danger space-y-3.5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-danger text-white shadow-sm shrink-0">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-danger">Emergency Medical Warning</h3>
+              <p className="text-xs sm:text-sm text-ink/80 mt-1 leading-relaxed">
+                Your AI Triage assessment flagged severe or critical red-flag symptoms. If you or the patient is experiencing acute chest pain, sudden difficulty breathing, slurred speech, acute abdominal distress, or heavy bleeding, <strong>do not wait for a scheduled teleconsultation</strong>. Seek in-person emergency care immediately.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-danger/20">
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="tel:112"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-danger text-white text-xs font-bold hover:bg-danger/90 transition shadow-sm"
+              >
+                <PhoneCall className="w-3.5 h-3.5" /> Call 112 (National Emergency)
+              </a>
+              <a
+                href="tel:108"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-danger/90 text-white text-xs font-bold hover:bg-danger transition shadow-sm"
+              >
+                <PhoneCall className="w-3.5 h-3.5" /> Call 108 (Ambulance)
+              </a>
+              <a
+                href="tel:911"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-danger text-danger text-xs font-bold hover:bg-danger/5 transition shadow-sm"
+              >
+                <PhoneCall className="w-3.5 h-3.5" /> Call 911
+              </a>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDismissEmergencyWarning(true)}
+              className="text-xs text-ink/60 hover:text-ink underline transition font-medium"
+            >
+              I understand, continue booking non-emergency visit
+            </button>
+          </div>
+        </div>
+      )}
 
       <Stepper step={step} />
 

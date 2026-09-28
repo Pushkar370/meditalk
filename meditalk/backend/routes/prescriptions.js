@@ -103,6 +103,7 @@ function parseConsultation(row) {
   if (!row) return null;
   return {
     ...row, patientId: row.patient_id, doctorId: row.doctor_id,
+    appointmentId: row.appointment_id,
     diagnosisCode: row.diagnosis_code, labResults: row.lab_results,
     treatmentPlan: row.treatment_plan, followUpDate: row.follow_up_date,
     followUpInstructions: row.follow_up_instructions,
@@ -114,7 +115,7 @@ function parseConsultation(row) {
 router.get('/consultations', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
-    const { patientId, doctorId } = req.query;
+    const { patientId, doctorId, appointmentId } = req.query;
 
     let sql = 'SELECT * FROM consultations';
     const conditions = []; const params = []; let idx = 1;
@@ -126,6 +127,7 @@ router.get('/consultations', requireAuth, async (req, res) => {
       if (patientId) { conditions.push('patient_id = $' + idx++); params.push(patientId); }
       if (doctorId) { conditions.push('doctor_id = $' + idx++); params.push(doctorId); }
     }
+    if (appointmentId) { conditions.push('appointment_id = $' + idx++); params.push(appointmentId); }
 
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY date DESC';
@@ -141,8 +143,8 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
     if (!patientId || !doctorId) return res.status(400).json({ error: 'patientId and doctorId are required' });
     const id = 'C-' + Date.now();
     await query(
-      'INSERT INTO consultations (id, patient_id, doctor_id, date, reason, symptoms, vitals, diagnosis, diagnosis_code, observations, lab_results, treatment_plan, follow_up_date, follow_up_instructions, status) VALUES ($1,$2,$3,NOW(),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
-      [id, patientId, doctorId, reason, symptoms, JSON.stringify(vitals), diagnosis, diagnosisCode, observations, labResults, treatmentPlan, followUpDate, followUpInstructions, status]
+      'INSERT INTO consultations (id, patient_id, doctor_id, date, reason, symptoms, vitals, diagnosis, diagnosis_code, observations, lab_results, treatment_plan, follow_up_date, follow_up_instructions, status, appointment_id) VALUES ($1,$2,$3,NOW(),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, patientId, doctorId, reason, symptoms, JSON.stringify(vitals), diagnosis, diagnosisCode, observations, labResults, treatmentPlan, followUpDate, followUpInstructions, status, appointmentId || null]
     );
     try {
       const { rows: drRows } = await query('SELECT name FROM doctors WHERE id = $1', [doctorId]);
