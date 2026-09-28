@@ -19,12 +19,13 @@ import { useFetch } from "../../hooks/useFetch";
 import { getPatientById } from "../../services/patientService";
 import {
   saveConsultation,
+  savePrescription,
   getMedicalRecords,
   adoptAiRecords,
   draftSoapNote,
   checkDrugSafety,
 } from "../../services/prescriptionService";
-import { getAppointmentById, updateVideoStatus } from "../../services/appointmentService";
+import { getAppointmentById, getAppointments, updateVideoStatus } from "../../services/appointmentService";
 import { searchICD10 } from "../../data/icd10";
 import { searchDrugs } from "../../data/drugCatalog";
 import { generateWhatsAppLink, buildAppointmentWhatsAppText } from "../../utils/calendarSync";
@@ -93,8 +94,17 @@ export default function DoctorConsultation() {
 
   const { data: patient, loading: patLoading, reload: reloadPatient } = useFetch(() => getPatientById(patientId), [patientId]);
   const { data: appointment, reload: reloadAppt } = useFetch(
-    () => (apptId ? getAppointmentById(apptId) : Promise.resolve(null)),
-    [apptId]
+    async () => {
+      if (apptId) return getAppointmentById(apptId);
+      if (!patientId || !doctorId) return null;
+      try {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const list = await getAppointments({ patientId, doctorId, date: todayStr });
+        if (list && list.length > 0) return list[0];
+      } catch (_) {}
+      return null;
+    },
+    [apptId, patientId, doctorId]
   );
   const { data: medicalRecords } = useFetch(() => (patientId ? getMedicalRecords(patientId) : Promise.resolve([])), [patientId]);
 
@@ -318,32 +328,39 @@ export default function DoctorConsultation() {
   function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
   function setVital(key, value) { setForm((f) => ({ ...f, vitals: { ...f.vitals, [key]: value } })); }
 
-  const videoStatus = appointment?.videoStatus || null;
-  const roomId = apptId ? `meditalk-${apptId}` : null;
+  const [directVideoStatus, setDirectVideoStatus] = useState(null);
+  const effectiveApptId = apptId || appointment?.id || null;
+  const videoStatus = appointment?.videoStatus || directVideoStatus || null;
+  const roomId = effectiveApptId ? `meditalk-${effectiveApptId}` : `meditalk-direct-${doctorId}-${patientId}`;
 
   async function handleVideoStatus(status) {
-    if (!apptId) { toast.error("No appointment linked to this consultation."); return; }
-    setVideoUpdating(true);
-    try {
-      await updateVideoStatus(apptId, status);
-      reloadAppt();
-      if (status === "in_progress") toast.success("Video call started. Room is now live.");
-      if (status === "ended")       toast.info("Call ended. Please save the consultation.");
-    } catch (err) {
-      toast.error(err.message || "Failed to update video status.");
-    } finally {
-      setVideoUpdating(false);
+    if (effectiveApptId) {
+      setVideoUpdating(true);
+      try {
+        await updateVideoStatus(effectiveApptId, status);
+        reloadAppt();
+        if (status === "in_progress") toast.success("Video call started. Room is now live.");
+        if (status === "ended")       toast.info("Call ended. Please save the consultation.");
+      } catch (err) {
+        toast.error(err.message || "Failed to update video status.");
+      } finally {
+        setVideoUpdating(false);
+      }
+    } else {
+      setDirectVideoStatus(status);
+      if (status === "in_progress") toast.success("Direct video call started. Room is now live.");
+      if (status === "ended")       toast.info("Direct call ended. Please save the consultation.");
     }
   }
 
   const [pingingPatient, setPingingPatient] = useState(false);
 
   async function handlePingLatePatient() {
-    if (!apptId) {
-      toast.error("No appointment linked to this consultation.");
+    const patientPhone = patient?.phone || appointment?.patient_phone;
+    if (!patientPhone) {
+      toast.error("Patient has no phone number on record.");
       return;
     }
-    const patientPhone = patient?.phone || appointment?.patient_phone;
     setPingingPatient(true);
     try {
       const res = await fetch("/api/messaging/send-appointment-whatsapp", {
@@ -353,7 +370,7 @@ export default function DoctorConsultation() {
           Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
         },
         body: JSON.stringify({
-          appointmentId: apptId,
+          appointmentId: effectiveApptId || "direct",
           recipientPhone: patientPhone,
           type: "patient_late_ping",
         }),
@@ -368,7 +385,7 @@ export default function DoctorConsultation() {
             patientName: patient?.name,
             doctorName,
             specialty: appointment?.specialty || "Specialist",
-            id: apptId,
+            id: effectiveApptId || "visit",
             type: "video",
           },
           "patient_late_ping"
@@ -384,7 +401,7 @@ export default function DoctorConsultation() {
           patientName: patient?.name,
           doctorName,
           specialty: appointment?.specialty || "Specialist",
-          id: apptId,
+          id: effectiveApptId || "visit",
           type: "video",
         },
         "patient_late_ping"
@@ -401,18 +418,48 @@ export default function DoctorConsultation() {
     setSaving(true);
     try {
       await saveConsultation({
-        patientId: patient.id, doctorId,
+        patientId: patient.id,
+        doctorId,
         reason: form.symptoms || form.diagnosis,
-        symptoms: form.symptoms, vitals: form.vitals,
-        diagnosis: form.diagnosis, diagnosisCode: form.diagnosisCode,
-        observations: form.observations, labResults: form.labStatus,
-        treatmentPlan: form.treatmentPlan, followUpDate: form.followUpDate,
+        symptoms: form.symptoms,
+        vitals: form.vitals,
+        diagnosis: form.diagnosis,
+        diagnosisCode: form.diagnosisCode,
+        observations: form.observations,
+        labResults: form.labStatus,
+        treatmentPlan: form.treatmentPlan,
+        followUpDate: form.followUpDate,
         followUpInstructions: form.followUpInstructions,
-        status: "completed", appointmentId: apptId || undefined,
+        status: "completed",
+        appointmentId: effectiveApptId || undefined,
       });
+
+      // Auto-issue prescription if candidate drugs were prescribed
+      if (candidateDrugs.length > 0) {
+        try {
+          await savePrescription({
+            patientId: patient.id,
+            patientName: patient.name,
+            doctorId,
+            doctorName,
+            medications: candidateDrugs.map((drug) => ({
+              medicine: typeof drug === "string" ? drug : (drug.medicine || drug.name),
+              dosage: drug.dosage || "Standard dose",
+              frequency: drug.frequency || "OD",
+              duration: drug.duration || "5 days",
+              instructions: drug.instructions || form.treatmentPlan || "Take as directed",
+            })),
+            additionalInstructions: form.treatmentPlan || form.followUpInstructions || "Follow clinical instructions given during consultation.",
+            status: "active",
+          });
+        } catch (rxErr) {
+          console.warn("Auto-issue prescription warning:", rxErr.message);
+        }
+      }
+
       if (complete) {
-        toast.success("Consultation completed successfully.");
-        navigate("/doctor/patients");
+        toast.success("Consultation completed and prescription issued successfully.");
+        navigate("/doctor/appointments");
       } else {
         toast.success("Consultation saved successfully.");
       }

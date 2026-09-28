@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Video, ArrowLeft, Clock, CheckCircle2 } from "lucide-react";
+import { Video, ArrowLeft, Clock, CheckCircle2, ClipboardList, Pill, Calendar } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Button from "../../components/ui/Button";
 import LoadingState from "../../components/ui/LoadingState";
@@ -91,6 +91,46 @@ export default function PatientVideoRoom() {
           </>
         )}
       </div>
+
+      {/* Post-Consultation Wrap-Up Actions */}
+      {videoStatus === "ended" && (
+        <div className="card border-2 border-primary/30 bg-gradient-to-r from-primary/5 via-sage/10 to-white space-y-3.5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-sm">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-ink text-base">Consultation Concluded</h3>
+              <p className="text-xs text-ink/70">Your appointment documentation, notes, and prescriptions have been updated.</p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-2.5 pt-2 border-t border-sage/20">
+            <Button
+              size="sm"
+              onClick={() => navigate("/patient/appointments")}
+              className="w-full flex items-center justify-center gap-1.5 text-xs shadow-sm"
+            >
+              <ClipboardList className="h-3.5 w-3.5" /> After-Visit Summary (AVS)
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate("/patient/prescriptions")}
+              className="w-full flex items-center justify-center gap-1.5 text-xs"
+            >
+              <Pill className="h-3.5 w-3.5 text-primary" /> View Prescriptions
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate("/patient/book-appointment", { state: { recommendedSpecialty: appointment.specialty } })}
+              className="w-full flex items-center justify-center gap-1.5 text-xs"
+            >
+              <Calendar className="h-3.5 w-3.5" /> Book Follow-Up
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Video Room */}
       <div className="card">
