@@ -41,6 +41,26 @@ router.get('/', requireAuth, requireRole('doctor', 'admin'), async (req, res) =>
     const conditions = [];
     const params = [];
     let idx = 1;
+
+    // Doctor directory scoping: doctors can only view patients who have had
+    // appointments, consultations, or prescriptions with them.
+    if (req.user.role === 'doctor') {
+      let doctorId = req.user.doctorId || req.user.id;
+      if (doctorId && doctorId.startsWith('U-')) {
+        const { rows: u } = await query('SELECT doctor_id FROM users WHERE id = $1', [doctorId]);
+        if (u[0]?.doctor_id) doctorId = u[0].doctor_id;
+      }
+      conditions.push(`id IN (
+        SELECT patient_id FROM appointments WHERE doctor_id = $${idx}
+        UNION
+        SELECT patient_id FROM consultations WHERE doctor_id = $${idx}
+        UNION
+        SELECT patient_id FROM prescriptions WHERE doctor_id = $${idx}
+      )`);
+      params.push(doctorId);
+      idx++;
+    }
+
     if (status && status !== 'all') { conditions.push('status = $' + idx++); params.push(status); }
     if (search) { conditions.push('(name ILIKE $' + idx + ' OR id ILIKE $' + (idx+1) + ')'); params.push('%'+search+'%', '%'+search+'%'); idx += 2; }
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
