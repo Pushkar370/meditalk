@@ -20,6 +20,7 @@ import { SPECIALTIES } from "../../constants";
 export default function AdminDoctors() {
   const toast = useToast();
   const { data: list, loading, reload } = useFetch(() => getDoctors());
+  const [filterTab, setFilterTab] = useState("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [inspectingDoctor, setInspectingDoctor] = useState(null);
@@ -29,10 +30,24 @@ export default function AdminDoctors() {
 
   if (loading) return <LoadingState />;
 
-  const rows = (list || []).filter((d) =>
-    d.name.toLowerCase().includes(search.toLowerCase()) ||
-    d.specialty.toLowerCase().includes(search.toLowerCase())
-  );
+  const rawList = list || [];
+  const pendingCount = rawList.filter((d) => d.verification_status === "pending").length;
+  const activeCount = rawList.filter((d) => d.status === "active").length;
+  const inactiveCount = rawList.filter((d) => d.status === "inactive").length;
+
+  const rows = rawList.filter((d) => {
+    const matchesSearch =
+      d.name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.specialty?.toLowerCase().includes(search.toLowerCase()) ||
+      d.id?.toLowerCase().includes(search.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (filterTab === "pending") return d.verification_status === "pending";
+    if (filterTab === "active") return d.status === "active";
+    if (filterTab === "inactive") return d.status === "inactive";
+    return true;
+  });
 
   function openAdd() {
     setEditing({});
@@ -138,7 +153,80 @@ export default function AdminDoctors() {
       <PageHeader title="Doctors" subtitle="Manage clinic doctors and availability."
         action={<Button onClick={openAdd}><Plus className="h-4 w-4" /> Add Doctor</Button>} />
 
-      <SearchBar value={search} onChange={(v) => setSearch(v)} placeholder="Search by name or specialty..." className="max-w-md" />
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-sage/30 overflow-x-auto pb-1">
+        <button
+          onClick={() => setFilterTab("all")}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
+            filterTab === "all"
+              ? "bg-primary text-white shadow-sm"
+              : "text-ink/60 hover:text-ink hover:bg-sage/10"
+          }`}
+        >
+          All Doctors ({rawList.length})
+        </button>
+
+        <button
+          onClick={() => setFilterTab("pending")}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ${
+            filterTab === "pending"
+              ? "bg-amber-600 text-white shadow-sm"
+              : "text-ink/60 hover:text-ink hover:bg-sage/10"
+          }`}
+        >
+          Pending Verification
+          {pendingCount > 0 && (
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                filterTab === "pending"
+                  ? "bg-white text-amber-700"
+                  : "bg-amber-500/20 text-amber-700"
+              }`}
+            >
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setFilterTab("active")}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
+            filterTab === "active"
+              ? "bg-primary text-white shadow-sm"
+              : "text-ink/60 hover:text-ink hover:bg-sage/10"
+          }`}
+        >
+          Active ({activeCount})
+        </button>
+
+        <button
+          onClick={() => setFilterTab("inactive")}
+          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
+            filterTab === "inactive"
+              ? "bg-primary text-white shadow-sm"
+              : "text-ink/60 hover:text-ink hover:bg-sage/10"
+          }`}
+        >
+          Inactive ({inactiveCount})
+        </button>
+      </div>
+
+      {pendingCount > 0 && filterTab !== "pending" && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-amber-800">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <span><strong>{pendingCount} doctor application{pendingCount > 1 ? 's' : ''}</strong> pending credential verification.</span>
+          </div>
+          <button
+            onClick={() => setFilterTab("pending")}
+            className="font-semibold text-amber-900 underline hover:no-underline"
+          >
+            Review Applications →
+          </button>
+        </div>
+      )}
+
+      <SearchBar value={search} onChange={(v) => setSearch(v)} placeholder="Search by name, specialty, or ID..." className="max-w-md" />
 
       <div className="card">
         {rows.length === 0 ? <EmptyState icon={Stethoscope} title="No doctors found" /> : <DataTable columns={columns} data={rows} />}

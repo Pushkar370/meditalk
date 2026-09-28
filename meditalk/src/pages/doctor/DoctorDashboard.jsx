@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Users, ClipboardList, CalendarClock, Play, Eye } from "lucide-react";
+import { CalendarDays, Users, ClipboardList, CalendarClock, Play, Eye, Clock } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import StatCard from "../../components/ui/StatCard";
 import DataTable from "../../components/ui/DataTable";
@@ -11,6 +11,7 @@ import { useFetch } from "../../hooks/useFetch";
 import { getAppointments } from "../../services/appointmentService";
 import { getPatients } from "../../services/patientService";
 import { getConsultations } from "../../services/prescriptionService";
+import { getDoctorById } from "../../services/doctorService";
 import { formatDate } from "../../constants";
 
 export default function DoctorDashboard() {
@@ -19,6 +20,7 @@ export default function DoctorDashboard() {
   const doctorId = user?.id || "D-201";
   const today = new Date().toISOString().slice(0, 10);
 
+  const { data: currentDoctor } = useFetch(() => (doctorId ? getDoctorById(doctorId) : Promise.resolve(null)), [doctorId]);
   const { data: appts, loading } = useFetch(() => getAppointments({ doctorId }), [doctorId]);
   const { data: patients } = useFetch(() => getPatients());
   const { data: consultations } = useFetch(() => getConsultations({ doctorId }), [doctorId]);
@@ -103,6 +105,25 @@ export default function DoctorDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader title="Doctor Dashboard" subtitle={`Welcome, ${user?.name || "Doctor"}`} />
+
+      {currentDoctor?.verification_status === "pending" && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-800">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Medical License Verification Under Review</p>
+              <p className="text-xs text-amber-700/80">
+                Your medical credentials and licensing documents are currently being reviewed by clinic administration. Patient booking availability will be unlocked once verification is complete.
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-500/20 text-amber-800 shrink-0">
+            Pending Review
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={CalendarDays} label="Today's Appointments" value={todays.length} tone="primary" />

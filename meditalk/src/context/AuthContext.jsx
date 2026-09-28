@@ -39,6 +39,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  function updateUser(partial) {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...partial };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
+  }
+
   const value = {
     user,
     loading,
@@ -46,6 +57,7 @@ export function AuthProvider({ children }) {
     role: user?.role || null,
     login,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

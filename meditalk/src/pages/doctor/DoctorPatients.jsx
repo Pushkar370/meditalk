@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users, Eye, FileText, Play } from "lucide-react";
+import { Users, Eye, Play } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -74,9 +74,6 @@ export default function DoctorPatients() {
         <div className="flex flex-wrap gap-1.5">
           <Button size="sm" variant="outline" onClick={() => navigate(`/doctor/patients/${r.id}`)}>
             <Eye className="h-3.5 w-3.5" /> Profile
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => navigate(`/doctor/patients/${r.id}`)}>
-            <FileText className="h-3.5 w-3.5" /> Records
           </Button>
           <Button size="sm" variant="secondary" onClick={() => navigate(`/doctor/consultation/${r.id}`)}>
             <Play className="h-3.5 w-3.5" /> Consult

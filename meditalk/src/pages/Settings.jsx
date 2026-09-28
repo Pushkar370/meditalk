@@ -22,7 +22,7 @@ const SECTIONS = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const toast = useToast();
   const [section, setSection] = useState("account");
 
@@ -103,16 +103,8 @@ export default function Settings() {
       const res = await updateUserProfile(accountForm);
       if (res?.success) {
         toast.success("Account information updated successfully.");
-        // Sync local storage token user info if needed
-        const stored = localStorage.getItem("meditrack_user");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            localStorage.setItem(
-              "meditrack_user",
-              JSON.stringify({ ...parsed, name: accountForm.name, email: accountForm.email })
-            );
-          } catch (_) {}
+        if (updateUser) {
+          updateUser({ name: accountForm.name, email: accountForm.email, phone: accountForm.phone });
         }
       } else {
         toast.error(res?.message || "Failed to update account.");

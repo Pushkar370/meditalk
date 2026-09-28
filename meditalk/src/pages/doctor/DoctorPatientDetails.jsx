@@ -18,11 +18,10 @@ import { useToast } from "../../context/ToastContext";
 const BASE_TABS = [
   { key: "overview", label: "Overview" },
   { key: "history", label: "Medical History" },
-  { key: "consultations", label: "Consultations" },
+  { key: "consultations", label: "Consultations & Treatment Plans" },
   { key: "prescriptions", label: "Prescriptions" },
   { key: "labs", label: "Lab Results" },
   { key: "imaging", label: "Imaging" },
-  { key: "treatment", label: "Treatment History" },
 ];
 
 export default function DoctorPatientDetails() {
@@ -178,17 +177,55 @@ export default function DoctorPatientDetails() {
 
         {tab === "consultations" &&
           ((consults || []).length ? (
-            <DataTable
-              columns={[
-                { key: "date", label: "Date", render: (r) => formatDate(r.date) },
-                { key: "reason", label: "Reason" },
-                { key: "diagnosis", label: "Diagnosis" },
-                { key: "followUpDate", label: "Follow-up", render: (r) => formatDate(r.followUpDate) },
-              ]}
-              data={consults}
-            />
+            <div className="space-y-4">
+              {consults.map((c) => (
+                <div key={c.id} className="rounded-xl bg-white border border-sage/30 p-4 shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2 border-b border-sage/20 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="h-4 w-4 text-primary" />
+                      <span className="font-semibold text-ink text-sm">
+                        {c.diagnosis || "Clinical Consultation"}
+                      </span>
+                      {c.diagnosisCode && (
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-sage/20 text-ink/70">
+                          {c.diagnosisCode}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-ink/50">{formatDate(c.date)}</span>
+                  </div>
+
+                  {c.reason && (
+                    <p className="text-xs text-ink/70">
+                      <strong className="text-ink font-medium">Reason for Visit:</strong> {c.reason}
+                    </p>
+                  )}
+
+                  {c.treatmentPlan && (
+                    <div className="bg-sage/10 p-3 rounded-lg text-xs text-ink/80 leading-relaxed border border-sage/20">
+                      <strong className="block text-ink font-medium mb-1">Clinical Treatment Plan:</strong>
+                      {c.treatmentPlan}
+                    </div>
+                  )}
+
+                  {(c.followUpDate || c.followUpInstructions) && (
+                    <div className="flex items-center gap-2 text-xs text-ink/60 pt-1 border-t border-sage/15">
+                      <span className="font-medium text-ink/70">Follow-up:</span>
+                      <span>
+                        {c.followUpDate ? formatDate(c.followUpDate) : "As needed"}
+                        {c.followUpInstructions ? ` · ${c.followUpInstructions}` : ""}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
-            <EmptyState icon={Stethoscope} title="No consultations yet" />
+            <EmptyState
+              icon={Stethoscope}
+              title="No consultations yet"
+              message="Completed consultation notes and treatment plans will appear here."
+            />
           ))}
 
         {tab === "prescriptions" &&
@@ -222,22 +259,6 @@ export default function DoctorPatientDetails() {
           ) : (
             <EmptyState icon={ScanLine} title="No imaging studies" />
           ))}
-
-        {tab === "treatment" && (
-          <div className="space-y-3">
-            {(consults || []).map((c) => (
-              <div key={c.id} className="rounded-xl bg-sage/10 border border-sage/20 p-4 text-sm">
-                <div className="flex justify-between">
-                  <p className="font-medium text-ink">{c.diagnosis} <span className="text-ink/40">({c.diagnosisCode})</span></p>
-                  <span className="text-ink/40">{formatDate(c.date)}</span>
-                </div>
-                <p className="text-ink/70 mt-1">{c.treatmentPlan}</p>
-                <p className="text-ink/50 mt-1">Follow-up: {formatDate(c.followUpDate)} · {c.followUpInstructions}</p>
-              </div>
-            ))}
-            {!(consults || []).length && <EmptyState icon={Activity} title="No treatment history" />}
-          </div>
-        )}
 
         {tab === "priorRecords" && (
           <div className="space-y-4">

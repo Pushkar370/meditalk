@@ -29,7 +29,6 @@ export const NAV_CONFIG = {
     { label: "Dashboard", to: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Patients", to: "/admin/patients", icon: Users },
     { label: "Doctors", to: "/admin/doctors", icon: Stethoscope },
-    { label: "Verification", to: "/admin/doctor-verification", icon: ShieldCheck },
     { label: "Appointments", to: "/admin/appointments", icon: CalendarDays },
     { label: "Announcements", to: "/admin/announcements", icon: Megaphone },
     { label: "Analytics", to: "/admin/analytics", icon: BarChart2 },
