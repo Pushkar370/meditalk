@@ -65,7 +65,7 @@ export default function Register() {
     setSubmitting(false);
     if (res.success) {
       setDone(true);
-      toast.success(`${role === ROLES.DOCTOR ? "Doctor" : "Patient"} registration successful!`);
+      toast.success(role === ROLES.DOCTOR ? "Doctor registration submitted for review!" : "Patient registration successful!");
     } else {
       toast.error(res.message);
     }
@@ -78,12 +78,16 @@ export default function Register() {
           <div className="mx-auto h-14 w-14 rounded-full bg-success/15 flex items-center justify-center">
             <CheckCircle2 className="h-7 w-7 text-success" />
           </div>
-          <h1 className="mt-4 text-xl font-bold text-ink">Account created</h1>
+          <h1 className="mt-4 text-xl font-bold text-ink">
+            {role === ROLES.DOCTOR ? "Registration Submitted" : "Account created"}
+          </h1>
           <p className="mt-2 text-sm text-ink/60">
-            Your MediTalk {role === ROLES.DOCTOR ? "Doctor" : "Patient"} account is ready. You can now sign in.
+            {role === ROLES.DOCTOR
+              ? "Your doctor account has been created and your medical credentials are under administrative review. You will be able to sign in once an administrator approves your license."
+              : "Your MediTalk Patient account is ready. You can now sign in."}
           </p>
           <Button className="mt-6 w-full" onClick={() => navigate("/login")}>
-            Go to Login
+            {role === ROLES.DOCTOR ? "Back to Login" : "Go to Login"}
           </Button>
         </div>
       </div>
