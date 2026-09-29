@@ -78,6 +78,16 @@ router.post('/medications/adherence', requireAuth, async (req, res) => {
         ? new Date(Date.now() + durationDays * 86400000).toISOString()
         : null;
 
+      // Deduplicate: if already active for this patient and medicine, avoid creating duplicate cards
+      const { rows: existingSched } = await query(
+        'SELECT * FROM medication_schedules WHERE patient_id = $1 AND medicine_name = $2 AND is_active = TRUE',
+        [targetId, name]
+      );
+      if (existingSched.length > 0) {
+        created.push(parseSchedule(existingSched[0]));
+        continue;
+      }
+
       const id = 'MS-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
       await query(
         `INSERT INTO medication_schedules (id, patient_id, prescription_id, medicine_name, dosage, frequency, timing_slots, end_date, instructions, taken_logs, streak_count, is_active, created_at)
