@@ -77,7 +77,7 @@ function getNotificationRoute(notification, userRole) {
 
   // Doctor Verification
   if (title.includes("verification") || title.includes("license") || type.includes("verification")) {
-    if (role === "admin") return "/admin/doctor-verification";
+    if (role === "admin") return "/admin/doctors?tab=pending";
     return "/doctor/settings";
   }
 

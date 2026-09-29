@@ -30,7 +30,7 @@ import {
   DoctorPrescriptions, DoctorCalendar, DoctorAnalytics,
 } from "./pages/doctor/doctorIndex.jsx";
 import {
-  AdminDashboard, AdminPatients, AdminDoctors, AdminDoctorVerification, AdminAppointments, AdminAnnouncements, AdminAnalytics, AdminAuditLogs,
+  AdminDashboard, AdminPatients, AdminDoctors, AdminAppointments, AdminAnnouncements, AdminAnalytics, AdminAuditLogs,
 } from "./pages/admin/adminIndex.jsx";
 
 import { useAuth } from "./context/AuthContext";
@@ -90,7 +90,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/patients" element={<AdminPatients />} />
           <Route path="/admin/doctors" element={<AdminDoctors />} />
-          <Route path="/admin/doctor-verification" element={<AdminDoctorVerification />} />
+          <Route path="/admin/doctor-verification" element={<Navigate to="/admin/doctors?tab=pending" replace />} />
           <Route path="/admin/appointments" element={<AdminAppointments />} />
           <Route path="/admin/announcements" element={<AdminAnnouncements />} />
           <Route path="/admin/analytics" element={<AdminAnalytics />} />

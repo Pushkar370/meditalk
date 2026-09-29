@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Stethoscope, Plus, Pencil, Eye, Power } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import DataTable from "../../components/ui/DataTable";
@@ -19,14 +20,30 @@ import { SPECIALTIES } from "../../constants";
 
 export default function AdminDoctors() {
   const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") || "all";
   const { data: list, loading, reload } = useFetch(() => getDoctors());
-  const [filterTab, setFilterTab] = useState("all");
+  const [filterTab, setFilterTab] = useState(tabFromUrl);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [inspectingDoctor, setInspectingDoctor] = useState(null);
   const [form, setForm] = useState({});
   const [toggle, setToggle] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t) setFilterTab(t);
+  }, [searchParams]);
+
+  function handleTabChange(tab) {
+    setFilterTab(tab);
+    if (tab === "all") {
+      setSearchParams({});
+    } else {
+      setSearchParams({ tab });
+    }
+  }
 
   if (loading) return <LoadingState />;
 
@@ -156,7 +173,7 @@ export default function AdminDoctors() {
       {/* Status Filter Tabs */}
       <div className="flex items-center gap-2 border-b border-sage/30 overflow-x-auto pb-1">
         <button
-          onClick={() => setFilterTab("all")}
+          onClick={() => handleTabChange("all")}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
             filterTab === "all"
               ? "bg-primary text-white shadow-sm"
@@ -167,7 +184,7 @@ export default function AdminDoctors() {
         </button>
 
         <button
-          onClick={() => setFilterTab("pending")}
+          onClick={() => handleTabChange("pending")}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 ${
             filterTab === "pending"
               ? "bg-amber-600 text-white shadow-sm"
@@ -189,7 +206,7 @@ export default function AdminDoctors() {
         </button>
 
         <button
-          onClick={() => setFilterTab("active")}
+          onClick={() => handleTabChange("active")}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
             filterTab === "active"
               ? "bg-primary text-white shadow-sm"
@@ -200,7 +217,7 @@ export default function AdminDoctors() {
         </button>
 
         <button
-          onClick={() => setFilterTab("inactive")}
+          onClick={() => handleTabChange("inactive")}
           className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition ${
             filterTab === "inactive"
               ? "bg-primary text-white shadow-sm"
