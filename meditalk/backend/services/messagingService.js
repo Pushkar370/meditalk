@@ -96,7 +96,7 @@ export function buildWhatsAppTemplate(type, data = {}) {
         `💊 *MediTalk: Digital Prescription Issued*\n\n` +
         `Hello *${patientName}*,\n` +
         `Dr. ${cleanDoctor} has issued your verified digital prescription.\n\n` +
-        `📦 *Order Medicines & Download PDF:* ${BASE_URL}/patient/prescriptions\n\n` +
+        `📋 *View & Download PDF Prescription:* ${BASE_URL}/patient/prescriptions\n\n` +
         `_Adhere strictly to prescribed dosages and instructions._`
       );
 

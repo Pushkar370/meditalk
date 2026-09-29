@@ -78,29 +78,6 @@ export async function adoptAiRecords(patientId, { allergies = [], medications = 
   });
 }
 
-// --- Pharmacy Orders ---
-export function getPharmacyOrders(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.patientId) params.set('patientId', filters.patientId);
-  if (filters.prescriptionId) params.set('prescriptionId', filters.prescriptionId);
-  if (filters.status) params.set('status', filters.status);
-  return apiFetch(`/pharmacy/orders?${params.toString()}`);
-}
-
-export async function createPharmacyOrder(payload) {
-  return apiFetch('/pharmacy/orders', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateOrderStatus(orderId, status) {
-  return apiFetch(`/pharmacy/orders/${orderId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
-}
-
 // --- Medication Adherence ---
 export function getAdherenceSchedules(patientId) {
   return apiFetch(`/medications/adherence?patientId=${patientId}`);

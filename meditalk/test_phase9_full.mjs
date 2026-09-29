@@ -127,8 +127,8 @@ const adoptResp = await fetch(`${API_BASE}/patients/${patAuth.user.id}/adopt-ai-
 const adoptData = await adoptResp.json();
 assert(adoptResp.ok && adoptData.success, 'Adopted extracted allergies & medications into patient chart');
 
-// ── TEST SUITE 5: E-PHARMACY ORDER LIFECYCLE ──
-console.log('\n--- TEST SUITE 5: E-Pharmacy Order Lifecycle ---');
+// ── TEST SUITE 5: DIRECT MEDICATION ROUTINE PROVISIONING ──
+console.log('\n--- TEST SUITE 5: Direct Medication Routine Provisioning ---');
 // 1. Create a test prescription for the patient
 const rxId = 'RX-TEST-' + Date.now();
 await query(
@@ -137,39 +137,21 @@ await query(
   [rxId, patAuth.user.id, patAuth.user.name, docAuth.user.id, docAuth.user.name, JSON.stringify([{ medicine: 'Paracetamol 500mg', dosage: '500mg', frequency: 'TDS' }])]
 );
 
-// 2. Place pharmacy fulfillment order
-const orderResp = await fetch(`${API_BASE}/pharmacy/orders`, {
+// 2. Provision adherence routine directly from prescription
+const schedResp = await fetch(`${API_BASE}/medications/adherence`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${patAuth.token}`,
   },
   body: JSON.stringify({
+    patientId: patAuth.user.id,
     prescriptionId: rxId,
-    pharmacyName: 'MediTalk Central Dispensary',
-    deliveryAddress: 'Flat 4B, Lotus Apartments, Mumbai',
-    contactPhone: '+91 98765 43210',
-    notes: 'Ring doorbell twice on arrival.',
+    medications: [{ name: 'Paracetamol 500mg', dosage: '500mg', frequency: 'TDS' }],
   }),
 });
-const orderData = await orderResp.json();
-assert(orderResp.ok && orderData.order?.id, `Created pharmacy order: ${orderData.order?.id} (Tracking: ${orderData.order?.trackingNumber})`);
-
-// 3. Update order status transition (pending -> processing -> dispensed -> out_for_delivery -> delivered)
-const statusUpdates = ['processing', 'dispensed', 'out_for_delivery', 'delivered'];
-let allTransitionsPassed = true;
-for (const st of statusUpdates) {
-  const patchResp = await fetch(`${API_BASE}/pharmacy/orders/${orderData.order.id}/status`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${docAuth.token}`,
-    },
-    body: JSON.stringify({ status: st }),
-  });
-  if (!patchResp.ok) allTransitionsPassed = false;
-}
-assert(allTransitionsPassed, 'Successfully transitioned order status through full fulfillment pipeline to "delivered"');
+const schedData = await schedResp.json();
+assert(schedResp.ok && schedData.schedules?.length > 0, `Provisioned ${schedData.schedules?.length} adherence routine(s) directly from prescription`);
 
 // ── TEST SUITE 6: MEDICATION ADHERENCE TIMETABLE & STREAK COUNTER ──
 console.log('\n--- TEST SUITE 6: Daily Medication Adherence Timetable & Streak ---');
@@ -191,11 +173,11 @@ const createdSchedData = await createSchedResp.json();
 assert(createSchedResp.ok && createdSchedData.schedules?.length > 0, 'Explicit adherence schedule creation endpoint');
 
 // 2. Fetch adherence schedules
-const schedResp = await fetch(`${API_BASE}/medications/adherence?patientId=${patAuth.user.id}`, {
+const fetchSchedResp = await fetch(`${API_BASE}/medications/adherence?patientId=${patAuth.user.id}`, {
   headers: { 'Authorization': `Bearer ${patAuth.token}` },
 });
-const schedules = await schedResp.json();
-assert(schedResp.ok && Array.isArray(schedules) && schedules.length > 0, `Adherence schedule list: ${schedules.length} active medication(s)`);
+const schedules = await fetchSchedResp.json();
+assert(fetchSchedResp.ok && Array.isArray(schedules) && schedules.length > 0, `Adherence schedule list: ${schedules.length} active medication(s)`);
 
 // 2. Log a dose as taken
 if (schedules.length > 0) {

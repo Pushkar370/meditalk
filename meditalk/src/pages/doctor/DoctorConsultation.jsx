@@ -891,20 +891,6 @@ export default function DoctorConsultation() {
                 );
               })}
             </div>
-
-            {/* Lab Results */}
-            <div>
-              <label className="label-base">Laboratory Results</label>
-              <div className="flex items-center gap-3 rounded-xl border border-dashed border-sage/50 p-4">
-                <Activity className="h-5 w-5 text-primary" />
-                <span className="text-sm text-ink/60 flex-1">Upload lab report (UI placeholder)</span>
-                <span className={"text-xs font-medium px-2 py-1 rounded-full " +
-                  (form.labStatus === "pending" ? "bg-accent/20 text-yellow-800" : "bg-success/15 text-success")
-                }>
-                  {form.labStatus}
-                </span>
-              </div>
-            </div>
           </div>
         </Card>
 

@@ -57,7 +57,6 @@ function getNotificationRoute(notification, userRole) {
   if (
     type === NOTIFICATION_TYPES.PRESCRIPTION ||
     type === "prescription_available" ||
-    type === "pharmacy_order" ||
     title.includes("prescription") ||
     title.includes("refill") ||
     msg.includes("prescription")

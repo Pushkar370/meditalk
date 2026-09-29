@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, UserCheck, CalendarDays, CheckCircle2, XCircle, Clock, Activity, Cpu, Database, Radio, RefreshCw, MessageSquare } from "lucide-react";
+import { Users, UserCheck, CalendarDays, CheckCircle2, XCircle, Clock, Activity, Cpu, Database, Radio, RefreshCw } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import StatCard from "../../components/ui/StatCard";
 import Card from "../../components/ui/Card";
 import LoadingState from "../../components/ui/LoadingState";
-import WhatsAppNotificationModal from "../../components/appointments/WhatsAppNotificationModal";
 import { BarChart, LineChart, DonutChart } from "../../components/charts/Charts";
 import { useFetch } from "../../hooks/useFetch";
 import { getDashboardStats, getAnalytics, getSystemHealth } from "../../services/adminService";
@@ -14,7 +13,6 @@ export default function AdminDashboard() {
   const { data: analytics, reload: reloadAnalytics } = useFetch(() => getAnalytics());
   const { data: health, loading: healthLoading, reload: reloadHealth } = useFetch(() => getSystemHealth());
   const [pinging, setPinging] = useState(false);
-  const [waModalOpen, setWaModalOpen] = useState(false);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -51,23 +49,14 @@ export default function AdminDashboard() {
         title="Admin Dashboard"
         subtitle="Clinic-wide overview, system diagnostics, and operational telemetry."
         action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setWaModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition active:scale-95"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              WhatsApp Sandbox
-            </button>
-            <button
-              onClick={handleDiagnosticsPing}
-              disabled={pinging}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-sage/40 text-xs font-semibold text-ink shadow-sm hover:bg-sage/10 transition active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-primary ${pinging ? "animate-spin" : ""}`} />
-              Run Diagnostics Ping
-            </button>
-          </div>
+          <button
+            onClick={handleDiagnosticsPing}
+            disabled={pinging}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-sage/40 text-xs font-semibold text-ink shadow-sm hover:bg-sage/10 transition active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-primary ${pinging ? "animate-spin" : ""}`} />
+            Run Diagnostics Ping
+          </button>
         }
       />
 
@@ -184,24 +173,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
       )}
-
-      {/* Admin WhatsApp Testing Modal */}
-      <WhatsAppNotificationModal
-        isOpen={waModalOpen}
-        onClose={() => setWaModalOpen(false)}
-        appointment={{
-          id: "ADMIN-TEST-" + Date.now().toString().slice(-4),
-          patientName: "Pushkar (Test Patient)",
-          patient_name: "Pushkar (Test Patient)",
-          doctorName: "Dr. Arjun Patel",
-          doctor_name: "Dr. Arjun Patel",
-          specialty: "Cardiology",
-          date: new Date().toISOString().slice(0, 10),
-          time: "10:30 AM",
-          type: "video",
-          patient_phone: "+919876543210",
-        }}
-      />
     </div>
   );
 }
