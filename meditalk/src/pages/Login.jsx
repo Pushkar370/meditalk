@@ -14,12 +14,6 @@ const ROLE_OPTIONS = [
   { value: ROLES.ADMIN, label: "Administrator" },
 ];
 
-const DEMO = {
-  patient: "patient@meditalk.com",
-  doctor: "doctor@meditalk.com",
-  admin: "admin@meditalk.com",
-};
-
 export default function Login() {
   const { login, loading } = useAuth();
   const toast = useToast();
@@ -159,22 +153,6 @@ export default function Login() {
               <LogIn className="h-4 w-4" /> Sign in
             </Button>
           </form>
-
-          <div className="mt-4 rounded-xl bg-cream/70 border border-accent/30 p-3 text-xs text-ink/60">
-            <p className="font-medium text-ink/80 mb-1">Demo accounts (password: password)</p>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(DEMO).map(([k, v]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, email: v, role: k, password: "password" }))}
-                  className="px-2 py-1 rounded-lg bg-white border border-sage/40 hover:bg-sage/20 text-xs font-medium capitalize"
-                >
-                  {k}: {v}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <p className="mt-5 text-sm text-ink/60 text-center">
             Don't have an account?{" "}
