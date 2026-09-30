@@ -89,6 +89,7 @@ Database (Cloud PostgreSQL on Neon, pg-boss Job Queue)
 ```
 
 For complete technical deep dives, explore our dedicated guides:
+- [Codebase & Architecture Walkthrough](docs/CODEBASE_EXPLANATION.md)
 - [Frontend Architecture Guide](docs/FRONTEND_ARCHITECTURE.md)
 - [Backend Architecture Guide](docs/BACKEND_ARCHITECTURE.md)
 - [Setup and Installation Guide](docs/SETUP_AND_INSTALLATION.md)
@@ -135,6 +136,7 @@ npm run dev
 
 | Document | Purpose |
 | :--- | :--- |
+| **[Codebase Walkthrough](docs/CODEBASE_EXPLANATION.md)** | File-by-file breakdown of frontend, backend, routes, database, and clinical flow. |
 | **[Setup & Installation](docs/SETUP_AND_INSTALLATION.md)** | Step-by-step local setup, environment variables, database seeding, and production builds. |
 | **[Frontend Architecture](docs/FRONTEND_ARCHITECTURE.md)** | Guide to React components, the three user portals, routing guards, and design system. |
 | **[Backend Architecture](docs/BACKEND_ARCHITECTURE.md)** | Deep dive into Express middleware, security, zero-trust privacy, SSE, and background jobs. |
