@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
-import { Shield, Bell, CalendarClock, User, Lock, KeyRound, Check, Smartphone, Laptop, ShieldCheck } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Shield, Bell, CalendarClock, User, Lock, KeyRound, Check, Smartphone, Laptop,
+  ShieldCheck, Download, Trash2, AlertTriangle, FileJson, UserX
+} from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
+import ConfirmationModal from "../components/ui/ConfirmationModal";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import {
@@ -12,6 +17,7 @@ import {
   updateUserProfile,
   updateUserPreferences,
 } from "../services/authService";
+import { exportPatientData, withdrawConsent } from "../services/patientService";
 
 const SECTIONS = [
   { key: "account", label: "Account", icon: User },
@@ -22,9 +28,51 @@ const SECTIONS = [
 ];
 
 export default function Settings() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const [section, setSection] = useState("account");
+
+  // Export & Consent state
+  const [exporting, setExporting] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  async function handleExportData() {
+    setExporting(true);
+    try {
+      const data = await exportPatientData(user?.id || user?.patientId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `meditalk-health-export-${user?.id || "patient"}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Personal health data archive exported successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to export data.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleWithdrawConsent() {
+    setWithdrawing(true);
+    try {
+      await withdrawConsent(user?.id || user?.patientId);
+      toast.success("Medical consent withdrawn and account deleted.");
+      setWithdrawModalOpen(false);
+      await logout();
+      navigate("/login");
+    } catch (err) {
+      toast.error(err.message || "Failed to withdraw consent.");
+    } finally {
+      setWithdrawing(false);
+    }
+  }
 
   // Account state
   const [accountForm, setAccountForm] = useState({
@@ -350,9 +398,71 @@ export default function Settings() {
                     </span>
                   </div>
                 </div>
+
+                {/* Health Data Portability (Export) */}
+                <div className="pt-4 border-t border-sage/20">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
+                        <FileJson className="h-4 w-4 text-primary" /> Export My Health Data (GDPR & HIPAA)
+                      </h4>
+                      <p className="text-xs text-ink/60 mt-1 max-w-lg">
+                        Download a complete, machine-readable JSON archive of your personal health records, including demographics, appointments, doctor consultation notes, prescriptions, and vital statistics.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportData}
+                      loading={exporting}
+                      className="shrink-0"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Export Data (.JSON)
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Patient Danger Zone: Withdraw Consent & Delete Account */}
+                {user?.role === "patient" && (
+                  <div className="pt-5 border-t border-rose-200">
+                    <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/70 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-rose-600" />
+                        <h4 className="text-sm font-bold text-rose-950">Danger Zone: Withdraw Medical Consent & Delete Account</h4>
+                      </div>
+                      <p className="text-xs text-rose-900/90 leading-relaxed">
+                        Withdrawing your medical consent revokes MediTalk's authorization to process your healthcare records. In compliance with data privacy regulations (GDPR Article 17 / HIPAA Right to Erasure), your account will be permanently anonymized, future appointments cancelled, active login tokens revoked, and your session terminated.
+                      </p>
+                      <div className="pt-1 flex items-center justify-between">
+                        <div className="text-[11px] text-rose-800 font-medium">
+                          Status: <span className="font-bold text-emerald-700">Consent Active (v1.0)</span>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setWithdrawModalOpen(true)}
+                        >
+                          <UserX className="h-3.5 w-3.5" /> Withdraw Consent & Delete Account
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}
+
+          {/* Withdraw Consent Confirmation Modal */}
+          <ConfirmationModal
+            open={withdrawModalOpen}
+            onClose={() => setWithdrawModalOpen(false)}
+            onConfirm={handleWithdrawConsent}
+            title="Permanently Withdraw Consent & Delete Account?"
+            message="Are you sure you want to withdraw your medical consent? This will immediately anonymize your patient chart, revoke your login credentials, cancel all pending appointments, and log you out. This action cannot be undone."
+            confirmLabel="Yes, Delete My Account"
+            variant="danger"
+            loading={withdrawing}
+          />
         </div>
       </div>
     </div>

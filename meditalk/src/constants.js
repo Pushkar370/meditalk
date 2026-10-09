@@ -2,18 +2,24 @@ export const ROLES = {
   PATIENT: "patient",
   DOCTOR: "doctor",
   ADMIN: "admin",
+  NURSE: "nurse",
+  RECEPTIONIST: "receptionist",
 };
 
 export const ROLE_LABELS = {
   patient: "Patient",
   doctor: "Doctor",
   admin: "Administrator",
+  nurse: "Nurse",
+  receptionist: "Receptionist",
 };
 
 export const DASHBOARD_ROUTES = {
   patient: "/patient/dashboard",
   doctor: "/doctor/dashboard",
   admin: "/admin/dashboard",
+  nurse: "/nurse/queue",
+  receptionist: "/receptionist/queue",
 };
 
 export const APPOINTMENT_STATUS = {

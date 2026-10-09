@@ -10,10 +10,18 @@ import AccessDenied from "./pages/AccessDenied";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import NotificationCenter from "./pages/NotificationCenter";
+import VideoRedirect from "./pages/VideoRedirect";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 import PatientLayout from "./layouts/PatientLayout";
 import DoctorLayout from "./layouts/DoctorLayout";
 import AdminLayout from "./layouts/AdminLayout";
+import ReceptionistLayout from "./layouts/ReceptionistLayout";
+import NurseLayout from "./layouts/NurseLayout";
+
+import ReceptionistQueue from "./pages/receptionist/ReceptionistQueue";
+import NurseVitalsQueue from "./pages/nurse/NurseVitalsQueue";
 
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientProfile from "./pages/patient/PatientProfile";
@@ -50,6 +58,9 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/video/:appointmentId" element={<VideoRedirect />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* Patient */}
       <Route element={<ProtectedRoute role="patient" />}>
@@ -97,6 +108,24 @@ export default function App() {
           <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
           <Route path="/admin/notifications" element={<NotificationCenter />} />
           <Route path="/admin/settings" element={<Settings />} />
+        </Route>
+      </Route>
+
+      {/* Receptionist */}
+      <Route element={<ProtectedRoute role="receptionist" />}>
+        <Route element={<ReceptionistLayout />}>
+          <Route path="/receptionist/queue" element={<ReceptionistQueue />} />
+          <Route path="/receptionist/notifications" element={<NotificationCenter />} />
+          <Route path="/receptionist/settings" element={<Settings />} />
+        </Route>
+      </Route>
+
+      {/* Nurse */}
+      <Route element={<ProtectedRoute role="nurse" />}>
+        <Route element={<NurseLayout />}>
+          <Route path="/nurse/queue" element={<NurseVitalsQueue />} />
+          <Route path="/nurse/notifications" element={<NotificationCenter />} />
+          <Route path="/nurse/settings" element={<Settings />} />
         </Route>
       </Route>
 

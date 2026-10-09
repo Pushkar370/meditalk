@@ -15,6 +15,10 @@ export function getAuditLogStats() {
   return apiFetch('/admin/audit-logs/stats');
 }
 
+export function verifyAuditLogIntegrity() {
+  return apiFetch('/admin/audit-logs/verify');
+}
+
 export function setUserStatus(userId, status) {
   return apiFetch(`/admin/users/${userId}/status`, {
     method: 'PATCH',

@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config();
 
+import { JWT_SECRET, getValidatedJwtSecret } from './config/authConfig.js';
 import { initDb, pingDb, getPoolStats, closePool } from './database/db.js';
 import { requireAuth, requireRole } from './middleware/auth.js';
 
@@ -32,11 +33,15 @@ import triageRoutes from './routes/triage.js';
 import pharmacyRoutes from './routes/pharmacy.js';
 import messagingRoutes from './routes/messaging.js';
 import { initJobQueue } from './services/jobQueue.js';
+import { validateInputSizes } from './middleware/inputValidation.js';
 
+export { JWT_SECRET, getValidatedJwtSecret };
 
 const app = express();
+// Finding (9): Configure trust proxy so express-rate-limit uses real visitor IP behind Render's reverse proxy
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // ── Rate Limiters ───────────────────────────────────────────────────────────
@@ -59,30 +64,27 @@ export const apiLimiter = rateLimit({
   skip: (req) => process.env.NODE_ENV === 'test' || req.path === '/api/notifications/stream',
 });
 
-// ── Security Headers (Helmet) ───────────────────────────────────────────────
+// ── Security Headers: Finding (8) Content Security Policy active with safe directives ──
 app.use(helmet({
-  contentSecurityPolicy: false, // Prevents breaking Jitsi iframe or Vite dev scripts
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "wss:", "ws:", "http://localhost:*", "ws://localhost:*"],
+      frameSrc: ["'self'", "https://meet.jit.si"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
-// ── SSE (Server-Sent Events) Client Registry ─────────────────────────────────
-const sseClients = new Map(); // key: userId -> Set of express res objects
-
-export function pushNotification(userId, payload) {
-  if (!userId) return;
-  const targetId = String(userId);
-  const userClients = sseClients.get(targetId);
-  if (userClients && userClients.size > 0) {
-    const dataString = `data: ${JSON.stringify(payload)}\n\n`;
-    for (const clientRes of userClients) {
-      try {
-        clientRes.write(dataString);
-      } catch (e) {
-        console.warn('[SSE] Failed to write to client:', e.message);
-      }
-    }
-  }
-}
+// ── SSE (Server-Sent Events) Service ─────────────────────────────────────────
+import { sseClients, pushNotification } from './services/sseService.js';
+export { pushNotification };
 
 // ── CORS — explicit origin whitelist (never wildcard in production) ─────────
 const allowedOrigins = process.env.NODE_ENV === 'production'
@@ -96,19 +98,58 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow server-to-server requests (no Origin header) and whitelisted origins
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origin '${origin}' not allowed`));
+    const corsErr = new Error(`CORS: origin '${origin}' not allowed`);
+    corsErr.status = 403;
+    callback(corsErr);
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
-app.use('/api', apiLimiter);
 
-// SSE Stream Endpoint
-app.get('/api/notifications/stream', (req, res) => {
-  const token = req.query.token;
+// CORS error handler — return clean 403 Forbidden for disallowed origins
+app.use((err, req, res, next) => {
+  if (err && err.status === 403 && err.message && err.message.startsWith('CORS:')) {
+    return res.status(403).json({ error: 'Forbidden — origin not allowed by CORS policy' });
+  }
+  next(err);
+});
+
+// Dynamic body size limiter: 1MB standard, up to 10MB only for medical record upload/OCR
+app.use((req, res, next) => {
+  const isFileUpload = req.path.includes('/medical-records');
+  const limit = isFileUpload ? '10mb' : '1mb';
+  express.json({ limit })(req, res, next);
+});
+app.use((req, res, next) => {
+  const isFileUpload = req.path.includes('/medical-records');
+  const limit = isFileUpload ? '10mb' : '1mb';
+  express.urlencoded({ extended: true, limit })(req, res, next);
+});
+app.use('/api', apiLimiter);
+app.use('/api', validateInputSizes);
+
+// ── Finding (7): SSE Notification Stream (stops accepting URL tokens, validates revocation) ──
+app.get('/api/notifications/stream', async (req, res) => {
+  // Reject tokens sent in query parameters
+  if (req.query.token) {
+    return res.status(400).json({
+      error: 'Security Notice: Auth tokens in URL query parameters are not permitted. Please provide token via Authorization: Bearer <token> header.',
+    });
+  }
+
+  const authHeader = req.headers.authorization;
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  }
+
   if (!token) {
-    return res.status(401).json({ error: 'Missing auth token' });
+    return res.status(401).json({ error: 'Unauthorized — missing Bearer token' });
+  }
+
+  // Strict origin check for SSE stream
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: 'Forbidden — origin not allowed' });
   }
 
   let decoded;
@@ -118,7 +159,23 @@ app.get('/api/notifications/stream', (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
+  // Check token revocation (including token_version session invalidation)
+  try {
+    const { isTokenRevoked } = await import('./routes/auth.js');
+    const revoked = await isTokenRevoked(decoded.jti, decoded.userId || decoded.id, decoded.tokenVersion);
+    if (revoked) {
+      return res.status(401).json({ error: 'Unauthorized — token has been revoked or session invalidated. Please log in again.' });
+    }
+  } catch (err) {
+    console.error('🔒 [SSE Auth Check Error - Private Log]:', err.message);
+    return res.status(401).json({ error: 'Unauthorized — session validation failed' });
+  }
+
   const userId = String(decoded.userId || decoded.id);
+
+  const sseOrigin = (origin && allowedOrigins.includes(origin))
+    ? origin
+    : (process.env.FRONTEND_URL || 'https://meditalk.onrender.com');
 
   // Set SSE headers
   res.writeHead(200, {
@@ -126,8 +183,7 @@ app.get('/api/notifications/stream', (req, res) => {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no',
-    // Reflect the actual origin rather than wildcarding (credentials require explicit origin)
-    'Access-Control-Allow-Origin': req.headers.origin || FRONTEND_URL,
+    'Access-Control-Allow-Origin': sseOrigin,
     'Access-Control-Allow-Credentials': 'true',
   });
 
@@ -192,7 +248,7 @@ app.get('/api/health', async (_req, res) => {
     return res.status(503).json({
       status: 'degraded',
       database: 'unreachable',
-      error: dbHealth.error,
+      error: 'Database connection failed',
       latencyMs: dbHealth.latencyMs,
       pool: poolStats,
       timestamp: new Date().toISOString(),
@@ -227,7 +283,7 @@ app.get('/api/admin/system-health', requireAuth, requireRole('admin'), async (_r
       status: dbHealth.ok ? 'connected' : 'disconnected',
       latencyMs: dbHealth.latencyMs,
       pool: poolStats,
-      error: dbHealth.error || null,
+      error: dbHealth.ok ? null : 'Database health check failed',
     },
     memory: {
       rssMb: Math.round(mem.rss / (1024 * 1024) * 10) / 10,
@@ -251,9 +307,22 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// ── Finding (4): Safe global error handler — NEVER leak err.message to users ──
 app.use((err, _req, res, _next) => {
-  console.error('[ERROR]', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+  if (err.type === 'entity.too.large' || err.status === 413) {
+    return res.status(413).json({
+      error: 'Payload Too Large: Request body exceeds the maximum permitted size limit of 1MB.',
+    });
+  }
+  // Log internal error details privately on server (with stack trace)
+  console.error('🔒 [Internal Server Error - Private Log]:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.status || 500,
+    timestamp: new Date().toISOString(),
+  });
+  // Safe generic error message returned to user
+  res.status(err.status || 500).json({ error: 'Internal server error. An unexpected error occurred.' });
 });
 
 export default app;
@@ -307,5 +376,13 @@ async function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ [Server] Unhandled Promise Rejection (server protected from crash):', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [Server] Uncaught Exception (server protected from crash):', err?.message || err);
+});
 
 startServer();

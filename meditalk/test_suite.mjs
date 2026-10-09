@@ -63,7 +63,7 @@ async function runTests() {
   const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
   console.log(`\nWaiting for server to be ready on ${BASE_URL}...`);
   let serverReady = false;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 100; i++) {
     try {
       const res = await fetch(`${BASE_URL}/api/health`);
       if (res.ok) {
@@ -81,7 +81,7 @@ async function runTests() {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const opts = { method, headers };
-    if (body) opts.body = JSON.stringify(body);
+    if (body) opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     const res = await fetch(`${BASE_URL}${endpoint}`, opts);
     let data;
     try {
@@ -201,6 +201,72 @@ async function runTests() {
       `POST /api/consultations/draft-soap-note drafted structured SOAP note (Engine: ${soapRes.data?.draft?.source})`
     );
 
+    // Blocker Fix 1: Mandatory Drug Safety Gate on Prescription Issuance
+    const blockedRxRes = await apiRequest('/api/prescriptions', {
+      method: 'POST',
+      token: doctorToken,
+      body: {
+        patientId,
+        doctorId,
+        medications: [{ medicine: 'Amoxicillin' }, { medicine: 'Warfarin' }],
+      },
+    });
+    assert(
+      blockedRxRes.status === 409 && blockedRxRes.data?.requiresOverride === true,
+      'POST /api/prescriptions blocks prescription issuance on critical allergy/interaction without override (409)'
+    );
+
+    // Blocker Fix 2: Emergency Triage Severity Independence & Emergency Message
+    const triageRes = await apiRequest('/api/triage/assess', {
+      method: 'POST',
+      token: patientToken,
+      body: {
+        symptoms: 'crushing chest pain radiating to arm',
+        duration: '15 mins',
+        severity: 2,
+        accompanyingSymptoms: ['shortness of breath'],
+      },
+    });
+    assert(
+      triageRes.status === 200 && triageRes.data?.urgency === 'emergency' && triageRes.data?.isEmergency === true && Boolean(triageRes.data?.emergencyMessage),
+      'POST /api/triage/assess treats chest pain as emergency regardless of low severity (2/10) with clear emergencyMessage'
+    );
+
+    // Blocker Fix 3: Empty Vitals Never Fabricates Normal Limits & Marks AI Note as Draft
+    const emptyVitalsSoap = await apiRequest('/api/consultations/draft-soap-note', {
+      method: 'POST',
+      token: doctorToken,
+      body: {
+        patientName: 'Test Patient',
+        reason: 'General consultation',
+        symptoms: 'Fatigue',
+        vitals: {},
+      },
+    });
+    assert(
+      emptyVitalsSoap.status === 200 &&
+      !emptyVitalsSoap.data?.draft?.objective?.toLowerCase().includes('within normal limits') &&
+      emptyVitalsSoap.data?.draft?.objective?.includes('No vitals recorded') &&
+      emptyVitalsSoap.data?.draft?.isDraft === true,
+      'POST /api/consultations/draft-soap-note documents "No vitals recorded" when empty and marks note as draft'
+    );
+
+    // Blocker Fix 4: Drug Check Recognizes Brand Names & Spelling Variations
+    const brandCheck = await apiRequest('/api/prescriptions/check-safety', {
+      method: 'POST',
+      token: doctorToken,
+      body: {
+        patientId,
+        newMedications: [{ medicine: 'Augmentin 625 Duo' }, { medicine: 'Coumadin 5mg' }, { medicine: 'Advil 200mg' }],
+      },
+    });
+    const hasBrandAlerts = brandCheck.data?.alerts?.some(a => a.type === 'allergy_contraindication') &&
+                           brandCheck.data?.alerts?.some(a => a.type === 'drug_interaction');
+    assert(
+      brandCheck.status === 200 && hasBrandAlerts,
+      'POST /api/prescriptions/check-safety recognizes brand names (Augmentin, Coumadin, Advil) in safety engine'
+    );
+
     // Follow-up Suggestions (CW-3)
     const followUpsRes = await apiRequest(`/api/follow-ups/patient/${patientId}`, { token: patientToken });
     assert(followUpsRes.status === 200 && Array.isArray(followUpsRes.data?.suggestions), 'GET /api/follow-ups/patient/:id returns follow-up suggestions');
@@ -228,17 +294,17 @@ async function runTests() {
       },
     });
     assert(
-      waTestRes.status === 200 && waTestRes.data?.success && waTestRes.data?.waLink?.includes('https://wa.me/919876543210'),
-      `POST /api/messaging/test-whatsapp generated valid WhatsApp payload (Mode: ${waTestRes.data?.mode})`
+      waTestRes.status === 200 && waTestRes.data?.waLink?.includes('https://wa.me/919876543210') && waTestRes.data?.sent === false && waTestRes.data?.message?.includes('not sent'),
+      `POST /api/messaging/test-whatsapp honestly reports simulated status (sent: false, mode: ${waTestRes.data?.mode})`
     );
 
-    // Fetch existing appointment to test .ICS and appointment-specific WhatsApp
-    const { rows: testAppts } = await query('SELECT id FROM appointments LIMIT 1');
+    // Fetch existing appointment for this patient to test .ICS and appointment-specific WhatsApp
+    const { rows: testAppts } = await query('SELECT id FROM appointments WHERE patient_id = $1 LIMIT 1', [patientId]);
     if (testAppts.length > 0) {
       const sampleApptId = testAppts[0].id;
 
-      // RFC 5545 .ICS Calendar Invite Generation (IN-3)
-      const icsRes = await fetch(`http://127.0.0.1:3005/api/messaging/calendar-ics/${sampleApptId}`);
+      // RFC 5545 .ICS Calendar Invite Generation (IN-3) — authenticated with owner token
+      const icsRes = await fetch(`http://127.0.0.1:3005/api/messaging/calendar-ics/${sampleApptId}?token=${patientToken}`);
       const icsText = await icsRes.text();
       assert(
         icsRes.status === 200 && icsText.includes('BEGIN:VCALENDAR') && icsText.includes('BEGIN:VEVENT'),
@@ -256,8 +322,8 @@ async function runTests() {
         },
       });
       assert(
-        waApptRes.status === 200 && waApptRes.data?.success && waApptRes.data?.waLink,
-        'POST /api/messaging/send-appointment-whatsapp dispatched formatted appointment WhatsApp link'
+        waApptRes.status === 200 && waApptRes.data?.waLink && waApptRes.data?.sent === false,
+        'POST /api/messaging/send-appointment-whatsapp honestly reports simulated status (sent: false) with waLink'
       );
 
       // Doctor Late-Patient Ping Alert (IN-4)
@@ -271,8 +337,8 @@ async function runTests() {
         },
       });
       assert(
-        waLatePingRes.status === 200 && waLatePingRes.data?.success && waLatePingRes.data?.waLink,
-        'POST /api/messaging/send-appointment-whatsapp dispatched Doctor late-patient video room join alert'
+        waLatePingRes.status === 200 && waLatePingRes.data?.waLink && waLatePingRes.data?.sent === false,
+        'POST /api/messaging/send-appointment-whatsapp honestly reports simulated status for Doctor late-patient alert'
       );
     }
 
@@ -316,6 +382,121 @@ async function runTests() {
     // Doctor can access assigned patient profile -> 200
     const assignedProfile = await apiRequest(`/api/patients/${patientId}`, { token: doctorToken });
     assert(assignedProfile.status === 200, 'GET /api/patients/:id allows doctor to access assigned patient (200)');
+
+    // =========================================================================
+    // 12. Batch 3 Reliability & Security Blockers Test Suite
+    // =========================================================================
+    console.log('\n--- 12. Batch 3 Reliability & Security Blockers ---');
+
+    // 12.1 Video Route Resolution
+    const fsMod = await import('fs');
+    const appJsxContent = fsMod.readFileSync('./src/App.jsx', 'utf8');
+    assert(
+      appJsxContent.includes('path="/video/:appointmentId"') && appJsxContent.includes('VideoRedirect'),
+      'Universal Video route /video/:appointmentId is registered in App.jsx'
+    );
+    assert(
+      fsMod.existsSync('./src/pages/VideoRedirect.jsx'),
+      'VideoRedirect page component exists to route patients & doctors to consultation'
+    );
+
+    // 12.2 Server Crash Immunity & Connection Drop Protection
+    const serverJsContent = fsMod.readFileSync('./backend/server.js', 'utf8');
+    const dbJsContent = fsMod.readFileSync('./backend/database/db.js', 'utf8');
+    assert(
+      serverJsContent.includes("process.on('unhandledRejection'") && serverJsContent.includes("process.on('uncaughtException'"),
+      'Process unhandledRejection & uncaughtException guards protect server against DB drops'
+    );
+    assert(
+      dbJsContent.includes('ECONNRESET') && dbJsContent.includes('ECONNREFUSED'),
+      'Database connection pool gracefully traps disconnects and network recycles'
+    );
+
+    // 12.3 Job Queue Worker Failure Propagation
+    const jobQueueContent = fsMod.readFileSync('./backend/services/jobQueue.js', 'utf8');
+    assert(
+      jobQueueContent.includes('res.success === false') && jobQueueContent.includes('throw new Error'),
+      'Email workers throw exceptions on failure, ensuring pg-boss marks jobs failed and retries'
+    );
+
+    // 12.4 Atomic Slot Booking & Race Condition Prevention
+    const { rows: slotIdx } = await query(
+      "SELECT indexname FROM pg_indexes WHERE tablename = 'appointments' AND indexname = 'idx_atomic_doctor_slot'"
+    );
+    assert(slotIdx.length > 0, 'Unique index idx_atomic_doctor_slot is active in PostgreSQL');
+
+    // Test concurrent booking collision
+    const testSlotDate = '2026-11-28';
+    const testSlotTime = '04:00 PM';
+    const { rows: samplePatients } = await query("SELECT id, name FROM patients LIMIT 2");
+    const secondPatientId = samplePatients[1]?.id || patientId;
+    const secondPatientName = samplePatients[1]?.name || 'Second Patient';
+    await query("DELETE FROM appointments WHERE doctor_id = $1 AND date = $2 AND time = $3", [doctorId, testSlotDate, testSlotTime]);
+    const [raceRes1, raceRes2] = await Promise.all([
+      apiRequest('/api/appointments', {
+        method: 'POST', token: patientToken,
+        body: { patientId, patientName: 'John Patient', doctorId, doctorName: 'Dr. Sarah Jenkins', date: testSlotDate, time: testSlotTime, type: 'video', reason: 'Race 1' }
+      }),
+      apiRequest('/api/appointments', {
+        method: 'POST', token: patientToken,
+        body: { patientId: secondPatientId, patientName: secondPatientName, doctorId, doctorName: 'Dr. Sarah Jenkins', date: testSlotDate, time: testSlotTime, type: 'video', reason: 'Race 2' }
+      }),
+    ]);
+    const raceCodes = [raceRes1.status, raceRes2.status].sort();
+    assert(
+      raceCodes[0] === 201 && raceCodes[1] === 409,
+      'Concurrent booking collision atomically allows 1 appointment (201) and rejects other (409 SLOT_CONFLICT)'
+    );
+
+    // 12.5 Database Connection Security Checks
+    assert(
+      dbJsContent.includes("rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' ? false : true"),
+      'Database connection enforces SSL certificate verification by default'
+    );
+
+    // 12.6 Persistent Token Revocation Across Restarts
+    const logoutRes = await apiRequest('/api/auth/logout', { method: 'POST', token: patientToken });
+    assert(logoutRes.status === 200, 'POST /api/auth/logout succeeds');
+    const { rows: revokedDbCheck } = await query("SELECT 1 FROM revoked_tokens WHERE jti IS NOT NULL LIMIT 1");
+    assert(revokedDbCheck.length > 0, 'Revoked tokens are persisted in PostgreSQL revoked_tokens table');
+    const revokedAttempt = await apiRequest('/api/appointments', { token: patientToken });
+    assert(revokedAttempt.status === 401, 'Logged-out token is rejected with 401 Unauthorized');
+
+    // Re-authenticate patient for subsequent tests
+    const reAuth = await apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'patient@meditalk.com', password: 'password', role: 'patient' })
+    });
+    const activePatientToken = reAuth.data.token;
+
+    // 12.7 Unlimited Input Sizes Enforced
+    const hugeBody = 'Z'.repeat(1.5 * 1024 * 1024);
+    const oversizeRes = await apiRequest('/api/triage/assess', {
+      method: 'POST', token: activePatientToken,
+      body: JSON.stringify({ symptoms: hugeBody })
+    });
+    assert(oversizeRes.status === 413, 'Oversized payload (>1MB) is rejected with 413 Payload Too Large');
+
+    const longFieldBody = 'symptom '.repeat(1000);
+    const longFieldRes = await apiRequest('/api/triage/assess', {
+      method: 'POST', token: activePatientToken,
+      body: JSON.stringify({ symptoms: longFieldBody })
+    });
+    assert(longFieldRes.status === 400, 'Excessively long field is rejected with 400 Bad Request');
+
+    // 12.8 Honest WhatsApp & SMS Delivery Reporting
+    const waHonestyRes = await apiRequest('/api/messaging/test-whatsapp', {
+      method: 'POST', token: activePatientToken,
+      body: JSON.stringify({ phone: '+919876543210', customText: 'Honesty check' })
+    });
+    assert(
+      waHonestyRes.status === 200 && waHonestyRes.data.sent === false && waHonestyRes.data.success === false,
+      'Simulation WhatsApp reports sent: false and success: false honestly when not sent via carrier'
+    );
+    assert(
+      waHonestyRes.data.message && waHonestyRes.data.message.includes('not sent'),
+      'WhatsApp API message explicitly states message was not sent'
+    );
   } catch (err) {
     console.error('Unhandled Test Step Error:', err);
     failures++;

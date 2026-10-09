@@ -5,6 +5,7 @@ import { pushNotification } from '../server.js';
 import { enqueueEmail } from '../services/jobQueue.js';
 
 import { runDrugSafetyCheck } from '../data/drugInteractions.js';
+import { auditAccess, logAudit, getClientIp } from '../services/auditService.js';
 
 
 const router = Router();
@@ -34,6 +35,10 @@ router.get('/prescriptions', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
     const { patientId, doctorId } = req.query;
+
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view clinical prescriptions' });
+    }
 
     let sql = 'SELECT * FROM prescriptions';
     const conditions = []; const params = []; let idx = 1;
@@ -68,6 +73,11 @@ router.get('/prescriptions', requireAuth, async (req, res) => {
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY date DESC';
     const { rows } = await query(sql, params);
+    auditAccess(req, {
+      action: `Viewed prescriptions list${patientId ? ` for patient ${patientId}` : ''}`,
+      entityType: 'Prescription List',
+      entityId: patientId || null,
+    });
     res.json(rows.map(parsePrescription));
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch prescriptions' }); }
 });
@@ -79,6 +89,9 @@ router.get('/prescriptions/:id', requireAuth, async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: 'Prescription not found' });
     const rx = parsePrescription(rows[0]);
     const { role, id: callerId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view clinical prescriptions' });
+    }
     if (role === 'patient' && rx.patientId !== callerId) {
       return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s prescription' });
     }
@@ -89,24 +102,117 @@ router.get('/prescriptions/:id', requireAuth, async (req, res) => {
         return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
       }
     }
+    auditAccess(req, {
+      action: `Viewed prescription #${req.params.id} for patient ${rx.patientName || rx.patientId}`,
+      entityType: 'Prescription',
+      entityId: req.params.id,
+    });
     res.json(rx);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch prescription' }); }
 });
 
-// POST /api/prescriptions — doctors only
+// POST /api/prescriptions — doctors only, with mandatory drug allergy & interaction safety verification
 router.post('/prescriptions', requireAuth, requireRole('doctor'), async (req, res) => {
   try {
-    const { patientId, patientName, doctorId, doctorName, medications = [], additionalInstructions = '', status = 'active' } = req.body;
+    const {
+      patientId, patientName, doctorId, doctorName,
+      medications = [], additionalInstructions = '', status = 'active',
+      clinicalOverride = false, overrideReason = ''
+    } = req.body;
+
     if (!patientId || !doctorId) return res.status(400).json({ error: 'patientId and doctorId are required' });
+
+    const callerDocId = req.user.doctorId || req.user.id;
+    if (doctorId !== callerDocId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — you can only create prescriptions under your own doctor profile' });
+    }
+    const allowed = await hasClinicalRelationship(callerDocId, patientId);
+    if (!allowed && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+    }
+
+    // ── Mandatory Clinical Drug Allergy & Interaction Safety Check ─────────
+    const { rows: patRows } = await query('SELECT allergies, current_medications FROM patients WHERE id = $1', [patientId]);
+    if (!patRows[0]) return res.status(404).json({ error: 'Patient not found' });
+
+    const allergies = safeJson(patRows[0].allergies, []);
+    const currentMeds = safeJson(patRows[0].current_medications, []);
+
+    // Include currently active prescribed medicines for the patient
+    const { rows: activeRxRows } = await query(
+      "SELECT medications FROM prescriptions WHERE patient_id = $1 AND status = 'active' ORDER BY date DESC LIMIT 10",
+      [patientId]
+    );
+    const activePrescribedMeds = activeRxRows.flatMap(r => {
+      const parsed = safeJson(r.medications, []);
+      return parsed.map(m => (typeof m === 'string' ? m : m?.medicine || ''));
+    }).filter(Boolean);
+
+    // Also pull AI-extracted medications from prior medical records
+    const { rows: mrRows } = await query(
+      `SELECT extracted_medications FROM medical_records WHERE patient_id = $1 AND is_external_clinic = TRUE AND ai_processed_at IS NOT NULL ORDER BY date DESC LIMIT 5`,
+      [patientId]
+    );
+    const extractedMeds = mrRows.flatMap(r => {
+      const parsed = safeJson(r.extracted_medications, []);
+      return parsed.map(m => (typeof m === 'string' ? m : m?.name || ''));
+    }).filter(Boolean);
+
+    const allCurrentMeds = [...new Set([...currentMeds, ...activePrescribedMeds, ...extractedMeds])];
+    const newMedNames = medications.map(m => (typeof m === 'string' ? m : m?.medicine || '')).filter(Boolean);
+
+    const safetyAlerts = runDrugSafetyCheck({
+      newMeds: newMedNames,
+      currentMeds: allCurrentMeds,
+      allergies,
+    });
+
+    const criticalAlerts = safetyAlerts.filter(a => a.severity === 'critical');
+    const hasValidOverride = Boolean(clinicalOverride && (overrideReason || '').trim().length >= 10);
+
+    // BLOCK prescription issuance if critical safety alerts exist without documented clinical override
+    if (criticalAlerts.length > 0 && !hasValidOverride) {
+      return res.status(409).json({
+        error: 'Prescription blocked by clinical safety engine: critical drug allergy or drug interaction detected.',
+        requiresOverride: true,
+        criticalAlerts,
+        alerts: safetyAlerts,
+        message: 'A documented clinical justification (overrideReason, min 10 chars) is mandatory to override critical safety warnings before issuing this prescription.',
+      });
+    }
+
     let pName = patientName;
     let dName = doctorName;
     if (!pName) { const { rows } = await query('SELECT name FROM patients WHERE id = $1', [patientId]); pName = rows[0]?.name; }
     if (!dName) { const { rows } = await query('SELECT name FROM doctors WHERE id = $1', [doctorId]); dName = rows[0]?.name; }
+
     const id = 'RX-' + Date.now();
+
+    // Append clinical override note to instructions if overridden
+    let finalInstructions = additionalInstructions || '';
+    if (criticalAlerts.length > 0 && hasValidOverride) {
+      finalInstructions = (finalInstructions ? finalInstructions + '\n\n' : '') +
+        `[CLINICAL SAFETY OVERRIDE]: Overridden by prescribing physician. Justification: ${overrideReason.trim()}`;
+    }
+
     await query(
       'INSERT INTO prescriptions (id, patient_id, patient_name, doctor_id, doctor_name, date, medications, additional_instructions, status) VALUES ($1,$2,$3,$4,$5,NOW(),$6,$7,$8)',
-      [id, patientId, pName, doctorId, dName, JSON.stringify(medications), additionalInstructions, status]
+      [id, patientId, pName, doctorId, dName, JSON.stringify(medications), finalInstructions, status]
     );
+
+    // Audit log
+    logAudit({
+      userId: callerDocId,
+      userName: dName || callerDocId,
+      role: 'Doctor',
+      action: criticalAlerts.length > 0 ? `Issued prescription with clinical safety override: ${overrideReason.trim()}` : 'Issued prescription after safety validation',
+      entityType: 'Prescription',
+      entityId: id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
+
     try {
       const { rows: uRows } = await query('SELECT id FROM users WHERE patient_id = $1', [patientId]);
       const patientUserId = uRows[0]?.id;
@@ -119,8 +225,17 @@ router.post('/prescriptions', requireAuth, requireRole('doctor'), async (req, re
         try { pushNotification(patientUserId, { id: rxNotifId, type: 'prescription_available', title: 'New Prescription', message: 'A new prescription has been issued for you.' }); } catch (_) {}
       }
     } catch (_) {}
+
     const { rows } = await query('SELECT * FROM prescriptions WHERE id = $1', [id]);
-    res.status(201).json({ success: true, prescription: parsePrescription(rows[0]) });
+    res.status(201).json({
+      success: true,
+      prescription: parsePrescription(rows[0]),
+      safetyCheck: {
+        checked: true,
+        alerts: safetyAlerts,
+        overridden: hasValidOverride,
+      }
+    });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to create prescription' }); }
 });
 
@@ -141,6 +256,10 @@ router.get('/consultations', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
     const { patientId, doctorId, appointmentId } = req.query;
+
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view clinical consultation notes' });
+    }
 
     let sql = 'SELECT * FROM consultations';
     const conditions = []; const params = []; let idx = 1;
@@ -175,6 +294,11 @@ router.get('/consultations', requireAuth, async (req, res) => {
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY date DESC';
     const { rows } = await query(sql, params);
+    auditAccess(req, {
+      action: `Viewed clinical consultation notes${patientId ? ` for patient ${patientId}` : ''}`,
+      entityType: 'Clinical Consultation Notes',
+      entityId: patientId || null,
+    });
     res.json(rows.map(parseConsultation));
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch consultations' }); }
 });
@@ -184,6 +308,15 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
   try {
     const { patientId, doctorId, reason, symptoms, vitals = {}, diagnosis, diagnosisCode, observations, labResults, treatmentPlan, followUpDate, followUpInstructions, status = 'completed', appointmentId } = req.body;
     if (!patientId || !doctorId) return res.status(400).json({ error: 'patientId and doctorId are required' });
+
+    const callerDocId = req.user.doctorId || req.user.id;
+    if (doctorId !== callerDocId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — you can only create consultations under your own doctor profile' });
+    }
+    const allowed = await hasClinicalRelationship(callerDocId, patientId);
+    if (!allowed && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+    }
     const id = 'C-' + Date.now();
     await query(
       'INSERT INTO consultations (id, patient_id, doctor_id, date, reason, symptoms, vitals, diagnosis, diagnosis_code, observations, lab_results, treatment_plan, follow_up_date, follow_up_instructions, status, appointment_id) VALUES ($1,$2,$3,NOW(),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
@@ -209,11 +342,17 @@ router.post('/consultations', requireAuth, requireRole('doctor'), async (req, re
         );
         try { pushNotification(patientUserId, { id: cNotifId, type: 'appointment_confirmed', title: 'Consultation Completed', message: cMsg }); } catch (_) {}
       }
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, 'Doctor', 'Completed clinical consultation', 'Consultation', $3, 'success')`,
-        [doctorId, drName, id]
-      );
+      logAudit({
+        userId: doctorId,
+        userName: drName,
+        role: 'Doctor',
+        action: 'Completed clinical consultation',
+        entityType: 'Consultation',
+        entityId: id,
+        status: 'success',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'],
+      });
     } catch (_) {}
     if (appointmentId) {
       try { await query("UPDATE appointments SET status = 'completed' WHERE id = $1", [appointmentId]); } catch (_) {}
@@ -309,6 +448,10 @@ router.get('/medical-records', requireAuth, async (req, res) => {
     const { role, id: callerId } = req.user;
     const { patientId, type } = req.query;
 
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view medical records' });
+    }
+
     let sql = 'SELECT * FROM medical_records';
     const conditions = []; const params = []; let idx = 1;
 
@@ -331,7 +474,14 @@ router.get('/medical-records', requireAuth, async (req, res) => {
           if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
         }
         conditions.push(`patient_id IN (
-          SELECT patient_id FROM appointments WHERE doctor_id = $${idx}
+          SELECT patient_id FROM appointments
+          WHERE doctor_id = $${idx}
+            AND status NOT IN ('cancelled')
+            AND (
+              booked_by = patient_id
+              OR booked_by = 'patient'
+              OR status IN ('confirmed', 'checked-in', 'in-progress', 'completed')
+            )
           UNION
           SELECT patient_id FROM consultations WHERE doctor_id = $${idx}
           UNION
@@ -348,6 +498,11 @@ router.get('/medical-records', requireAuth, async (req, res) => {
     if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY date DESC';
     const { rows } = await query(sql, params);
+    auditAccess(req, {
+      action: `Viewed clinical medical records${patientId ? ` for patient ${patientId}` : ''}`,
+      entityType: 'Medical Records',
+      entityId: patientId || null,
+    });
     res.json(rows.map(parseMedicalRecord));
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch medical records' }); }
 });
@@ -356,6 +511,9 @@ router.get('/medical-records', requireAuth, async (req, res) => {
 router.post('/medical-records', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to add medical records' });
+    }
     const {
       patientId, type, description, doctor: doctorName, date,
       fileData, fileName, fileType, fileSize, notes,
@@ -365,6 +523,14 @@ router.post('/medical-records', requireAuth, async (req, res) => {
     const targetPatientId = role === 'patient' ? callerId : patientId;
     if (!targetPatientId) return res.status(400).json({ error: 'patientId is required' });
     if (!type) return res.status(400).json({ error: 'type is required' });
+
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, targetPatientId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
+    }
 
     const id = 'MR-' + Date.now();
     const details = JSON.stringify({
@@ -407,13 +573,17 @@ router.post('/medical-records', requireAuth, async (req, res) => {
     } catch (_) {}
 
     // Audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, $3, 'Uploaded medical record', 'MedicalRecord', $4, 'success')`,
-        [callerId, resolvedDoctor || callerId, role, id]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: callerId,
+      userName: resolvedDoctor || callerId,
+      role,
+      action: 'Uploaded medical record',
+      entityType: 'MedicalRecord',
+      entityId: id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     const { rows } = await query('SELECT * FROM medical_records WHERE id = $1', [id]);
     res.status(201).json({ success: true, record: parseMedicalRecord(rows[0]) });
@@ -427,6 +597,12 @@ router.post('/prescriptions/check-safety', requireAuth, requireRole('doctor'), a
   try {
     const { patientId, newMedications = [] } = req.body;
     if (!patientId) return res.status(400).json({ error: 'patientId is required' });
+
+    const callerDocId = req.user.doctorId || req.user.id;
+    const allowed = await hasClinicalRelationship(callerDocId, patientId);
+    if (!allowed && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+    }
 
     // Fetch patient allergies & current medications
     const { rows: patRows } = await query('SELECT allergies, current_medications FROM patients WHERE id = $1', [patientId]);
@@ -598,6 +774,9 @@ If the document is not medical in nature, return clinicalSummary explaining that
 router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses cannot synthesize medical records' });
+    }
     const { recordId, patientNotes } = req.body;
     if (!recordId) return res.status(400).json({ error: 'recordId is required' });
 
@@ -606,9 +785,16 @@ router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: 'Record not found' });
     const record = rows[0];
 
-    // Access control: patient can only synthesize own records, doctors any
-    if (role === 'patient' && record.patient_id !== callerId) {
+    // Access control: patient can only synthesize own records, doctor requires clinical relationship
+    if (role === 'patient' && record.patient_id !== callerId && record.patient_id !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, record.patient_id);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
 
     const details = safeJson(record.details, {});
@@ -663,13 +849,17 @@ router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
     );
 
     // Audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, $3, 'AI clinical synthesis of prior medical record', 'MedicalRecord', $4, 'success')`,
-        [callerId, req.user.name || callerId, role, recordId]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: callerId,
+      userName: req.user.name || callerId,
+      role,
+      action: 'AI clinical synthesis of prior medical record',
+      entityType: 'MedicalRecord',
+      entityId: recordId,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     const { rows: updated } = await query('SELECT * FROM medical_records WHERE id = $1', [recordId]);
     res.json({ success: true, synthesis, record: parseMedicalRecord(updated[0]) });
@@ -685,6 +875,20 @@ router.post('/medical-records/ai-synthesize', requireAuth, async (req, res) => {
 router.get('/follow-ups/patient/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view clinical follow-up suggestions' });
+    }
+    if (role === 'patient' && callerId !== patientId && userId !== patientId) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s follow-up suggestions' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, patientId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
+    }
     const { rows } = await query(
       `SELECT f.*, d.specialty
        FROM follow_up_suggestions f
@@ -693,6 +897,11 @@ router.get('/follow-ups/patient/:patientId', requireAuth, async (req, res) => {
        ORDER BY f.suggested_date ASC`,
       [patientId]
     );
+    auditAccess(req, {
+      action: `Viewed follow-up suggestions for patient ${patientId}`,
+      entityType: 'Follow-Up Suggestions',
+      entityId: patientId,
+    });
     res.json({ success: true, suggestions: rows });
   } catch (err) {
     console.error(err);
@@ -712,6 +921,9 @@ router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
     const sug = sRows[0];
 
     const { role, id: callerId, userId } = req.user;
+    if (role !== 'patient' && role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — only patients may confirm follow-ups' });
+    }
     if (role === 'patient' && sug.patient_id !== callerId && sug.patient_id !== userId) {
       return res.status(403).json({ error: 'You may only confirm follow-ups for yourself' });
     }
@@ -726,12 +938,12 @@ router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
     const patientEmail = pRows[0]?.email || null;
     const specialty = dRows[0]?.specialty || 'General Physician';
 
-    // Book appointment
+    // Book appointment (with booked_by set to patient_id)
     const apptId = 'A-' + Date.now();
     await query(
-      `INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, specialty, date, time, type, status, reason)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'upcoming', $10)`,
-      [apptId, sug.patient_id, patientName, sug.doctor_id, sug.doctor_name, specialty, sug.suggested_date, time, type, `Follow-up: ${sug.reason || 'Routine check'}`]
+      `INSERT INTO appointments (id, patient_id, patient_name, doctor_id, doctor_name, specialty, date, time, type, status, reason, booked_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'upcoming', $10, $11)`,
+      [apptId, sug.patient_id, patientName, sug.doctor_id, sug.doctor_name, specialty, sug.suggested_date, time, type, `Follow-up: ${sug.reason || 'Routine check'}`, sug.patient_id]
     );
 
     // Update suggestion status
@@ -779,6 +991,17 @@ router.post('/follow-ups/:id/confirm', requireAuth, async (req, res) => {
 router.patch('/follow-ups/:id/dismiss', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const { rows: fRows } = await query('SELECT patient_id, doctor_id FROM follow_up_suggestions WHERE id = $1', [id]);
+    if (!fRows[0]) return res.status(404).json({ error: 'Follow-up suggestion not found' });
+    const f = fRows[0];
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'patient' && f.patient_id !== callerId && f.patient_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (f.doctor_id !== callerDocId) return res.status(403).json({ error: 'Forbidden' });
+    }
     await query("UPDATE follow_up_suggestions SET status = 'dismissed' WHERE id = $1", [id]);
     res.json({ success: true, message: 'Follow-up suggestion dismissed' });
   } catch (err) {
@@ -800,6 +1023,9 @@ router.post('/refills', requireAuth, async (req, res) => {
     const rx = rxRows[0];
 
     const { role, id: callerId, userId } = req.user;
+    if (role !== 'patient' && role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — only patients may request refills' });
+    }
     if (role === 'patient' && rx.patient_id !== callerId && rx.patient_id !== userId) {
       return res.status(403).json({ error: 'You may only request refills for your own prescriptions' });
     }
@@ -835,6 +1061,20 @@ router.post('/refills', requireAuth, async (req, res) => {
 router.get('/refills/patient/:patientId', requireAuth, async (req, res) => {
   try {
     const { patientId } = req.params;
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to view prescription refill requests' });
+    }
+    if (role === 'patient' && callerId !== patientId && userId !== patientId) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another patient\'s refill requests' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, patientId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
+    }
     const { rows } = await query(
       'SELECT * FROM refill_requests WHERE patient_id = $1 ORDER BY created_at DESC',
       [patientId]
@@ -851,9 +1091,14 @@ router.get('/refills/patient/:patientId', requireAuth, async (req, res) => {
 });
 
 // GET /api/refills/doctor/:doctorId — doctor views pending refill requests
-router.get('/refills/doctor/:doctorId', requireAuth, async (req, res) => {
+router.get('/refills/doctor/:doctorId', requireAuth, requireRole('doctor', 'admin'), async (req, res) => {
   try {
     const { doctorId } = req.params;
+    const { role, id: callerId } = req.user;
+    const callerDocId = req.user.doctorId || callerId;
+    if (role === 'doctor' && callerDocId !== doctorId) {
+      return res.status(403).json({ error: 'Forbidden — cannot access another doctor\'s refill queue' });
+    }
     const { rows } = await query(
       `SELECT r.*, p.gender, p.blood_group, p.allergies
        FROM refill_requests r
@@ -882,6 +1127,11 @@ router.patch('/refills/:id/approve', requireAuth, requireRole('doctor'), async (
     const { rows: rRows } = await query('SELECT * FROM refill_requests WHERE id = $1', [id]);
     if (!rRows[0]) return res.status(404).json({ error: 'Refill request not found' });
     const refill = rRows[0];
+
+    const callerDocId = req.user.doctorId || req.user.id;
+    if (refill.doctor_id !== callerDocId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — cannot manage refills for another doctor' });
+    }
 
     // Determine final medications (either doctor modifications or original)
     const finalMeds = modifications && Array.isArray(modifications) && modifications.length > 0
@@ -933,6 +1183,11 @@ router.patch('/refills/:id/reject', requireAuth, requireRole('doctor'), async (r
     if (!rRows[0]) return res.status(404).json({ error: 'Refill request not found' });
     const refill = rRows[0];
 
+    const callerDocId = req.user.doctorId || req.user.id;
+    if (refill.doctor_id !== callerDocId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden — cannot manage refills for another doctor' });
+    }
+
     await query(
       `UPDATE refill_requests SET status = 'rejected', doctor_notes = $1, updated_at = NOW() WHERE id = $2`,
       [doctorNotes, id]
@@ -962,7 +1217,15 @@ router.patch('/refills/:id/reject', requireAuth, requireRole('doctor'), async (r
 
 async function callGeminiSoapDraft({ patientName, age, gender, reason, symptoms, vitals = {}, diagnosis, diagnosisCode, observations, history = '' }) {
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+
+  // Accurately detect whether vitals were actually recorded
+  const vitalsEntries = Object.entries(vitals || {}).filter(([_, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+  const vitalsText = vitalsEntries.length > 0
+    ? vitalsEntries.map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(', ')
+    : 'No vitals recorded';
+
+  const DRAFT_DISCLAIMER = '⚠️ AI-GENERATED DRAFT: This clinical documentation is an automated draft. It must be carefully reviewed, verified, edited, and approved by a licensed physician before clinical finalization.';
 
   const prompt = `You are an expert clinical documentation assistant for a licensed physician.
 Generate a structured, professional clinical consultation note in standard SOAP format (Subjective, Objective, Assessment, Plan) based on the following consultation inputs:
@@ -970,15 +1233,19 @@ Generate a structured, professional clinical consultation note in standard SOAP 
 Patient: ${patientName || 'Patient'} (${age ? age + ' y/o' : ''} ${gender || ''})
 Reason for Visit: ${reason || 'Consultation'}
 Reported Symptoms: ${symptoms || 'None reported'}
-Vitals: ${JSON.stringify(vitals)}
+Vitals: ${vitalsText}
 Observations / Physical Exam: ${observations || 'Non-contributory'}
 Working Diagnosis: ${diagnosis || 'Clinical evaluation'} (ICD-10: ${diagnosisCode || 'Unspecified'})
 Relevant History / Prior Context: ${history || 'None'}
 
+CRITICAL CLINICAL INSTRUCTIONS:
+- If vitals are not provided or empty, explicitly state "No vitals recorded" under Objective. NEVER write "Within normal limits" or fabricate normal vital signs when vitals were not measured.
+- Every note is an automated AI draft and must be clearly marked as requiring physician review.
+
 Return ONLY a valid JSON object matching this exact schema:
 {
   "subjective": "Concise summary of patient's chief complaint, history of present illness (HPI), and reported symptom duration/quality",
-  "objective": "Documented vitals analysis (flagging abnormal values), physical/telehealth observations, and relevant findings",
+  "objective": "Documented vitals analysis (if no vitals, write 'No vitals recorded'), physical/telehealth observations, and relevant findings",
   "assessment": "Primary clinical diagnosis, differential considerations, and acuity/risk level",
   "plan": "Step-by-step management: non-pharmacological advice, prescribed therapies, red-flag warning signs, and follow-up guidance",
   "clinical_recommendations": "Bullet points of key clinical reminders for the patient"
@@ -991,6 +1258,7 @@ Return ONLY a valid JSON object matching this exact schema:
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(3000),
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
@@ -1001,7 +1269,19 @@ Return ONLY a valid JSON object matching this exact schema:
           const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (candidateText) {
             const parsed = JSON.parse(candidateText);
-            return { ...parsed, source: 'gemini_ai' };
+            // Safety sanitization: ensure no fabricated vitals when none were recorded
+            if (vitalsEntries.length === 0 && parsed.objective && parsed.objective.includes('Within normal limits')) {
+              parsed.objective = parsed.objective.replace(/Within normal limits/gi, 'No vitals recorded');
+            }
+            return {
+              ...parsed,
+              isDraft: true,
+              is_draft: true,
+              status: 'draft',
+              draftNotice: DRAFT_DISCLAIMER,
+              reviewRequired: true,
+              source: 'gemini_ai',
+            };
           }
         }
       } catch (err) {
@@ -1011,13 +1291,17 @@ Return ONLY a valid JSON object matching this exact schema:
   }
 
   // Deterministic clinical fallback if Gemini is offline
-  const vitalsText = Object.entries(vitals).filter(([_, v]) => v).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(', ') || 'Within normal limits';
   return {
-    subjective: `Patient presented for consultation regarding: ${reason || 'unspecified complaints'}. Symptoms reported: ${symptoms || 'None documented'}. Patient reports functional impact and seeks medical guidance.`,
+    isDraft: true,
+    is_draft: true,
+    status: 'draft',
+    draftNotice: DRAFT_DISCLAIMER,
+    reviewRequired: true,
+    subjective: `[AI DRAFT - PENDING PHYSICIAN REVIEW] Patient presented for consultation regarding: ${reason || 'unspecified complaints'}. Symptoms reported: ${symptoms || 'None documented'}. Patient reports functional impact and seeks medical guidance.`,
     objective: `Telehealth clinical evaluation. Documented vitals: ${vitalsText}. Clinical observations: ${observations || 'Patient alert and oriented, in no acute distress during video evaluation.'}`,
-    assessment: `Primary Assessment: ${diagnosis || reason || 'Clinical consultation evaluation'} (${diagnosisCode || 'Clinical evaluation'}). Condition appears stable based on presented clinical parameters.`,
+    assessment: `[AI DRAFT - PENDING PHYSICIAN REVIEW] Primary Assessment: ${diagnosis || reason || 'Clinical consultation evaluation'} (${diagnosisCode || 'Clinical evaluation'}). Condition appears stable based on presented clinical parameters.`,
     plan: `1. Implement clinical management as discussed with patient.\n2. Adhere to prescribed medications and instructions.\n3. Return for reassessment or seek emergency care immediately if red flag symptoms develop.\n4. Follow-up as advised.`,
-    clinical_recommendations: `• Maintain regular hydration and rest\n• Monitor vitals daily\n• Seek urgent care if breathing difficulty or acute pain arises`,
+    clinical_recommendations: `• AI Draft Note: Attending physician must review, edit, and approve all documentation prior to finalizing\n• Maintain regular hydration and rest\n• Seek urgent emergency care if red-flag symptoms arise`,
     source: 'clinical_matrix',
   };
 }

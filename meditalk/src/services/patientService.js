@@ -34,3 +34,29 @@ export function setPatientStatus(id, status) {
     body: JSON.stringify({ status }),
   });
 }
+
+// Phase 11: Export Patient Health Archive (GDPR / HIPAA Portability)
+export async function exportPatientData(patientId) {
+  return apiFetch(`/patients/${patientId}/export`);
+}
+
+// Phase 11: Withdraw Medical Consent & Delete Account
+export async function withdrawConsent(patientId) {
+  return apiFetch(`/patients/${patientId}/withdraw-consent`, {
+    method: 'POST',
+  });
+}
+
+// Phase 11: Nurse / Clinical Staff records vitals
+export async function recordPatientVitals(patientId, payload) {
+  return apiFetch(`/patients/${patientId}/vitals`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+// Phase 11: Vitals history
+export async function getPatientVitalsHistory(patientId) {
+  return apiFetch(`/patients/${patientId}/vitals-history`);
+}
+

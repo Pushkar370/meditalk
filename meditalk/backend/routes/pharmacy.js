@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query } from '../database/db.js';
+import { query, hasClinicalRelationship } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
@@ -33,11 +33,22 @@ function parseSchedule(row) {
 router.get('/medications/adherence', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to access medication adherence schedules' });
+    }
     const { patientId } = req.query;
     const targetId = role === 'patient' ? callerId : (patientId || callerId);
 
     if (role === 'patient' && patientId && patientId !== callerId) {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (role === 'doctor' && patientId) {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, patientId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
 
     const { rows } = await query(
@@ -55,10 +66,21 @@ router.get('/medications/adherence', requireAuth, async (req, res) => {
 router.post('/medications/adherence', requireAuth, async (req, res) => {
   try {
     const { role, id: callerId } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to create medication adherence schedules' });
+    }
     const { patientId, prescriptionId, medications = [] } = req.body;
 
     const targetId = role === 'patient' ? callerId : patientId;
     if (!targetId) return res.status(400).json({ error: 'patientId is required' });
+
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, targetId);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
+    }
 
     const created = [];
     for (const med of medications) {
@@ -109,7 +131,10 @@ router.post('/medications/adherence', requireAuth, async (req, res) => {
 // POST /api/medications/adherence/log — mark a dose as taken
 router.post('/medications/adherence/log', requireAuth, async (req, res) => {
   try {
-    const { id: callerId } = req.user;
+    const { id: callerId, role } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden — receptionists and nurses are not permitted to log medication adherence' });
+    }
     const { scheduleId, slot, date: dateStr } = req.body;
     // slot: 'morning' | 'afternoon' | 'evening' | 'night'
     // date: 'YYYY-MM-DD' (server validates)
@@ -122,6 +147,13 @@ router.post('/medications/adherence/log', requireAuth, async (req, res) => {
 
     if (schedule.patient_id !== callerId && req.user.role !== 'doctor' && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (req.user.role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, schedule.patient_id);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
 
     const today = dateStr || new Date().toISOString().split('T')[0];
@@ -156,10 +188,20 @@ router.post('/medications/adherence/log', requireAuth, async (req, res) => {
 router.delete('/medications/adherence/:id', requireAuth, async (req, res) => {
   try {
     const { id: callerId, role } = req.user;
+    if (role === 'receptionist' || role === 'nurse') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const { rows } = await query('SELECT * FROM medication_schedules WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Schedule not found' });
     if (rows[0].patient_id !== callerId && role !== 'doctor' && role !== 'admin') {
       return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      const allowed = await hasClinicalRelationship(callerDocId, rows[0].patient_id);
+      if (!allowed) {
+        return res.status(403).json({ error: 'Forbidden — you do not have an active clinical relationship with this patient' });
+      }
     }
     await query('UPDATE medication_schedules SET is_active=FALSE WHERE id=$1', [req.params.id]);
     res.json({ success: true });

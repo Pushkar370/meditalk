@@ -36,7 +36,7 @@ export function getPool() {
 
     pool = new Pool({
       connectionString,
-      ssl: requiresSsl ? { rejectUnauthorized: false } : false,
+      ssl: requiresSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' ? false : true } : false,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 20000,
@@ -45,12 +45,21 @@ export function getPool() {
     });
 
     pool.on('error', (err) => {
-      // Suppress noisy stack traces for expected Neon idle client termination
+      // Suppress fatal process exits on database disconnects or idle client resets
       const msg = err?.message || '';
-      if (msg.includes('Connection terminated') || msg.includes('closed') || err?.code === 'ECONNRESET') {
-        console.warn('⚠️ [DB] PostgreSQL idle client recycled.');
+      const code = err?.code || '';
+      if (
+        msg.includes('Connection terminated') ||
+        msg.includes('closed') ||
+        msg.includes('timeout') ||
+        code === 'ECONNRESET' ||
+        code === 'ECONNREFUSED' ||
+        code === '57P01' ||
+        code === '57P03'
+      ) {
+        console.warn('⚠️ [DB] PostgreSQL connection dropped/recycled:', msg || code);
       } else {
-        console.error('[DB] Unexpected error on idle client:', msg);
+        console.error('[DB] Unexpected error on client:', msg || code);
       }
     });
 
@@ -100,8 +109,14 @@ export async function query(text, params) {
   return p.query(text, params);
 }
 
-// Helper: check if a doctor has a legitimate clinical relationship with a patient
-// (via past or upcoming appointments, consultations, or issued prescriptions)
+// Helper: check if a doctor has a real, confirmed clinical relationship with a patient.
+// Rule:
+// 1. Patient booked with that doctor (booked_by = patient_id or 'patient') AND appointment is active (not cancelled).
+// 2. OR appointment is active AND confirmed/checked-in/completed (e.g. status IN ('confirmed', 'checked-in', 'in-progress', 'completed')).
+//    (Creating an appointment alone without patient booking or confirmation does NOT grant access).
+// 3. OR the doctor has previously conducted a consultation with this patient.
+// 4. OR the doctor has previously issued a prescription to this patient.
+// 5. Cancelled appointments NEVER grant access.
 export async function hasClinicalRelationship(doctorId, patientId) {
   if (!doctorId || !patientId) return false;
   let resolvedDocId = doctorId;
@@ -110,7 +125,14 @@ export async function hasClinicalRelationship(doctorId, patientId) {
     if (u[0]?.doctor_id) resolvedDocId = u[0].doctor_id;
   }
   const { rows } = await query(
-    `SELECT 1 FROM appointments WHERE doctor_id = $1 AND patient_id = $2
+    `SELECT 1 FROM appointments
+     WHERE doctor_id = $1 AND patient_id = $2
+       AND status NOT IN ('cancelled')
+       AND (
+         booked_by = $2
+         OR booked_by = 'patient'
+         OR status IN ('confirmed', 'checked-in', 'in-progress', 'completed')
+       )
      UNION
      SELECT 1 FROM consultations WHERE doctor_id = $1 AND patient_id = $2
      UNION
@@ -269,11 +291,74 @@ export async function initDb() {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_refill_requests_patient ON refill_requests(patient_id)`,
     `CREATE INDEX IF NOT EXISTS idx_refill_requests_doctor ON refill_requests(doctor_id)`,
+    // Phase 10: Persistent Token Revocation across restarts
+    `CREATE TABLE IF NOT EXISTS revoked_tokens (
+      jti TEXT PRIMARY KEY,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires ON revoked_tokens(expires_at)`,
+    // Phase 10: Atomic Slot Booking unique constraints
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_atomic_doctor_slot ON appointments (doctor_id, date, time) WHERE status NOT IN ('cancelled')`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_atomic_patient_slot ON appointments (patient_id, date, time) WHERE status NOT IN ('cancelled')`,
+    // Phase 11: Patient consent & GDPR rights
+    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS consent_accepted BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS consent_version TEXT DEFAULT 'v1.0'`,
+    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS consent_withdrawn BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE patients ADD COLUMN IF NOT EXISTS consent_withdrawn_at TIMESTAMPTZ`,
+    // Phase 11: Telehealth consent & nurse pre-consultation vitals
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_consent BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS telehealth_consent_at TIMESTAMPTZ`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS vitals TEXT DEFAULT '{}'`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS vitals_recorded_by TEXT`,
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS vitals_recorded_at TIMESTAMPTZ`,
+    `CREATE TABLE IF NOT EXISTS patient_vitals (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      appointment_id TEXT REFERENCES appointments(id) ON DELETE SET NULL,
+      recorded_by_id TEXT,
+      recorded_by_name TEXT,
+      role TEXT NOT NULL DEFAULT 'nurse',
+      bp TEXT,
+      systolic INTEGER,
+      diastolic INTEGER,
+      hr INTEGER,
+      temp NUMERIC(4,1),
+      spo2 INTEGER,
+      weight NUMERIC(5,2),
+      blood_sugar NUMERIC(5,1),
+      notes TEXT,
+      recorded_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_patient_vitals_patient ON patient_vitals(patient_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_patient_vitals_appt ON patient_vitals(appointment_id)`,
+    // Stage 1 security: token versioning & account lockout
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 1`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMPTZ`,
+    // Stage 1 Access Control: appointment booked_by column and backfill
+    `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS booked_by TEXT`,
+    `UPDATE appointments SET booked_by = patient_id WHERE booked_by IS NULL`,
+    // Tamper-Resistant Audit Log: ip_address, user_agent, prev_hash, hash
+    `ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address TEXT`,
+    `ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent TEXT`,
+    `ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS prev_hash TEXT`,
+    `ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS hash TEXT`,
   ];
   for (const sql of migrations) {
     try { await p.query(sql); } catch (e) { console.warn('[DB] Migration skipped:', e.message); }
   }
   // ────────────────────────────────────────────────────────────────────────
+
+  // Initialize cryptographic hash chain and install tamper protection triggers
+  try {
+    const { backfillAuditHashes, installAuditTamperProtection } = await import('../services/auditService.js');
+    await backfillAuditHashes();
+    await installAuditTamperProtection();
+  } catch (err) {
+    console.warn('[DB] Audit tamper protection init warning:', err.message);
+  }
 
   console.log('📋 Database schema initialized');
 }

@@ -12,6 +12,7 @@ function getToken() {
 
 /**
  * Hook to connect to Server-Sent Events (SSE) notification stream.
+ * Sends authorization via Bearer header — never exposes auth token in URL query parameters.
  * @param {Function} onMessage - callback invoked when a notification arrives
  * @param {boolean} enabled - whether stream connection is active
  */
@@ -25,38 +26,60 @@ export function useSSE(onMessage, enabled = true) {
     const token = getToken();
     if (!token) return;
 
-    let eventSource = null;
+    let abortController = null;
     let retryTimer = null;
     let isMounted = true;
 
-    function connect() {
+    async function connect() {
       if (!isMounted) return;
+      abortController = new AbortController();
+
       try {
-        eventSource = new EventSource(`/api/notifications/stream?token=${encodeURIComponent(token)}`);
+        const response = await fetch('/api/notifications/stream', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: abortController.signal,
+        });
 
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data && data.type !== "connected") {
-              onMessageRef.current?.(data);
-            }
-          } catch (e) {
-            console.debug("[SSE] Parse error:", e);
-          }
-        };
-
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          // Attempt reconnection after 5 seconds if still mounted
+        if (!response.ok || !response.body) {
           if (isMounted) {
             retryTimer = setTimeout(connect, 5000);
           }
-        };
-      } catch (e) {
-        console.warn("[SSE] Connection error:", e);
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (isMounted) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const messages = buffer.split('\n\n');
+          buffer = messages.pop() || '';
+
+          for (const msg of messages) {
+            const dataLine = msg.split('\n').find((line) => line.startsWith('data: '));
+            if (dataLine) {
+              try {
+                const data = JSON.parse(dataLine.slice(6));
+                if (data && data.type !== 'connected') {
+                  onMessageRef.current?.(data);
+                }
+              } catch (e) {
+                console.debug('[SSE] Parse error:', e);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError' && isMounted) {
+          console.debug('[SSE] Stream disconnected, retrying in 5s...');
+          retryTimer = setTimeout(connect, 5000);
+        }
       }
     }
 
@@ -65,8 +88,8 @@ export function useSSE(onMessage, enabled = true) {
     return () => {
       isMounted = false;
       if (retryTimer) clearTimeout(retryTimer);
-      if (eventSource) {
-        eventSource.close();
+      if (abortController) {
+        abortController.abort();
       }
     };
   }, [enabled]);

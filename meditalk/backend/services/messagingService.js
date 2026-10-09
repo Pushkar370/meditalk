@@ -28,6 +28,13 @@ export function normalizePhoneNumber(phone) {
   return cleaned;
 }
 
+export function maskPhoneNumber(phone) {
+  if (!phone || typeof phone !== 'string') return '***';
+  const clean = phone.trim();
+  if (clean.length <= 4) return '***';
+  return clean.slice(0, 3) + '****' + clean.slice(-4);
+}
+
 /**
  * Formats standardized WhatsApp clinical notification copy.
  */
@@ -159,7 +166,10 @@ export async function sendWhatsAppMessage({ to, type = 'confirmation', data = {}
         console.log(`📲 [WhatsApp Live Sent via Twilio] SID: ${result.sid} To: ${normalizedTo}`);
         return {
           success: true,
+          sent: true,
+          delivered: true,
           mode: 'twilio',
+          message: 'WhatsApp message sent successfully via carrier',
           messageSid: result.sid,
           to: normalizedTo,
           waLink,
@@ -168,9 +178,12 @@ export async function sendWhatsAppMessage({ to, type = 'confirmation', data = {}
       } else {
         console.warn('[WhatsApp Twilio Error]:', result.message);
         return {
-          success: true,
-          mode: 'simulation',
-          warning: result.message,
+          success: false,
+          sent: false,
+          delivered: false,
+          mode: 'twilio_error',
+          error: result.message,
+          message: `WhatsApp message not sent: carrier error (${result.message})`,
           to: normalizedTo,
           waLink,
           messagePreview: messageText,
@@ -178,14 +191,29 @@ export async function sendWhatsAppMessage({ to, type = 'confirmation', data = {}
       }
     } catch (err) {
       console.error('[WhatsApp Service Exception]:', err.message);
+      return {
+        success: false,
+        sent: false,
+        delivered: false,
+        mode: 'twilio_error',
+        error: err.message,
+        message: `WhatsApp message not sent: carrier request failed (${err.message})`,
+        to: normalizedTo,
+        waLink,
+        messagePreview: messageText,
+      };
     }
   }
 
-  // Simulation mode (logs directly and provides direct 1-click wa.me link)
-  console.log(`\n📱 [WHATSAPP - DIRECT / SIMULATION] To: ${normalizedTo}\n${messageText}\nLink: ${waLink}\n`);
+  // Simulation mode (honest: message was NOT dispatched via carrier)
+  // Protected log: phone number masked and message body redacted to prevent PHI exposure
+  console.log(`📱 [WHATSAPP - SIMULATION] Dispatched ${type} message to: ${maskPhoneNumber(normalizedTo)} (details redacted for privacy)`);
   return {
-    success: true,
+    success: false,
+    sent: false,
+    delivered: false,
     mode: 'simulation',
+    message: 'WhatsApp message not sent: carrier credentials not configured (simulation only). Use direct link to send manually.',
     to: normalizedTo,
     waLink,
     messagePreview: messageText,
@@ -224,14 +252,18 @@ export async function sendSmsMessage({ to, text }) {
 
       const result = await response.json();
       if (response.ok) {
-        console.log(`💬 [SMS Sent via Twilio] SID: ${result.sid} To: ${normalizedTo}`);
-        return { success: true, mode: 'twilio', messageSid: result.sid };
+        console.log(`💬 [SMS Sent via Twilio] SID: ${result.sid} To: ${maskPhoneNumber(normalizedTo)}`);
+        return { success: true, sent: true, delivered: true, mode: 'twilio', messageSid: result.sid, message: 'SMS sent successfully via carrier' };
+      } else {
+        console.warn('[SMS Twilio Error]:', result.message);
+        return { success: false, sent: false, delivered: false, mode: 'twilio_error', error: result.message, message: `SMS not sent: carrier error (${result.message})` };
       }
     } catch (err) {
       console.warn('[SMS Twilio Exception]:', err.message);
+      return { success: false, sent: false, delivered: false, mode: 'twilio_error', error: err.message, message: `SMS not sent: carrier exception (${err.message})` };
     }
   }
 
-  console.log(`\n💬 [SMS - SIMULATION] To: ${normalizedTo}\n${text}\n`);
-  return { success: true, mode: 'simulation', to: normalizedTo, text };
+  console.log(`💬 [SMS - SIMULATION] Dispatched SMS to: ${maskPhoneNumber(normalizedTo)} (details redacted for privacy)`);
+  return { success: false, sent: false, delivered: false, mode: 'simulation', message: 'SMS not sent: carrier credentials not configured (simulation only)', to: normalizedTo, text };
 }

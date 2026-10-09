@@ -36,4 +36,14 @@ export const NAV_CONFIG = {
     { label: "Notifications", to: "/admin/notifications", icon: Bell },
     { label: "Settings", to: "/admin/settings", icon: Settings },
   ],
+  receptionist: [
+    { label: "Check-in & Queue", to: "/receptionist/queue", icon: CalendarDays },
+    { label: "Notifications", to: "/receptionist/notifications", icon: Bell },
+    { label: "Settings", to: "/receptionist/settings", icon: Settings },
+  ],
+  nurse: [
+    { label: "Triage & Vitals Queue", to: "/nurse/queue", icon: CalendarDays },
+    { label: "Notifications", to: "/nurse/notifications", icon: Bell },
+    { label: "Settings", to: "/nurse/settings", icon: Settings },
+  ],
 };

@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import Logo from "../components/ui/Logo";
 import Button from "../components/ui/Button";
+import EmergencyBanner from "../components/ui/EmergencyBanner";
 
 const FEATURES = [
   { icon: FileText, title: "Unified Health Records", text: "Consultations, labs, imaging and vitals in one secure chart." },
@@ -102,8 +103,23 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-sage/30 py-6 text-center text-xs text-ink/40">
-        MediTalk — An Intelligent Patient Health Record & Appointment Management System.
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
+        <EmergencyBanner compact />
+      </div>
+
+      <footer className="border-t border-sage/30 py-6 text-center text-xs text-ink/60 space-y-2">
+        <div className="flex items-center justify-center gap-4 text-xs font-medium text-ink/70">
+          <Link to="/privacy" className="hover:text-primary hover:underline">Privacy Policy</Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:text-primary hover:underline">Terms of Service</Link>
+          <span>·</span>
+          <Link to="/login" className="hover:text-primary hover:underline">Sign In</Link>
+          <span>·</span>
+          <Link to="/register" className="hover:text-primary hover:underline">Register</Link>
+        </div>
+        <p className="text-[11px] text-ink/40">
+          MediTalk — An Intelligent Patient Health Record & Appointment Management System. Built for HIPAA & GDPR compliance.
+        </p>
       </footer>
     </div>
   );

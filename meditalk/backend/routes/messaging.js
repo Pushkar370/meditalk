@@ -76,14 +76,10 @@ router.post('/test-whatsapp', requireAuth, async (req, res) => {
       customText,
     });
 
-    res.json({
-      success: true,
-      message: 'WhatsApp notification generated successfully',
-      ...result,
-    });
+    res.json(result);
   } catch (err) {
-    console.error('[MessagingRouter] test-whatsapp error:', err);
-    res.status(500).json({ error: 'Failed to dispatch WhatsApp test message', details: err.message });
+    console.error('🔒 [MessagingRouter - Private Log] test-whatsapp error:', err);
+    res.status(500).json({ error: 'Failed to dispatch WhatsApp test message' });
   }
 });
 
@@ -99,6 +95,21 @@ router.post('/send-appointment-whatsapp', requireAuth, async (req, res) => {
     const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Appointment not found' });
     const appt = rows[0];
+
+    // Authorization guard: patient (own), assigned doctor, or admin/receptionist
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'patient') {
+      if (appt.patient_id !== callerId && appt.patient_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden — you can only send alerts for your own appointments' });
+      }
+    } else if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (appt.doctor_id !== callerDocId) {
+        return res.status(403).json({ error: 'Forbidden — you can only send alerts for appointments under your care' });
+      }
+    } else if (role !== 'admin' && role !== 'receptionist') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     // Determine phone number (from payload, or patient profile)
     let phone = recipientPhone;
@@ -127,7 +138,7 @@ router.post('/send-appointment-whatsapp', requireAuth, async (req, res) => {
       },
     });
 
-    res.json({ success: true, ...result });
+    res.json(result);
   } catch (err) {
     console.error('[MessagingRouter] send-appointment-whatsapp error:', err);
     res.status(500).json({ error: 'Failed to send appointment WhatsApp message' });
@@ -138,12 +149,25 @@ router.post('/send-appointment-whatsapp', requireAuth, async (req, res) => {
  * GET /api/messaging/calendar-ics/:appointmentId
  * Returns RFC 5545 compliant .ics calendar file download
  */
-router.get('/calendar-ics/:appointmentId', async (req, res) => {
+router.get('/calendar-ics/:appointmentId', requireAuth, async (req, res) => {
   try {
     const { appointmentId } = req.params;
     const { rows } = await query('SELECT * FROM appointments WHERE id = $1', [appointmentId]);
     if (rows.length === 0) return res.status(404).send('Appointment not found');
     const a = rows[0];
+
+    // Authorization guard: patient, assigned doctor, or admin
+    const { role, id: callerId, userId } = req.user;
+    if (role === 'patient') {
+      if (a.patient_id !== callerId && a.patient_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden — you can only download calendar invites for your own appointments' });
+      }
+    } else if (role === 'doctor') {
+      const callerDocId = req.user.doctorId || callerId;
+      if (a.doctor_id !== callerDocId) {
+        return res.status(403).json({ error: 'Forbidden — you can only download calendar invites for your own appointments' });
+      }
+    }
 
     const dt = toIcsDateTime(a.date, a.time) || {
       start: '20261015T090000Z',

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { UserPlus, CheckCircle2, Stethoscope, User } from "lucide-react";
+import { UserPlus, CheckCircle2, Stethoscope, User, ShieldCheck } from "lucide-react";
 import Logo from "../components/ui/Logo";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
@@ -25,6 +25,7 @@ export default function Register() {
     bio: "",
     password: "",
     confirm: "",
+    consent: false,
   });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -53,6 +54,10 @@ export default function Register() {
     else if (form.password.length < 6) e.password = "Password must be at least 6 characters.";
     if (form.confirm !== form.password) e.confirm = "Passwords do not match.";
 
+    if (!form.consent) {
+      e.consent = "You must review and accept the Privacy Notice and Terms of Service to create an account.";
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -61,7 +66,7 @@ export default function Register() {
     ev.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    const res = await registerService({ ...form, role });
+    const res = await registerService({ ...form, role, consentAccepted: form.consent });
     setSubmitting(false);
     if (res.success) {
       setDone(true);
@@ -170,6 +175,39 @@ export default function Register() {
 
               <Input label="Password" type="password" placeholder="••••••••" value={form.password} error={errors.password} onChange={(e) => update("password", e.target.value)} />
               <Input label="Confirm password" type="password" placeholder="••••••••" value={form.confirm} error={errors.confirm} onChange={(e) => update("confirm", e.target.value)} />
+            </div>
+
+            {/* Privacy Notice & Consent Checkbox */}
+            <div className="rounded-xl border border-sage/30 bg-sage/10 p-3.5 space-y-2.5 text-xs text-ink/80">
+              <div className="flex items-center gap-2 font-bold text-ink">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Health Data Privacy & Consent Notice</span>
+              </div>
+              <p className="text-[11px] text-ink/70 leading-relaxed">
+                MediTalk processes your medical details exclusively for clinical consultations, electronic prescribing, and appointment management under HIPAA and GDPR privacy frameworks. You can export your health data or withdraw consent anytime in Settings.
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={form.consent}
+                  onChange={(e) => update("consent", e.target.checked)}
+                  className="mt-0.5 rounded border-sage/40 text-primary focus:ring-primary h-4 w-4 shrink-0"
+                />
+                <span className="text-[11px] leading-snug">
+                  I have read and accept the{" "}
+                  <Link to="/terms" target="_blank" className="font-semibold text-primary underline hover:text-primary-dark">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" target="_blank" className="font-semibold text-primary underline hover:text-primary-dark">
+                    Privacy Policy
+                  </Link>
+                  , and I give informed consent for the processing of my healthcare records.
+                </span>
+              </label>
+              {errors.consent && (
+                <p className="text-[11px] font-semibold text-rose-600 pl-6">{errors.consent}</p>
+              )}
             </div>
 
             <Button type="submit" loading={submitting} className="w-full" size="lg">

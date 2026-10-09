@@ -4,18 +4,72 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { query } from '../database/db.js';
 import { requireAuth } from '../middleware/auth.js';
-import { pushNotification } from '../server.js';
+import { pushNotification } from '../services/sseService.js';
 import { enqueueEmail } from '../services/jobQueue.js';
-
+import { JWT_SECRET } from '../config/authConfig.js';
+import { logAudit, getClientIp } from '../services/auditService.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
 
-// ── Token Revocation Blocklist (in-memory; survives until process restart) ───
-// For production, this should be moved to Redis or a DB table for persistence
+// ── Password Strength Rule ──────────────────────────────────────────────────
+export function validatePasswordStrength(password) {
+  if (!password || typeof password !== 'string') {
+    return { valid: false, error: 'Password is required.' };
+  }
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long.' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter.' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter.' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one digit.' };
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one special character (!@#$%^&* etc).' };
+  }
+  return { valid: true };
+}
+
+// ── Token Revocation Blocklist & Session Versioning ─────────────────────────
+// Survives server restarts because revocation state and token_version are persisted in PostgreSQL.
 const revokedTokens = new Set();
-export function isTokenRevoked(jti) { return revokedTokens.has(jti); }
 
+export async function isTokenRevoked(jti, userId, tokenVersion) {
+  if (jti && revokedTokens.has(jti)) return true;
+  try {
+    if (jti) {
+      const { rows } = await query(
+        'SELECT 1 FROM revoked_tokens WHERE jti = $1 AND expires_at > NOW()',
+        [jti]
+      );
+      if (rows && rows.length > 0) {
+        revokedTokens.add(jti);
+        return true;
+      }
+    }
+    if (userId) {
+      const { rows: uRows } = await query(
+        'SELECT token_version FROM users WHERE id = $1',
+        [userId]
+      );
+      if (uRows.length === 0) return true; // Account deleted / not found
+      const currentVersion = uRows[0].token_version || 1;
+      const userTokenVersion = tokenVersion != null ? Number(tokenVersion) : 1;
+      if (currentVersion > userTokenVersion) {
+        return true; // Token belongs to an older session superseded by logout/password change/reset
+      }
+    }
+  } catch (err) {
+    console.error('[Auth] Error checking token revocation against database:', err.message);
+    // Healthcare security principle: fail closed to prevent unauthorized access on database glitch
+    return true;
+  }
+  return false;
+}
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -28,11 +82,35 @@ router.post('/login', async (req, res) => {
     const { rows } = await query('SELECT * FROM users WHERE email = $1 AND role = $2', [email, role]);
     const user = rows[0];
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    if (!user) {
+      const { rows: pRows } = await query('SELECT status, consent_withdrawn FROM patients WHERE email = $1', [email]);
+      if (pRows[0] && (pRows[0].status === 'withdrawn_consent' || pRows[0].consent_withdrawn === true)) {
+        return res.status(403).json({ success: false, message: 'This account was closed and medical consent was withdrawn.' });
+      }
       return res.status(401).json({ success: false, message: 'Invalid email, password or role.' });
     }
 
-    // Phase 5: block doctor login if not yet verified
+    // Account-level lockout check (5 failed attempts locks account for 15 minutes)
+    if (user.lockout_until && new Date(user.lockout_until) > new Date()) {
+      const remainingMin = Math.max(1, Math.ceil((new Date(user.lockout_until).getTime() - Date.now()) / 60000));
+      return res.status(423).json({
+        success: false,
+        message: `Account is temporarily locked due to multiple failed login attempts. Please try again after ${remainingMin} minute(s).`,
+      });
+    }
+
+    // Block patient login if consent was withdrawn or account deleted
+    if (role === 'patient') {
+      const { rows: pRows } = await query(
+        'SELECT status, consent_withdrawn FROM patients WHERE id = $1 OR email = $2',
+        [user.patient_id || '', email]
+      );
+      if (pRows[0] && (pRows[0].status === 'withdrawn_consent' || pRows[0].consent_withdrawn === true)) {
+        return res.status(403).json({ success: false, message: 'This account was closed and medical consent was withdrawn.' });
+      }
+    }
+
+    // Block doctor login if not yet verified
     if (role === 'doctor' && user.doctor_id) {
       const { rows: docRows } = await query('SELECT verification_status, rejection_notes FROM doctors WHERE id = $1', [user.doctor_id]);
       const doc = docRows[0];
@@ -46,7 +124,43 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    const jti = crypto.randomUUID(); // unique token ID for revocation
+    // Non-blocking password check
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      const failedAttempts = (user.failed_login_attempts || 0) + 1;
+      let lockoutDate = null;
+      if (failedAttempts >= 5) {
+        lockoutDate = new Date(Date.now() + 15 * 60 * 1000); // 15-minute lockout
+      }
+      await query(
+        'UPDATE users SET failed_login_attempts = $1, lockout_until = $2 WHERE id = $3',
+        [failedAttempts, lockoutDate, user.id]
+      );
+
+      if (failedAttempts >= 5) {
+        return res.status(423).json({
+          success: false,
+          message: 'Account is temporarily locked for 15 minutes due to 5 consecutive failed login attempts.',
+        });
+      }
+
+      const remaining = 5 - failedAttempts;
+      return res.status(401).json({
+        success: false,
+        message: `Invalid email, password or role. (${remaining} attempt${remaining === 1 ? '' : 's'} remaining before account lockout)`,
+      });
+    }
+
+    // Reset failed login counter and lockout on successful authentication
+    if (user.failed_login_attempts > 0 || user.lockout_until) {
+      await query(
+        'UPDATE users SET failed_login_attempts = 0, lockout_until = NULL WHERE id = $1',
+        [user.id]
+      );
+    }
+
+    const jti = crypto.randomUUID(); // unique token ID
+    const currentTokenVersion = user.token_version || 1;
     const payload = {
       jti,
       id: user.patient_id || user.doctor_id || user.id,
@@ -54,18 +168,23 @@ router.post('/login', async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      tokenVersion: currentTokenVersion,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
     // Add audit log for login
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, $3, 'Logged in', 'Auth', 'Web Browser', 'success')`,
-        [user.id, user.name, user.role === 'admin' ? 'Administrator' : user.role.charAt(0).toUpperCase() + user.role.slice(1)]
-      );
-    } catch (_) { /* non-critical */ }
+    logAudit({
+      userId: user.id,
+      userName: user.name,
+      role: user.role === 'admin' ? 'Administrator' : user.role.charAt(0).toUpperCase() + user.role.slice(1),
+      action: 'Logged in',
+      entityType: 'Auth',
+      entityId: 'Web Browser',
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     res.json({
       success: true,
@@ -74,16 +193,36 @@ router.post('/login', async (req, res) => {
       redirectTo: `/${role}/dashboard`,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Internal server error.' });
+    console.error('🔒 [Auth Error - Private Log]:', err);
+    res.status(500).json({ success: false, message: 'Internal server error. An unexpected error occurred.' });
   }
 });
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { name, email, password, role = 'patient', specialty = 'General Medicine', phone, experience = 1, bio } = req.body;
+  const {
+    name, email, password, role = 'patient',
+    specialty = 'General Medicine', phone, experience = 1, bio,
+    consent, consentAccepted
+  } = req.body;
+
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: 'Name, email and password are required.' });
+  }
+
+  // Mandatory consent verification
+  const hasConsent = consent === true || consent === 'true' || consentAccepted === true || consentAccepted === 'true';
+  if (!hasConsent) {
+    return res.status(400).json({
+      success: false,
+      message: 'You must review and accept the Privacy Notice, Terms of Service, and provide medical consent to register.'
+    });
+  }
+
+  // Mandatory password strength validation
+  const strengthCheck = validatePasswordStrength(password);
+  if (!strengthCheck.valid) {
+    return res.status(400).json({ success: false, message: strengthCheck.error });
   }
 
   try {
@@ -93,10 +232,10 @@ router.post('/register', async (req, res) => {
     }
 
     const userId = `U-${Date.now()}`;
-    const hash = bcrypt.hashSync(password, 10);
+    // Non-blocking password hash
+    const hash = await bcrypt.hash(password, 10);
 
     if (role === 'doctor') {
-      // Use timestamp-based ID to eliminate collision risk (was: 3-digit random → ~50% collision at 30 doctors)
       const doctorId = `D-${Date.now()}`;
       await query(
         `INSERT INTO doctors (id, name, specialty, email, phone, experience, availability, status, bio, verification_status)
@@ -104,47 +243,75 @@ router.post('/register', async (req, res) => {
         [doctorId, name, specialty, email, phone || null, parseInt(experience, 10) || 1, bio || `${specialty} Specialist`]
       );
       await query(
-        `INSERT INTO users (id, name, email, password, role, doctor_id) VALUES ($1, $2, $3, $4, 'doctor', $5)`,
+        `INSERT INTO users (id, name, email, password, role, doctor_id, token_version) VALUES ($1, $2, $3, $4, 'doctor', $5, 1)`,
         [userId, name, email, hash, doctorId]
+      );
+    } else if (role === 'nurse') {
+      await query(
+        `INSERT INTO users (id, name, email, password, role, token_version) VALUES ($1, $2, $3, $4, 'nurse', 1)`,
+        [userId, name, email, hash]
+      );
+    } else if (role === 'receptionist') {
+      await query(
+        `INSERT INTO users (id, name, email, password, role, token_version) VALUES ($1, $2, $3, $4, 'receptionist', 1)`,
+        [userId, name, email, hash]
       );
     } else {
       const patientId = `P-${Math.floor(1000 + Math.random() * 9000)}`;
       await query(
-        `INSERT INTO patients (id, name, email, phone, status, registered_at) VALUES ($1, $2, $3, $4, 'active', NOW())`,
+        `INSERT INTO patients (id, name, email, phone, status, consent_accepted, consent_accepted_at, consent_version, registered_at)
+         VALUES ($1, $2, $3, $4, 'active', TRUE, NOW(), 'v1.0', NOW())`,
         [patientId, name, email, phone || null]
       );
       await query(
-        `INSERT INTO users (id, name, email, password, role, patient_id) VALUES ($1, $2, $3, $4, 'patient', $5)`,
+        `INSERT INTO users (id, name, email, password, role, patient_id, token_version) VALUES ($1, $2, $3, $4, 'patient', $5, 1)`,
         [userId, name, email, hash, patientId]
       );
     }
 
     res.status(201).json({ success: true, message: 'Registration successful. Please log in.' });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Register Error - Private Log]:', err);
     res.status(500).json({ success: false, message: 'Registration failed.' });
   }
 });
 
-// POST /api/auth/logout — revokes the current token
-router.post('/logout', requireAuth, (req, res) => {
-  const jti = req.user.jti;
-  if (jti) {
-    revokedTokens.add(jti);
-    // Auto-purge after 7 days to prevent unbounded memory growth
-    setTimeout(() => revokedTokens.delete(jti), 7 * 24 * 60 * 60 * 1000);
+// POST /api/auth/logout — invalidates all sessions for this user across restarts and registers jti in blocklist
+router.post('/logout', requireAuth, async (req, res) => {
+  const userId = req.user?.userId || req.user?.id;
+  const jti = req.user?.jti;
+
+  try {
+    if (userId) {
+      // Invalidate all tokens for this user by bumping token_version in PostgreSQL
+      await query('UPDATE users SET token_version = COALESCE(token_version, 1) + 1 WHERE id = $1', [userId]);
+    }
+    if (jti) {
+      revokedTokens.add(jti);
+      const expiresAt = req.user.exp
+        ? new Date(req.user.exp * 1000)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await query(
+        'INSERT INTO revoked_tokens (jti, expires_at) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING',
+        [jti, expiresAt]
+      );
+    }
+  } catch (err) {
+    console.warn('[Auth] Error persisting revocation during logout:', err.message);
   }
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
-// PUT /api/auth/password
+// PUT /api/auth/password — requires strong password and invalidates all existing sessions across restarts
 router.put('/password', requireAuth, async (req, res) => {
   const { currentPassword, nextPassword } = req.body;
   if (!currentPassword || !nextPassword) {
     return res.status(400).json({ error: 'Current password and new password are required.' });
   }
-  if (nextPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+
+  const strengthCheck = validatePasswordStrength(nextPassword);
+  if (!strengthCheck.valid) {
+    return res.status(400).json({ error: strengthCheck.error });
   }
 
   try {
@@ -153,21 +320,39 @@ router.put('/password', requireAuth, async (req, res) => {
     const user = rows[0];
     if (!user) return res.status(404).json({ error: 'User account not found.' });
 
-    if (!bcrypt.compareSync(currentPassword, user.password)) {
+    // Non-blocking password check
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentValid) {
       return res.status(401).json({ error: 'Incorrect current password.' });
     }
 
-    const newHash = bcrypt.hashSync(nextPassword, 10);
-    await query('UPDATE users SET password = $1 WHERE id = $2', [newHash, userId]);
+    // Non-blocking password hash
+    const newHash = await bcrypt.hash(nextPassword, 10);
+    // Invalidate ALL existing sessions across restarts by bumping token_version
+    await query(
+      'UPDATE users SET password = $1, token_version = COALESCE(token_version, 1) + 1 WHERE id = $2',
+      [newHash, userId]
+    );
+
+    // Also blocklist current token JTI immediately
+    if (req.user.jti) {
+      revokedTokens.add(req.user.jti);
+      const expiresAt = req.user.exp ? new Date(req.user.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await query('INSERT INTO revoked_tokens (jti, expires_at) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING', [req.user.jti, expiresAt]).catch(() => {});
+    }
 
     // Audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, $3, 'Changed account password', 'Auth', $1, 'success')`,
-        [user.id, user.name, user.role === 'admin' ? 'Administrator' : user.role.charAt(0).toUpperCase() + user.role.slice(1)]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: user.id,
+      userName: user.name,
+      role: user.role === 'admin' ? 'Administrator' : user.role.charAt(0).toUpperCase() + user.role.slice(1),
+      action: 'Changed account password',
+      entityType: 'Auth',
+      entityId: user.id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     // In-app notification
     try {
@@ -187,9 +372,9 @@ router.put('/password', requireAuth, async (req, res) => {
       } catch (_) {}
     } catch (_) {}
 
-    res.json({ success: true, message: 'Password updated successfully.' });
+    res.json({ success: true, message: 'Password updated successfully. All existing sessions have been terminated. Please log in again.' });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Password Update Error - Private Log]:', err);
     res.status(500).json({ error: 'Failed to update password.' });
   }
 });
@@ -224,7 +409,7 @@ router.get('/profile', requireAuth, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Profile Error - Private Log]:', err);
     res.status(500).json({ error: 'Failed to fetch user profile.' });
   }
 });
@@ -259,7 +444,7 @@ router.put('/profile', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: 'Profile updated successfully.', user: updated });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Profile Update Error - Private Log]:', err);
     res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
@@ -274,25 +459,22 @@ router.put('/preferences', requireAuth, async (req, res) => {
     await query('UPDATE users SET preferences = $1 WHERE id = $2', [prefsJson, userId]);
     res.json({ success: true, message: 'Preferences saved successfully.', preferences });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Preferences Error - Private Log]:', err);
     res.status(500).json({ error: 'Failed to save preferences.' });
   }
 });
 
-// ── Password Reset Flow (H-5 Fix) ────────────────────────────────────────────
+// ── Password Reset Flow ──────────────────────────────────────────────────────
 
 // POST /api/auth/forgot-password
-// Generates a secure, time-limited reset token and stores it in the DB.
-// In production, this token would be emailed. For now, it is returned in the
-// response so the frontend can display/redirect to the reset form.
-// Swap the TODO block below with a real email (Nodemailer/Resend/SendGrid) before go-live.
+// Generates a secure, time-limited reset token and sends ONLY via email (never exposed in response or console)
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required.' });
 
   try {
-    const { rows } = await query('SELECT id, name FROM users WHERE email = $1', [email]);
-    // Always return success to prevent email enumeration
+    const { rows } = await query('SELECT id, name, email FROM users WHERE email = $1', [email]);
+    // Always return safe generic success to prevent email enumeration
     if (!rows[0]) {
       return res.json({ success: true, message: 'If that email exists, a reset link was sent.' });
     }
@@ -310,7 +492,7 @@ router.post('/forgot-password', async (req, res) => {
       [user.id, resetToken, expiresAt]
     );
 
-    // Send password reset email via job queue
+    // Send password reset email via job queue (strictly via email)
     try {
       await enqueueEmail('send-password-reset', {
         email: user.email,
@@ -321,40 +503,41 @@ router.post('/forgot-password', async (req, res) => {
       console.warn('[Auth] Failed to queue reset email (non-fatal):', emailErr.message);
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[DEV] Password reset token for ${email}: ${resetToken}`);
-    }
-
     // Audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, 'User', 'Requested password reset', 'Auth', $1, 'success')`,
-        [user.id, user.name]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: user.id,
+      userName: user.name,
+      role: 'User',
+      action: 'Requested password reset',
+      entityType: 'Auth',
+      entityId: user.id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
+    // Strictly send response WITHOUT token in any environment
     res.json({
       success: true,
       message: 'If that email exists, a reset link was sent.',
-      // Only expose the token in non-production so the dev can test the flow
-      ...(process.env.NODE_ENV !== 'production' ? { _devToken: resetToken } : {}),
     });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Forgot-Password Error - Private Log]:', err);
     res.status(500).json({ error: 'Password reset request failed.' });
   }
 });
 
 // POST /api/auth/reset-password
-// Validates the reset token and sets the new password.
+// Validates reset token, validates strength, sets new password and invalidates all existing sessions
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) {
     return res.status(400).json({ error: 'Token and newPassword are required.' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+
+  const strengthCheck = validatePasswordStrength(newPassword);
+  if (!strengthCheck.valid) {
+    return res.status(400).json({ error: strengthCheck.error });
   }
 
   try {
@@ -369,24 +552,33 @@ router.post('/reset-password', async (req, res) => {
     }
     const { user_id, name } = rows[0];
 
-    const newHash = bcrypt.hashSync(newPassword, 10);
-    await query('UPDATE users SET password = $1 WHERE id = $2', [newHash, user_id]);
+    // Non-blocking password hash
+    const newHash = await bcrypt.hash(newPassword, 10);
+    // Invalidate ALL previous sessions across restarts by incrementing token_version
+    await query(
+      'UPDATE users SET password = $1, token_version = COALESCE(token_version, 1) + 1 WHERE id = $2',
+      [newHash, user_id]
+    );
 
-    // Invalidate the token immediately after use
+    // Invalidate the reset token immediately after use
     await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user_id]);
 
     // Audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, 'User', 'Reset password via reset token', 'Auth', $1, 'success')`,
-        [user_id, name]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: user_id,
+      userName: name,
+      role: 'User',
+      action: 'Reset password via reset token',
+      entityType: 'Auth',
+      entityId: user_id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
-    res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+    res.json({ success: true, message: 'Password reset successfully. All existing sessions have been terminated. You can now log in.' });
   } catch (err) {
-    console.error(err);
+    console.error('🔒 [Reset-Password Error - Private Log]:', err);
     res.status(500).json({ error: 'Password reset failed.' });
   }
 });

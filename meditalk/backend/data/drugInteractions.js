@@ -193,44 +193,413 @@ export const ALLERGY_CONTRAINDICATIONS = [
   },
 ];
 
+// ── Brand Names, Aliases & Synonyms Dictionary ──────────────────────────────
+export const BRAND_TO_GENERIC_MAP = {
+  // NSAIDs & Analgesics
+  'advil': 'ibuprofen',
+  'motrin': 'ibuprofen',
+  'nurofen': 'ibuprofen',
+  'brufen': 'ibuprofen',
+  'combiflam': 'ibuprofen',
+  'ibuprom': 'ibuprofen',
+  'aleve': 'naproxen',
+  'naprosyn': 'naproxen',
+  'anaprox': 'naproxen',
+  'voltaren': 'diclofenac',
+  'cataflam': 'diclofenac',
+  'voveran': 'diclofenac',
+  'dynapar': 'diclofenac',
+  'voltarol': 'diclofenac',
+  'zipsor': 'diclofenac',
+  'disprin': 'aspirin',
+  'ecosprin': 'aspirin',
+  'bayer': 'aspirin',
+  'bufferin': 'aspirin',
+  'asa': 'aspirin',
+  'acetylsalicylic acid': 'aspirin',
+  'toradol': 'ketorolac',
+  'ketorol': 'ketorolac',
+  'indocin': 'indomethacin',
+  'feldene': 'piroxicam',
+  'mobic': 'meloxicam',
+  'celebrex': 'celecoxib',
+
+  // Anticoagulants & Antiplatelets
+  'coumadin': 'warfarin',
+  'jantoven': 'warfarin',
+  'marevan': 'warfarin',
+  'plavix': 'clopidogrel',
+  'clopilet': 'clopidogrel',
+  'deplatt': 'clopidogrel',
+  'brilinta': 'ticagrelor',
+  'effient': 'prasugrel',
+
+  // ED & Pulmonary Vasodilators / Nitrates
+  'viagra': 'sildenafil',
+  'revatio': 'sildenafil',
+  'silagra': 'sildenafil',
+  'penegra': 'sildenafil',
+  'cialis': 'tadalafil',
+  'adcirca': 'tadalafil',
+  'tadacip': 'tadalafil',
+  'levitra': 'vardenafil',
+  'staxyn': 'vardenafil',
+  'nitrostat': 'nitroglycerin',
+  'nitrolingual': 'nitroglycerin',
+  'nitro-bid': 'nitroglycerin',
+  'nitro-dur': 'nitroglycerin',
+  'sorbitrate': 'isosorbide dinitrate',
+  'isordil': 'isosorbide dinitrate',
+  'imdur': 'isosorbide mononitrate',
+  'monoket': 'isosorbide mononitrate',
+
+  // Antibiotics — Beta-Lactams & Cephalosporins
+  'augmentin': 'amoxicillin',
+  'amoxil': 'amoxicillin',
+  'moxikind': 'amoxicillin',
+  'clavam': 'amoxicillin',
+  'novamox': 'amoxicillin',
+  'omnipen': 'ampicillin',
+  'unasyn': 'ampicillin',
+  'zosyn': 'piperacillin',
+  'tazocin': 'piperacillin',
+  'pen-vk': 'penicillin',
+  'bicillin': 'penicillin',
+  'keflex': 'cephalexin',
+  'phexin': 'cephalexin',
+  'sporidex': 'cephalexin',
+  'rocephin': 'ceftriaxone',
+  'monocef': 'ceftriaxone',
+  'ceftum': 'cefuroxime',
+  'zinacef': 'cefuroxime',
+  'ceftin': 'cefuroxime',
+  'ancef': 'cefazolin',
+  'kefzol': 'cefazolin',
+  'omnicef': 'cefdinir',
+  'vantin': 'cefpodoxime',
+  'cepodem': 'cefpodoxime',
+
+  // Antibiotics — Macrolides, Fluoroquinolones, Sulfas
+  'zithromax': 'azithromycin',
+  'z-pak': 'azithromycin',
+  'azithral': 'azithromycin',
+  'azee': 'azithromycin',
+  'biaxin': 'clarithromycin',
+  'claribid': 'clarithromycin',
+  'erythrocin': 'erythromycin',
+  'althrocin': 'erythromycin',
+  'cipro': 'ciprofloxacin',
+  'ciplox': 'ciprofloxacin',
+  'ciprolet': 'ciprofloxacin',
+  'levaquin': 'levofloxacin',
+  'levomac': 'levofloxacin',
+  'avelox': 'moxifloxacin',
+  'moxicip': 'moxifloxacin',
+  'bactrim': 'trimethoprim-sulfamethoxazole',
+  'septra': 'trimethoprim-sulfamethoxazole',
+  'septran': 'trimethoprim-sulfamethoxazole',
+
+  // Antidiabetic
+  'glucophage': 'metformin',
+  'fortamet': 'metformin',
+  'glumetza': 'metformin',
+  'glycomet': 'metformin',
+
+  // Acid suppression (PPIs)
+  'prilosec': 'omeprazole',
+  'omez': 'omeprazole',
+  'losec': 'omeprazole',
+  'nexium': 'esomeprazole',
+  'esomac': 'esomeprazole',
+  'protonix': 'pantoprazole',
+  'pantocid': 'pantoprazole',
+  'pantodac': 'pantoprazole',
+
+  // Statins
+  'lipitor': 'atorvastatin',
+  'atorva': 'atorvastatin',
+  'atorglip': 'atorvastatin',
+  'crestor': 'rosuvastatin',
+  'rosuvas': 'rosuvastatin',
+  'zocor': 'simvastatin',
+  'simvotin': 'simvastatin',
+
+  // Cardiovascular
+  'lanoxin': 'digoxin',
+  'digitek': 'digoxin',
+  'cordarone': 'amiodarone',
+  'pacerone': 'amiodarone',
+  'norvasc': 'amlodipine',
+  'calan': 'verapamil',
+  'isoptin': 'verapamil',
+  'cardizem': 'diltiazem',
+  'tenormin': 'atenolol',
+  'lopressor': 'metoprolol',
+  'toprol': 'metoprolol',
+  'betaloc': 'metoprolol',
+  'coreg': 'carvedilol',
+  'inderal': 'propranolol',
+
+  // Analgesics & Antipyretics
+  'tylenol': 'paracetamol',
+  'panadol': 'paracetamol',
+  'calpol': 'paracetamol',
+  'dolo': 'paracetamol',
+  'crocin': 'paracetamol',
+  'febrinil': 'paracetamol',
+  'acetaminophen': 'paracetamol',
+  'ultram': 'tramadol',
+  'ultracet': 'tramadol',
+  'tramazac': 'tramadol',
+
+  // Psych & Neuro
+  'prozac': 'fluoxetine',
+  'zoloft': 'sertraline',
+  'daxid': 'sertraline',
+  'lexapro': 'escitalopram',
+  'cipralex': 'escitalopram',
+  'nexito': 'escitalopram',
+  'celexa': 'citalopram',
+  'paxil': 'paroxetine',
+  'eskalith': 'lithium',
+  'lithobid': 'lithium',
+  'trexall': 'methotrexate',
+  'rheumatrex': 'methotrexate',
+};
+
+// ── Common Spelling Variations & Typos ───────────────────────────────────────
+export const SPELLING_VARIATIONS_MAP = {
+  // Commonwealth & phonetic variations
+  'amoxycillin': 'amoxicillin',
+  'amoxicilin': 'amoxicillin',
+  'amoxacillin': 'amoxicillin',
+  'amoxicilline': 'amoxicillin',
+  'penicilin': 'penicillin',
+  'pencillin': 'penicillin',
+  'penicilline': 'penicillin',
+  'ibprofen': 'ibuprofen',
+  'ibuprophen': 'ibuprofen',
+  'ibrufen': 'ibuprofen',
+  'ibupofen': 'ibuprofen',
+  'asprin': 'aspirin',
+  'aspiren': 'aspirin',
+  'paracetemol': 'paracetamol',
+  'paracetomol': 'paracetamol',
+  'paracitamol': 'paracetamol',
+  'acetominophen': 'paracetamol',
+  'acetaminofen': 'paracetamol',
+  'warfrin': 'warfarin',
+  'warfarine': 'warfarin',
+  'ciprofloxicin': 'ciprofloxacin',
+  'ciproflaxin': 'ciprofloxacin',
+  'ciprofloxacine': 'ciprofloxacin',
+  'azithromicin': 'azithromycin',
+  'azitromycin': 'azithromycin',
+  'clarithromicin': 'clarithromycin',
+  'erythromicin': 'erythromycin',
+  'metaformin': 'metformin',
+  'metfomin': 'metformin',
+  'clopidogril': 'clopidogrel',
+  'clopidigrel': 'clopidogrel',
+  'declofenac': 'diclofenac',
+  'diclofenic': 'diclofenac',
+  'omeprazol': 'omeprazole',
+  'pantoprazol': 'pantoprazole',
+  'atorvastin': 'atorvastatin',
+  'sildenifil': 'sildenafil',
+  'nitroglycerine': 'nitroglycerin',
+  'nitroglicerin': 'nitroglycerin',
+  'levothyroxin': 'levothyroxine',
+  'thyroxine': 'levothyroxine',
+  'cefalexin': 'cephalexin',
+  'ceftriaxone': 'ceftriaxone',
+};
+
+// Known canonical drug names list for fuzzy edit-distance fallback
+const ALL_CANONICAL_DRUGS = [
+  'warfarin', 'ibuprofen', 'naproxen', 'diclofenac', 'aspirin', 'indomethacin',
+  'ketorolac', 'piroxicam', 'sildenafil', 'tadalafil', 'vardenafil', 'nitroglycerin',
+  'methotrexate', 'fluoxetine', 'sertraline', 'paroxetine', 'escitalopram', 'citalopram',
+  'tramadol', 'clopidogrel', 'omeprazole', 'esomeprazole', 'pantoprazole', 'digoxin',
+  'amiodarone', 'verapamil', 'diltiazem', 'clarithromycin', 'azithromycin', 'erythromycin',
+  'lithium', 'lisinopril', 'enalapril', 'ramipril', 'metformin', 'ciprofloxacin',
+  'levofloxacin', 'moxifloxacin', 'atorvastatin', 'rosuvastatin', 'simvastatin',
+  'paracetamol', 'amoxicillin', 'ampicillin', 'penicillin', 'cephalexin', 'ceftriaxone',
+  'cefuroxime', 'cefazolin', 'furosemide', 'spironolactone', 'atenolol', 'metoprolol'
+];
+
+function levenshteinDistance(s1, s2) {
+  if (s1 === s2) return 0;
+  if (!s1.length) return s2.length;
+  if (!s2.length) return s1.length;
+  const row = [];
+  for (let j = 0; j <= s2.length; j++) row[j] = j;
+  for (let i = 1; i <= s1.length; i++) {
+    let prev = i;
+    for (let j = 1; j <= s2.length; j++) {
+      let val;
+      if (s1[i - 1] === s2[j - 1]) val = row[j - 1];
+      else val = Math.min(row[j - 1] + 1, prev + 1, row[j] + 1);
+      row[j - 1] = prev;
+      prev = val;
+    }
+    row[s2.length] = prev;
+  }
+  return row[s2.length];
+}
+
+/**
+ * Normalizes a drug or allergen name to its canonical identifier and aliases
+ * Handles dosage removal, brand lookup, spelling variations, and fuzzy typo correction
+ */
+export function normalizeDrugName(rawName) {
+  if (!rawName || typeof rawName !== 'string') return '';
+  let cleaned = rawName.toLowerCase().trim();
+
+  // Strip dosages, formulations and packaging: "500mg", "10 ml", "tab", "capsule", "duo", "sr", etc.
+  cleaned = cleaned
+    .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|ml|iu|tablets?|caps?|tabs?|capsules?|syrup|inj|drops?|duo|ds|sr|cr|xl|xr)\b/gi, ' ')
+    .replace(/[,\/\\\(\)\-\+]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Try direct match on full phrase
+  if (BRAND_TO_GENERIC_MAP[cleaned]) return BRAND_TO_GENERIC_MAP[cleaned];
+  if (SPELLING_VARIATIONS_MAP[cleaned]) return SPELLING_VARIATIONS_MAP[cleaned];
+
+  // Try first primary token (e.g., "augmentin 625" -> "augmentin")
+  const tokens = cleaned.split(' ').filter(Boolean);
+  for (const token of tokens) {
+    if (BRAND_TO_GENERIC_MAP[token]) return BRAND_TO_GENERIC_MAP[token];
+    if (SPELLING_VARIATIONS_MAP[token]) return SPELLING_VARIATIONS_MAP[token];
+  }
+
+  // Fuzzy match against canonical drugs if length >= 5
+  const primaryToken = tokens[0] || cleaned;
+  if (primaryToken.length >= 5) {
+    const maxDist = primaryToken.length >= 7 ? 2 : 1;
+    let closestMatch = null;
+    let minDistance = maxDist + 1;
+    for (const canon of ALL_CANONICAL_DRUGS) {
+      const dist = levenshteinDistance(primaryToken, canon);
+      if (dist <= maxDist && dist < minDistance) {
+        minDistance = dist;
+        closestMatch = canon;
+      }
+    }
+    if (closestMatch) return closestMatch;
+  }
+
+  return primaryToken;
+}
+
+/**
+ * Resolves a drug string to a set of search keywords (raw, normalized, brand, and class)
+ */
+function resolveDrugKeywords(drugName) {
+  const raw = (drugName || '').toLowerCase().trim();
+  const normalized = normalizeDrugName(raw);
+  const keywords = new Set([raw, normalized]);
+
+  // If normalized to a generic, add drug classes if applicable
+  if (['amoxicillin', 'ampicillin', 'piperacillin'].includes(normalized)) {
+    keywords.add('penicillin');
+    keywords.add('beta-lactam');
+  }
+  if (['ibuprofen', 'naproxen', 'diclofenac', 'indomethacin', 'ketorolac', 'piroxicam', 'meloxicam', 'celecoxib'].includes(normalized)) {
+    keywords.add('nsaid');
+    keywords.add('nsaids');
+  }
+  if (['cephalexin', 'ceftriaxone', 'cefuroxime', 'cefazolin', 'cefdinir', 'cefpodoxime'].includes(normalized)) {
+    keywords.add('cephalosporin');
+    keywords.add('cephalosporins');
+  }
+  if (['nitroglycerin', 'isosorbide mononitrate', 'isosorbide dinitrate'].includes(normalized)) {
+    keywords.add('nitrates');
+    keywords.add('nitrate');
+  }
+  if (['fluoxetine', 'sertraline', 'paroxetine', 'escitalopram', 'citalopram'].includes(normalized)) {
+    keywords.add('ssri');
+  }
+
+  return Array.from(keywords).filter(Boolean);
+}
+
 // ── Core Safety Check Function ────────────────────────────────────────────────
-// @param {string[]} newMeds - Lowercase drug names being prescribed
-// @param {string[]} currentMeds - Lowercase existing patient medications
-// @param {string[]} allergies - Lowercase documented allergens
+// @param {string[]} newMeds - Drug names being prescribed (supports brands & spelling variations)
+// @param {string[]} currentMeds - Existing patient medications
+// @param {string[]} allergies - Documented allergens
 // @returns {Array} alerts
 export function runDrugSafetyCheck({ newMeds = [], currentMeds = [], allergies = [] }) {
   const alerts = [];
-  const allMeds = [...new Set([...newMeds, ...currentMeds])].map(m => m.toLowerCase().trim());
-  const newMedsLower = newMeds.map(m => m.toLowerCase().trim());
-  const allergiesLower = allergies.map(a => a.toLowerCase().trim());
+
+  // Build resolved keywords map for each new medication
+  const newMedsResolved = newMeds.map(m => {
+    const raw = (typeof m === 'string' ? m : m?.medicine || '').trim();
+    return {
+      raw,
+      normalized: normalizeDrugName(raw),
+      keywords: resolveDrugKeywords(raw),
+    };
+  }).filter(item => item.raw.length > 0);
+
+  // Build resolved keywords list for all current medications
+  const currentMedsKeywords = currentMeds.flatMap(m => {
+    const raw = (typeof m === 'string' ? m : m?.medicine || m?.name || '').trim();
+    return resolveDrugKeywords(raw);
+  }).filter(Boolean);
+
+  // Build resolved keywords list for all documented allergies
+  const allergiesKeywords = allergies.flatMap(a => {
+    const raw = (typeof a === 'string' ? a : a?.allergen || a?.name || '').trim();
+    return resolveDrugKeywords(raw);
+  }).filter(Boolean);
+
+  // Combined pool of all medications in play
+  const allMedsKeywords = [
+    ...newMedsResolved.flatMap(item => item.keywords),
+    ...currentMedsKeywords,
+  ];
+
+  // Helper matching function
+  const listMatchesAny = (searchList, targetKeywords) => {
+    return targetKeywords.some(tk =>
+      searchList.some(sl => sl.includes(tk) || tk.includes(sl))
+    );
+  };
 
   // ── 1. Drug-Drug Interaction Check ────────────────────────────────────────
   for (const rule of DRUG_INTERACTIONS) {
-    const matchA = rule.drug_a.some(da => allMeds.some(m => m.includes(da)));
-    const matchB = rule.drug_b.some(db => allMeds.some(m => m.includes(db)));
-    // Only alert if at least one drug from new prescription is involved
-    const newMedInvolved =
-      rule.drug_a.some(da => newMedsLower.some(m => m.includes(da))) ||
-      rule.drug_b.some(db => newMedsLower.some(m => m.includes(db)));
+    const matchA = rule.drug_a.some(da => allMedsKeywords.some(m => m.includes(da) || da.includes(m)));
+    const matchB = rule.drug_b.some(db => allMedsKeywords.some(m => m.includes(db) || db.includes(m)));
 
-    if (matchA && matchB && newMedInvolved) {
-      // Find the specific matching drug names for the alert message
-      const involvedA = allMeds.find(m => rule.drug_a.some(da => m.includes(da))) || rule.drug_a[0];
-      const involvedB = allMeds.find(m => rule.drug_b.some(db => m.includes(db))) || rule.drug_b[0];
-      // Avoid duplicate alerts
-      const key = [rule.drug_a[0], rule.drug_b[0]].sort().join('|');
-      if (!alerts.find(a => a.key === key)) {
-        alerts.push({
-          type: 'drug_interaction',
-          key,
-          severity: rule.severity,
-          drugA: involvedA,
-          drugB: involvedB,
-          title: `Drug Interaction: ${involvedA} + ${involvedB}`,
-          mechanism: rule.mechanism,
-          effect: rule.effect,
-          alternatives: rule.alternatives,
-        });
+    if (matchA && matchB) {
+      // Find if any newly prescribed medication is part of either side
+      const involvedNewMed = newMedsResolved.find(nm =>
+        rule.drug_a.some(da => nm.keywords.some(k => k.includes(da) || da.includes(k))) ||
+        rule.drug_b.some(db => nm.keywords.some(k => k.includes(db) || db.includes(k)))
+      );
+
+      if (involvedNewMed) {
+        // Identify the interacting counterpart from all medications
+        const involvedA = allMedsKeywords.find(m => rule.drug_a.some(da => m.includes(da) || da.includes(m))) || rule.drug_a[0];
+        const involvedB = allMedsKeywords.find(m => rule.drug_b.some(db => m.includes(db) || db.includes(m))) || rule.drug_b[0];
+
+        const key = [rule.drug_a[0], rule.drug_b[0]].sort().join('|');
+        if (!alerts.find(a => a.key === key)) {
+          alerts.push({
+            type: 'drug_interaction',
+            key,
+            severity: rule.severity,
+            prescribedDrug: involvedNewMed.raw,
+            drugA: involvedA,
+            drugB: involvedB,
+            title: `Drug Interaction: ${involvedNewMed.raw} (${involvedA}) + ${involvedB}`,
+            mechanism: rule.mechanism,
+            effect: rule.effect,
+            alternatives: rule.alternatives,
+          });
+        }
       }
     }
   }
@@ -238,40 +607,44 @@ export function runDrugSafetyCheck({ newMeds = [], currentMeds = [], allergies =
   // ── 2. Allergy Contraindication Check ─────────────────────────────────────
   for (const rule of ALLERGY_CONTRAINDICATIONS) {
     const allergenMatch = rule.allergen_keywords.some(kw =>
-      allergiesLower.some(a => a.includes(kw))
+      allergiesKeywords.some(ak => ak.includes(kw) || kw.includes(ak))
     );
     if (!allergenMatch) continue;
 
-    for (const newMed of newMedsLower) {
-      const isContraindicated = rule.contraindicated_drugs.some(d => newMed.includes(d) || d.includes(newMed));
-      const isCrossReactive = rule.cross_reactive.some(d => newMed.includes(d) || d.includes(newMed));
+    for (const newMed of newMedsResolved) {
+      const isContraindicated = rule.contraindicated_drugs.some(d =>
+        newMed.keywords.some(k => k.includes(d) || d.includes(k))
+      );
+      const isCrossReactive = !isContraindicated && rule.cross_reactive.some(d =>
+        newMed.keywords.some(k => k.includes(d) || d.includes(k))
+      );
+
+      const matchedAllergen = allergiesKeywords.find(ak =>
+        rule.allergen_keywords.some(kw => ak.includes(kw) || kw.includes(ak))
+      ) || rule.allergen_keywords[0];
 
       if (isContraindicated) {
-        const matchedAllergen = allergiesLower.find(a =>
-          rule.allergen_keywords.some(kw => a.includes(kw))
-        ) || rule.allergen_keywords[0];
         alerts.push({
           type: 'allergy_contraindication',
           severity: rule.severity,
-          drug: newMed,
+          drug: newMed.raw,
+          normalizedDrug: newMed.normalized,
           allergen: matchedAllergen,
-          title: `Allergy Clash: ${newMed} (${matchedAllergen} allergy)`,
+          title: `Allergy Clash: ${newMed.raw} (${matchedAllergen} allergy)`,
           mechanism: rule.reaction_note,
-          effect: `Patient has documented ${matchedAllergen} allergy. This drug is directly contraindicated.`,
+          effect: `Patient has documented ${matchedAllergen} allergy. ${newMed.raw} (${newMed.normalized}) is directly contraindicated.`,
           alternatives: rule.alternatives,
         });
       } else if (isCrossReactive) {
-        const matchedAllergen = allergiesLower.find(a =>
-          rule.allergen_keywords.some(kw => a.includes(kw))
-        ) || rule.allergen_keywords[0];
         alerts.push({
           type: 'allergy_cross_reactive',
           severity: 'warning',
-          drug: newMed,
+          drug: newMed.raw,
+          normalizedDrug: newMed.normalized,
           allergen: matchedAllergen,
-          title: `Cross-Reactivity Alert: ${newMed} (${matchedAllergen} sensitivity)`,
+          title: `Cross-Reactivity Alert: ${newMed.raw} (${matchedAllergen} sensitivity)`,
           mechanism: rule.reaction_note,
-          effect: `Possible cross-reactivity between ${matchedAllergen} and ${newMed}. Use with caution and patient consent.`,
+          effect: `Possible cross-reactivity between ${matchedAllergen} and ${newMed.raw}. Use with caution and clinical justification.`,
           alternatives: rule.alternatives,
         });
       }
@@ -284,3 +657,4 @@ export function runDrugSafetyCheck({ newMeds = [], currentMeds = [], allergies =
 
   return alerts;
 }
+

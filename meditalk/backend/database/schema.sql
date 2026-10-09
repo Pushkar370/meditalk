@@ -10,9 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('patient', 'doctor', 'admin')),
+  role TEXT NOT NULL CHECK (role IN ('patient', 'doctor', 'admin', 'nurse', 'receptionist')),
   patient_id TEXT,
   doctor_id TEXT,
+  token_version INTEGER DEFAULT 1,
+  failed_login_attempts INTEGER DEFAULT 0,
+  lockout_until TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -33,6 +36,11 @@ CREATE TABLE IF NOT EXISTS patients (
   emergency_contact TEXT DEFAULT '{}',
   insurance TEXT DEFAULT '{}',
   status TEXT DEFAULT 'active',
+  consent_accepted BOOLEAN DEFAULT TRUE,
+  consent_accepted_at TIMESTAMPTZ DEFAULT NOW(),
+  consent_version TEXT DEFAULT 'v1.0',
+  consent_withdrawn BOOLEAN DEFAULT FALSE,
+  consent_withdrawn_at TIMESTAMPTZ,
   registered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -81,8 +89,40 @@ CREATE TABLE IF NOT EXISTS appointments (
   triage_summary TEXT,
   urgency TEXT DEFAULT 'routine',
   status TEXT DEFAULT 'upcoming',
+  telehealth_consent BOOLEAN DEFAULT FALSE,
+  telehealth_consent_at TIMESTAMPTZ,
+  vitals TEXT DEFAULT '{}',
+  vitals_recorded_by TEXT,
+  vitals_recorded_at TIMESTAMPTZ,
+  booked_by TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Atomic slot booking: guarantees no double-booking at DB engine level
+CREATE UNIQUE INDEX IF NOT EXISTS idx_atomic_doctor_slot ON appointments (doctor_id, date, time) WHERE status NOT IN ('cancelled');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_atomic_patient_slot ON appointments (patient_id, date, time) WHERE status NOT IN ('cancelled');
+
+-- Patient Vitals history (recorded by nurses / clinical staff prior to physician consult)
+CREATE TABLE IF NOT EXISTS patient_vitals (
+  id TEXT PRIMARY KEY,
+  patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  appointment_id TEXT REFERENCES appointments(id) ON DELETE SET NULL,
+  recorded_by_id TEXT,
+  recorded_by_name TEXT,
+  role TEXT NOT NULL DEFAULT 'nurse',
+  bp TEXT,
+  systolic INTEGER,
+  diastolic INTEGER,
+  hr INTEGER,
+  temp NUMERIC(4,1),
+  spo2 INTEGER,
+  weight NUMERIC(5,2),
+  blood_sugar NUMERIC(5,1),
+  notes TEXT,
+  recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_patient_vitals_patient ON patient_vitals(patient_id);
+CREATE INDEX IF NOT EXISTS idx_patient_vitals_appt ON patient_vitals(appointment_id);
 
 CREATE TABLE IF NOT EXISTS consultations (
   id TEXT PRIMARY KEY,
@@ -188,6 +228,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   entity_type TEXT,
   entity_id TEXT,
   status TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  prev_hash TEXT,
+  hash TEXT,
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 

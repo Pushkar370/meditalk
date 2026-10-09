@@ -32,8 +32,8 @@ export async function initJobQueue(connectionString) {
 
   boss = new PgBoss({
     connectionString: connectionString.replace(/[?&]channel_binding=[^&]+/g, ''),
-    ssl: connectionString.includes('neon.tech') || connectionString.includes('sslmode=require')
-      ? { rejectUnauthorized: false }
+    ssl: (connectionString.includes('neon.tech') || connectionString.includes('sslmode=require'))
+      ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' ? false : true }
       : false,
     // Retry failed jobs up to 3 times with 5-minute delay
     retryLimit: 3,
@@ -69,10 +69,27 @@ export async function initJobQueue(connectionString) {
 
   // ── Register Workers ──────────────────────────────────────────────────────
 
+function maskEmail(email) {
+  if (!email || typeof email !== 'string') return '***@***';
+  const parts = email.split('@');
+  if (parts.length !== 2) return '***';
+  const name = parts[0];
+  const domain = parts[1];
+  const maskedName = name.length <= 2 ? name.charAt(0) + '*' : name.slice(0, 2) + '***';
+  return `${maskedName}@${domain}`;
+}
+
+function maskPhone(phone) {
+  if (!phone || typeof phone !== 'string') return '***';
+  const clean = phone.trim();
+  if (clean.length <= 4) return '***';
+  return clean.slice(0, 3) + '****' + clean.slice(-4);
+}
+
   // Appointment confirmation (sent immediately on booking)
   await boss.work('send-confirmation', async ([job]) => {
     const d = job.data;
-    await sendAppointmentConfirmation({
+    const res = await sendAppointmentConfirmation({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -82,13 +99,16 @@ export async function initJobQueue(connectionString) {
       type: d.type,
       appointmentId: d.appointmentId,
     });
-    console.log(`[Queue] Confirmation email sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send confirmation email to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Confirmation email sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // 24-hour reminder
   await boss.work('reminder-24h', async ([job]) => {
     const d = job.data;
-    await sendAppointmentReminder24h({
+    const res = await sendAppointmentReminder24h({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -97,13 +117,16 @@ export async function initJobQueue(connectionString) {
       type: d.type,
       appointmentId: d.appointmentId,
     });
-    console.log(`[Queue] 24h reminder sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send 24h reminder to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] 24h reminder sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // 2-hour reminder
   await boss.work('reminder-2h', async ([job]) => {
     const d = job.data;
-    await sendAppointmentReminder2h({
+    const res = await sendAppointmentReminder2h({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -112,13 +135,16 @@ export async function initJobQueue(connectionString) {
       type: d.type,
       appointmentId: d.appointmentId,
     });
-    console.log(`[Queue] 2h reminder sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send 2h reminder to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] 2h reminder sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // Cancellation email
   await boss.work('send-cancellation', async ([job]) => {
     const d = job.data;
-    await sendAppointmentCancellation({
+    const res = await sendAppointmentCancellation({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -127,13 +153,16 @@ export async function initJobQueue(connectionString) {
       cancelledBy: d.cancelledBy,
       reason: d.reason,
     });
-    console.log(`[Queue] Cancellation email sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send cancellation email to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Cancellation email sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // Reschedule email
   await boss.work('send-reschedule', async ([job]) => {
     const d = job.data;
-    await sendAppointmentRescheduled({
+    const res = await sendAppointmentRescheduled({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -142,13 +171,16 @@ export async function initJobQueue(connectionString) {
       newDate: d.newDate,
       newTime: d.newTime,
     });
-    console.log(`[Queue] Reschedule email sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send reschedule email to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Reschedule email sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // Consultation summary email
   await boss.work('send-consultation-summary', async ([job]) => {
     const d = job.data;
-    await sendConsultationSummary({
+    const res = await sendConsultationSummary({
       to: d.patientEmail,
       patientName: d.patientName,
       doctorName: d.doctorName,
@@ -159,33 +191,45 @@ export async function initJobQueue(connectionString) {
       followUpDate: d.followUpDate,
       followUpInstructions: d.followUpInstructions,
     });
-    console.log(`[Queue] Consultation summary sent → ${d.patientEmail}`);
+    if (res && res.success === false) {
+      throw new Error(`Failed to send consultation summary to ${maskEmail(d.patientEmail)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Consultation summary sent → ${maskEmail(d.patientEmail)}`);
   });
 
   // Password reset email
   await boss.work('send-password-reset', async ([job]) => {
     const d = job.data;
-    await sendPasswordReset({ to: d.email, name: d.name, resetToken: d.resetToken });
-    console.log(`[Queue] Password reset email sent → ${d.email}`);
+    const res = await sendPasswordReset({ to: d.email, name: d.name, resetToken: d.resetToken });
+    if (res && res.success === false) {
+      throw new Error(`Failed to send password reset email to ${maskEmail(d.email)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Password reset email sent → ${maskEmail(d.email)}`);
   });
 
   // Welcome with temp password
   await boss.work('send-welcome', async ([job]) => {
     const d = job.data;
-    await sendWelcomeWithTempPassword({ to: d.email, name: d.name, role: d.role, tempPassword: d.tempPassword });
-    console.log(`[Queue] Welcome email sent → ${d.email}`);
+    const res = await sendWelcomeWithTempPassword({ to: d.email, name: d.name, role: d.role, tempPassword: d.tempPassword });
+    if (res && res.success === false) {
+      throw new Error(`Failed to send welcome email to ${maskEmail(d.email)}: ${res.error || 'Unknown error'}`);
+    }
+    console.log(`[Queue] Welcome email sent → ${maskEmail(d.email)}`);
   });
 
   // Automated WhatsApp confirmation worker
   await boss.work('send-whatsapp-confirmation', async ([job]) => {
     const d = job.data;
     if (d.phone) {
-      await sendWhatsAppMessage({
+      const res = await sendWhatsAppMessage({
         to: d.phone,
         type: 'confirmation',
         data: d,
       });
-      console.log(`[Queue] WhatsApp confirmation sent → ${d.phone}`);
+      if (res && res.sent === false && res.mode === 'twilio_error') {
+        throw new Error(`Failed to deliver WhatsApp message to ${maskPhone(d.phone)}: ${res.error || 'Carrier error'}`);
+      }
+      console.log(`[Queue] WhatsApp confirmation dispatched → ${maskPhone(d.phone)}`);
     }
   });
 
@@ -193,12 +237,15 @@ export async function initJobQueue(connectionString) {
   await boss.work('send-whatsapp-reminder', async ([job]) => {
     const d = job.data;
     if (d.phone) {
-      await sendWhatsAppMessage({
+      const res = await sendWhatsAppMessage({
         to: d.phone,
         type: d.reminderType || 'reminder_2h',
         data: d,
       });
-      console.log(`[Queue] WhatsApp reminder sent → ${d.phone}`);
+      if (res && res.sent === false && res.mode === 'twilio_error') {
+        throw new Error(`Failed to deliver WhatsApp reminder to ${maskPhone(d.phone)}: ${res.error || 'Carrier error'}`);
+      }
+      console.log(`[Queue] WhatsApp reminder dispatched → ${maskPhone(d.phone)}`);
     }
   });
 
@@ -245,26 +292,33 @@ export async function scheduleReminders(appt, patientEmail, patientPhone = null)
   // Only schedule if the reminder time is still in the future
   try {
     if (patientEmail && reminder24hAt > new Date(now + 60000)) {
-      await boss.sendAt('reminder-24h', jobData, reminder24hAt, {
-        singletonKey: `reminder-24h-${appt.id}`,
-        singletonSeconds: 60,
-      });
+      const opts = { singletonKey: `reminder-24h-${appt.id}`, singletonSeconds: 60, startAfter: reminder24hAt };
+      if (typeof boss.sendAt === 'function') {
+        await boss.sendAt('reminder-24h', jobData, reminder24hAt, opts);
+      } else {
+        await boss.send('reminder-24h', jobData, opts);
+      }
       console.log(`[Queue] 24h reminder scheduled for ${reminder24hAt.toISOString()}`);
     }
 
     if (patientEmail && reminder2hAt > new Date(now + 60000)) {
-      await boss.sendAt('reminder-2h', jobData, reminder2hAt, {
-        singletonKey: `reminder-2h-${appt.id}`,
-        singletonSeconds: 60,
-      });
+      const opts = { singletonKey: `reminder-2h-${appt.id}`, singletonSeconds: 60, startAfter: reminder2hAt };
+      if (typeof boss.sendAt === 'function') {
+        await boss.sendAt('reminder-2h', jobData, reminder2hAt, opts);
+      } else {
+        await boss.send('reminder-2h', jobData, opts);
+      }
       console.log(`[Queue] 2h reminder scheduled for ${reminder2hAt.toISOString()}`);
     }
 
     if (patientPhone && reminder2hAt > new Date(now + 60000)) {
-      await boss.sendAt('send-whatsapp-reminder', { ...jobData, reminderType: 'reminder_2h' }, reminder2hAt, {
-        singletonKey: `whatsapp-reminder-2h-${appt.id}`,
-        singletonSeconds: 60,
-      });
+      const opts = { singletonKey: `whatsapp-reminder-2h-${appt.id}`, singletonSeconds: 60, startAfter: reminder2hAt };
+      const waJobData = { ...jobData, reminderType: 'reminder_2h' };
+      if (typeof boss.sendAt === 'function') {
+        await boss.sendAt('send-whatsapp-reminder', waJobData, reminder2hAt, opts);
+      } else {
+        await boss.send('send-whatsapp-reminder', waJobData, opts);
+      }
       console.log(`[Queue] 2h WhatsApp reminder scheduled for ${reminder2hAt.toISOString()}`);
     }
   } catch (err) {

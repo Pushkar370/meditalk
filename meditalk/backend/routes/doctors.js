@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logAudit, getClientIp } from '../services/auditService.js';
 
 const router = Router();
 
@@ -53,9 +54,9 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
       try {
         // Generate a secure random temporary password — admin must communicate this to the doctor
         const tempPassword = crypto.randomBytes(10).toString('base64url');
-        const hash = bcrypt.hashSync(tempPassword, 10);
+        const hash = await bcrypt.hash(tempPassword, 10);
         await query(
-          'INSERT INTO users (id, name, email, password, role, doctor_id) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (email) DO NOTHING',
+          'INSERT INTO users (id, name, email, password, role, doctor_id, token_version) VALUES ($1,$2,$3,$4,$5,$6,1) ON CONFLICT (email) DO NOTHING',
           ['U-' + id, name, email, hash, 'doctor', id]
         );
         // Return the temp password in the response (shown only once)
@@ -64,13 +65,17 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
       } catch (_) {}
     }
 
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, 'Administrator', 'Added new doctor to directory', 'Doctor', $3, 'success')`,
-        ['ADMIN', name, id]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: req.user.userId || req.user.id,
+      userName: req.user.name || 'Admin',
+      role: 'Administrator',
+      action: 'Added new doctor to directory',
+      entityType: 'Doctor',
+      entityId: id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     const { rows } = await query('SELECT * FROM doctors WHERE id = $1', [id]);
     res.status(201).json(rows[0]);
@@ -102,11 +107,17 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req, res) => {
       if (email) {
         await query('UPDATE users SET email = $1 WHERE doctor_id = $2', [email, id]);
       }
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, $2, 'Administrator', 'Updated doctor details', 'Doctor', $3, 'success')`,
-        ['ADMIN', name, id]
-      );
+      logAudit({
+        userId: req.user.userId || req.user.id,
+        userName: req.user.name || 'Admin',
+        role: 'Administrator',
+        action: 'Updated doctor details',
+        entityType: 'Doctor',
+        entityId: id,
+        status: 'success',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'],
+      });
     } catch (_) {}
 
     const { rows: updated } = await query('SELECT * FROM doctors WHERE id = $1', [id]);

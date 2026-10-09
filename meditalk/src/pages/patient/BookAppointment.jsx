@@ -166,21 +166,21 @@ export default function BookAppointment() {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && data.success && data.sent) {
         setWaSentTo(data.to || patientPhone.trim());
-        toast.success("Appointment details sent to WhatsApp!");
+        toast.success("Appointment details sent to WhatsApp via carrier!");
         if (data.waLink) {
           setConfirmedAppt((prev) => ({ ...prev, whatsappLink: data.waLink }));
         }
       } else {
-        const fallbackLink = generateWhatsAppLink(
+        const fallbackLink = data.waLink || generateWhatsAppLink(
           patientPhone.trim(),
           buildAppointmentWhatsAppText(confirmedAppt, "confirmation")
         );
         setConfirmedAppt((prev) => ({ ...prev, whatsappLink: fallbackLink }));
         setWaSentTo(patientPhone.trim());
         window.open(fallbackLink, "_blank");
-        toast.success("Opened WhatsApp with your appointment details!");
+        toast.info(data.message || "Message not sent via carrier (simulation mode). Opened WhatsApp directly to send.");
       }
     } catch (err) {
       const fallbackLink = generateWhatsAppLink(

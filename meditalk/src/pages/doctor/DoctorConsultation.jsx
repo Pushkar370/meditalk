@@ -119,6 +119,30 @@ export default function DoctorConsultation() {
     followUpDate: "",
     followUpInstructions: "",
   });
+
+  // Pre-populate pre-consultation vitals recorded by triage nurse
+  useEffect(() => {
+    if (appointment?.vitals && typeof appointment.vitals === 'object') {
+      const av = appointment.vitals;
+      setForm((prev) => {
+        const hasExisting = prev.vitals.bp || prev.vitals.hr || prev.vitals.spo2;
+        if (!hasExisting && (av.bp || av.hr || av.spo2 || av.temp || av.weight)) {
+          return {
+            ...prev,
+            vitals: {
+              bp: av.bp || prev.vitals.bp,
+              hr: av.hr || prev.vitals.hr,
+              temp: av.temp || prev.vitals.temp,
+              spo2: av.spo2 || prev.vitals.spo2,
+              weight: av.weight || prev.vitals.weight,
+            },
+          };
+        }
+        return prev;
+      });
+    }
+  }, [appointment]);
+
   const [saving, setSaving] = useState(false);
   const [videoOpen, setVideoOpen] = useState(true);
   const [videoUpdating, setVideoUpdating] = useState(false);
@@ -376,8 +400,8 @@ export default function DoctorConsultation() {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(`WhatsApp join alert sent to ${patient?.name || "patient"}!`);
+      if (res.ok && data.success && data.sent) {
+        toast.success(`WhatsApp join alert sent to ${patient?.name || "patient"} via carrier!`);
       } else {
         const text = buildAppointmentWhatsAppText(
           {
@@ -390,9 +414,9 @@ export default function DoctorConsultation() {
           },
           "patient_late_ping"
         );
-        const link = generateWhatsAppLink(patientPhone, text);
+        const link = data.waLink || generateWhatsAppLink(patientPhone, text);
         window.open(link, "_blank");
-        toast.info("Opened WhatsApp with urgent consultation link.");
+        toast.info(data.message || "Message not sent via carrier (simulation mode). Opened WhatsApp directly to ping patient.");
       }
     } catch (err) {
       const text = buildAppointmentWhatsAppText(

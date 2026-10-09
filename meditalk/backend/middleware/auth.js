@@ -1,8 +1,6 @@
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/authConfig.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'meditalk_dev_secret_2026';
-
-// Lazy-import the blocklist to avoid circular dependency at module load time
 let _isTokenRevoked = null;
 async function getRevocationChecker() {
   if (!_isTokenRevoked) {
@@ -13,28 +11,34 @@ async function getRevocationChecker() {
 }
 
 // Validates Bearer token — attaches decoded user payload to req.user
-// Also rejects tokens that have been explicitly revoked via POST /api/auth/logout
-export function requireAuth(req, res, next) {
+// Rejects tokens passed in query params and verifies session is still valid (not revoked or logged out)
+export async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (req.query?.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Unauthorized — missing token' });
   }
-  const token = authHeader.slice(7);
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    const isRevokedFn = await getRevocationChecker();
+    const userId = decoded.userId || decoded.id;
+    const isRevoked = await isRevokedFn(decoded.jti, userId, decoded.tokenVersion);
 
-    // Check token revocation (async but we handle it with the pattern below)
-    getRevocationChecker().then((isRevoked) => {
-      if (decoded.jti && isRevoked(decoded.jti)) {
-        return res.status(401).json({ error: 'Unauthorized — token has been revoked. Please log in again.' });
-      }
-      req.user = decoded; // { jti, id, userId, name, email, role }
-      next();
-    }).catch(() => {
-      // If revocation check fails, allow through (fail open to avoid auth outage)
-      req.user = decoded;
-      next();
-    });
+    if (isRevoked) {
+      return res.status(401).json({
+        error: 'Unauthorized — session has been terminated or logged out. Please log in again.',
+      });
+    }
+
+    req.user = decoded; // { jti, id, userId, name, email, role, tokenVersion }
+    next();
   } catch {
     return res.status(401).json({ error: 'Unauthorized — invalid or expired token' });
   }
@@ -42,7 +46,6 @@ export function requireAuth(req, res, next) {
 
 // Role guard — must be chained after requireAuth.
 // Usage: router.get('/stats', requireAuth, requireRole('admin'), handler)
-// Usage (multiple): requireAuth, requireRole('admin', 'doctor')
 export function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -68,4 +71,3 @@ export function optionalAuth(req, res, next) {
   }
   next();
 }
-

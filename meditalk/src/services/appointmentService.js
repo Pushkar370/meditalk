@@ -112,6 +112,12 @@ export function getDoctorAnalytics(doctorId) {
   return apiFetch(`/doctors/${doctorId}/analytics`);
 }
 
+export function recordTelehealthConsent(appointmentId) {
+  return apiFetch(`/appointments/${appointmentId}/telehealth-consent`, {
+    method: 'PATCH',
+  });
+}
+
 // Delegates to doctor service — consistent API surface
 export { getDoctors };
 

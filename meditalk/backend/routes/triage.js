@@ -7,20 +7,31 @@ const router = Router();
 router.use(requireAuth);
 
 // ── Built-in Clinical Matrix Rules Engine (Deterministic Fallback) ─────────────
+// ── Built-in Clinical Matrix Rules Engine (Deterministic Fallback) ─────────────
 function runRuleBasedTriage({ symptoms = '', duration = '', severity = 5, accompanyingSymptoms = [], age, gender }) {
   const text = `${symptoms} ${accompanyingSymptoms.join(' ')}`.toLowerCase();
 
   // 1. Critical Red Flags Check (Immediate Emergency)
   const redFlagKeywords = [
+    // Cardiac / Cardiovascular
     'crushing chest pain', 'chest pain', 'radiating to arm', 'radiating to jaw',
+    'pressure in chest', 'chest pressure', 'heart attack', 'angina', 'cardiac arrest',
+    // Respiratory
     'difficulty breathing', 'shortness of breath', 'cannot breathe', 'severe dyspnea',
-    'sudden numbness', 'facial droop', 'slurred speech', 'stroke',
-    'vomiting blood', 'coughing blood', 'severe anaphylaxis', 'throat swelling',
-    'loss of consciousness', 'fainting', 'worst headache of life', 'thunderclap headache'
+    'gasping for air', 'choking', 'stridor',
+    // Stroke / Neurological (FAST criteria)
+    'facial droop', 'face drooping', 'face droop', 'slurred speech', 'stroke',
+    'sudden numbness', 'arm weakness', 'one-sided weakness', 'weakness on one side',
+    'inability to speak', 'sudden vision loss', 'loss of vision', 'paralysis', 'hemiparesis',
+    // Acute Hemorrhage / Anaphylaxis / Unconsciousness
+    'vomiting blood', 'coughing blood', 'severe anaphylaxis', 'throat swelling', 'tongue swelling', 'anaphylactic',
+    'loss of consciousness', 'passed out', 'unconscious', 'fainting', 'syncope',
+    'seizure', 'worst headache of life', 'thunderclap headache'
   ];
 
   const matchedRedFlags = redFlagKeywords.filter(kw => text.includes(kw));
-  const isEmergency = matchedRedFlags.length > 0 && severity >= 7;
+  // SAFETY INVARIANT: Emergency symptoms MUST ALWAYS be treated as an emergency regardless of severity score
+  const isEmergency = matchedRedFlags.length > 0;
 
   // 2. Specialty Mapping Engine
   let recommendedSpecialty = 'General Medicine';
@@ -43,16 +54,18 @@ function runRuleBasedTriage({ symptoms = '', duration = '', severity = 5, accomp
     specialtyReason = 'Neurological symptoms including persistent headaches and nerve sensations require neurological evaluation.';
   }
 
-  // 3. Urgency Scoring
+  // 3. Urgency Scoring & Emergency Message
   let urgency = 'routine';
   let urgencyLabel = 'Routine Consultation';
   let urgencyReason = 'Your symptoms appear stable. A scheduled appointment within a few days is appropriate.';
+  let emergencyMessage = null;
 
   if (isEmergency) {
     urgency = 'emergency';
     urgencyLabel = 'Emergency Care Required 🚨';
-    urgencyReason = 'Reported symptoms contain critical red-flag indicators. Please seek immediate emergency medical care or visit the nearest ER.';
-  } else if (severity >= 7 || matchedRedFlags.length > 0 || duration.includes('month') || text.includes('fever') && severity >= 6) {
+    urgencyReason = `CRITICAL MEDICAL EMERGENCY: Reported symptoms contain life-threatening emergency red-flag indicators (${matchedRedFlags.join(', ')}). Immediate emergency care is required regardless of self-reported severity score (${severity}/10).`;
+    emergencyMessage = '🚨 EMERGENCY WARNING: Your reported symptoms indicate a potentially life-threatening medical emergency. Do not wait for a scheduled consultation. Call emergency services immediately (112 / 911 / 999) or proceed to the nearest hospital emergency room.';
+  } else if (severity >= 7 || duration.includes('month') || (text.includes('fever') && severity >= 6)) {
     urgency = 'urgent';
     urgencyLabel = 'Urgent Clinical Attention ⚠️';
     urgencyReason = 'Elevated severity or acute symptoms warrant a consultation within 24–48 hours.';
@@ -70,28 +83,38 @@ function runRuleBasedTriage({ symptoms = '', duration = '', severity = 5, accomp
     `Could my current medications or lifestyle be contributing?`,
   ];
 
-  const homeCareTips = [
-    'Stay well hydrated with clean water and electrolyte fluids.',
-    'Keep a daily symptom and temperature/blood pressure log.',
-    'Ensure adequate rest and avoid strenuous physical exertion.',
-    'Seek immediate medical care if you experience sudden worsening or red-flag signs.',
-  ];
+  const homeCareTips = isEmergency
+    ? [
+        'STOP ALL PHYSICAL ACTIVITY and sit or lie down in a comfortable position.',
+        'DO NOT DRIVE YOURSELF to the hospital — have an ambulance or caregiver transport you.',
+        'If chest pain is suspected, loosen tight clothing and seek emergency assistance immediately.',
+      ]
+    : [
+        'Stay well hydrated with clean water and electrolyte fluids.',
+        'Keep a daily symptom and temperature/blood pressure log.',
+        'Ensure adequate rest and avoid strenuous physical exertion.',
+        'Seek immediate medical care if you experience sudden worsening or red-flag signs.',
+      ];
 
   return {
     urgency,
     urgencyLabel,
     urgencyReason,
+    isEmergency,
+    emergencyMessage,
     recommendedSpecialty,
     recommendedSpecialtyReason: specialtyReason,
-    possibleConditions: [
-      `Symptom cluster associated with ${recommendedSpecialty.toLowerCase()} pathology`,
-      'Non-specific inflammatory or functional response',
-      'Clinical evaluation required to exclude secondary causes'
-    ],
+    possibleConditions: isEmergency
+      ? ['Acute emergency condition requiring rapid clinical triage and diagnostic exclusion']
+      : [
+          `Symptom cluster associated with ${recommendedSpecialty.toLowerCase()} pathology`,
+          'Non-specific inflammatory or functional response',
+          'Clinical evaluation required to exclude secondary causes'
+        ],
     suggestedQuestions,
     homeCareTips,
     redFlags: matchedRedFlags.length > 0 ? matchedRedFlags : ['Sudden severe worsening', 'High fever (>102°F / 38.9°C)', 'Difficulty breathing or swallowing', 'Severe dizziness or fainting'],
-    clinicalSummary: `Patient presents with ${symptoms} of duration ${duration || 'unspecified'} with self-rated severity ${severity}/10. Priority level: ${urgency.toUpperCase()}. Primary triage destination: ${recommendedSpecialty}.`,
+    clinicalSummary: `Patient presents with ${symptoms} of duration ${duration || 'unspecified'} with self-rated severity ${severity}/10. Priority level: ${urgency.toUpperCase()}.${isEmergency ? ' CRITICAL EMERGENCY DETECTED.' : ''} Primary triage destination: ${recommendedSpecialty}.`,
     source: 'clinical_matrix',
     clinicalDisclaimer: 'MediTalk AI Triage is an algorithmic clinical decision-support tool. It does not provide medical diagnoses or replace emergency medical services.',
   };
@@ -130,7 +153,7 @@ Respond ONLY with valid JSON matching this schema:
   "clinicalSummary": "2-sentence objective medical brief for the consulting doctor"
 }`;
 
-  const modelsToTry = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
   for (const model of modelsToTry) {
     try {
@@ -138,6 +161,7 @@ Respond ONLY with valid JSON matching this schema:
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(3000),
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
@@ -188,12 +212,20 @@ router.post('/assess', async (req, res) => {
   };
 
   try {
-    // 1. Try Gemini LLM triage first if configured
+    // Check deterministic emergency red flags before everything else
+    const ruleResult = runRuleBasedTriage(payload);
+
+    // If deterministic check detected life-threatening red flags, ALWAYS enforce emergency
+    if (ruleResult.isEmergency) {
+      return res.json(ruleResult);
+    }
+
+    // Otherwise, try Gemini LLM triage first if configured
     let result = await callGeminiTriage(payload);
 
-    // 2. Fall back to deterministic clinical matrix if Gemini is unavailable
+    // Fall back to deterministic clinical matrix if Gemini is unavailable
     if (!result) {
-      result = runRuleBasedTriage(payload);
+      result = ruleResult;
     }
 
     res.json(result);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query } from '../database/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotification } from '../server.js';
+import { verifyAuditChain, logAudit, getClientIp } from '../services/auditService.js';
 
 const router = Router();
 
@@ -88,13 +89,17 @@ router.patch('/doctors/:id/verify', async (req, res) => {
         try { pushNotification(userRows[0].id, { id: notifId, title: 'Account Approved ✅', message: 'Your doctor account has been approved.', type: 'success' }); } catch (_) {}
       }
       // Audit log
-      try {
-        await query(
-          `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-           VALUES ($1, 'Admin', 'Administrator', $2, 'Doctor', $3, 'success')`,
-          [req.user.userId || req.user.id, `Approved doctor: ${doc.name}`, id]
-        );
-      } catch (_) {}
+      logAudit({
+        userId: req.user.userId || req.user.id,
+        userName: req.user.name || 'Admin',
+        role: 'Administrator',
+        action: `Approved doctor: ${doc.name}`,
+        entityType: 'Doctor',
+        entityId: id,
+        status: 'success',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'],
+      });
     } else if (action === 'reject') {
       await query(
         `UPDATE doctors SET verification_status = 'rejected', rejection_notes = $2 WHERE id = $1`,
@@ -110,13 +115,17 @@ router.patch('/doctors/:id/verify', async (req, res) => {
         );
         try { pushNotification(userRows[0].id, { id: notifId, title: 'Account Rejected', message: notes || 'Application did not meet requirements.', type: 'error' }); } catch (_) {}
       }
-      try {
-        await query(
-          `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-           VALUES ($1, 'Admin', 'Administrator', $2, 'Doctor', $3, 'warning')`,
-          [req.user.userId || req.user.id, `Rejected doctor: ${doc.name}`, id]
-        );
-      } catch (_) {}
+      logAudit({
+        userId: req.user.userId || req.user.id,
+        userName: req.user.name || 'Admin',
+        role: 'Administrator',
+        action: `Rejected doctor: ${doc.name}`,
+        entityType: 'Doctor',
+        entityId: id,
+        status: 'warning',
+        ipAddress: getClientIp(req),
+        userAgent: req.headers?.['user-agent'],
+      });
     } else {
       return res.status(400).json({ error: 'Invalid action. Use approve or reject.' });
     }
@@ -156,13 +165,17 @@ router.patch('/appointments/:id/cancel', async (req, res) => {
         }
       }
     }
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, 'Admin', 'Administrator', $2, 'Appointment', $3, 'warning')`,
-        [req.user.userId || req.user.id, `Cancelled appointment: ${id}`, id]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: req.user.userId || req.user.id,
+      userName: req.user.name || 'Admin',
+      role: 'Administrator',
+      action: `Cancelled appointment: ${id}`,
+      entityType: 'Appointment',
+      entityId: id,
+      status: 'warning',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
     res.json({ success: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to cancel appointment' }); }
 });
@@ -195,13 +208,17 @@ router.patch('/appointments/:id/reschedule', async (req, res) => {
         }
       }
     }
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, 'Admin', 'Administrator', $2, 'Appointment', $3, 'success')`,
-        [req.user.userId || req.user.id, `Rescheduled appointment ${id} to ${date} ${time}`, id]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: req.user.userId || req.user.id,
+      userName: req.user.name || 'Admin',
+      role: 'Administrator',
+      action: `Rescheduled appointment ${id} to ${date} ${time}`,
+      entityType: 'Appointment',
+      entityId: id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
     res.json({ success: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to reschedule appointment' }); }
 });
@@ -239,13 +256,17 @@ router.post('/broadcast', async (req, res) => {
       try { pushNotification(user.id, { title, message, type: 'info' }); } catch (_) {}
     }
 
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, 'Admin', 'Administrator', $2, 'Announcement', 'broadcast', 'success')`,
-        [req.user.userId || req.user.id, `Broadcast: "${title}" to ${targetRole || 'all'}`]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: req.user.userId || req.user.id,
+      userName: req.user.name || 'Admin',
+      role: 'Administrator',
+      action: `Broadcast: "${title}" to ${targetRole || 'all'}`,
+      entityType: 'Announcement',
+      entityId: 'broadcast',
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     res.json({ success: true, sent: users.length });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Broadcast failed' }); }
@@ -419,6 +440,17 @@ router.get('/audit-logs/stats', async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch audit log stats' }); }
 });
 
+// GET /api/admin/audit-logs/verify — cryptographically verify entire audit log chain
+router.get('/audit-logs/verify', async (req, res) => {
+  try {
+    const result = await verifyAuditChain();
+    res.json(result);
+  } catch (err) {
+    console.error('Audit chain verification failed:', err);
+    res.status(500).json({ error: 'Failed to verify audit log integrity', details: err.message });
+  }
+});
+
 // PATCH /api/admin/users/:id/status — suspend/reactivate user account
 router.patch('/users/:id/status', async (req, res) => {
   const { id } = req.params;
@@ -441,13 +473,17 @@ router.patch('/users/:id/status', async (req, res) => {
     }
 
     // Write audit log
-    try {
-      await query(
-        `INSERT INTO audit_logs (user_id, user_name, role, action, entity_type, entity_id, status)
-         VALUES ($1, 'Admin', 'Administrator', $2, 'User', $3, 'success')`,
-        [req.user.userId || req.user.id, `${status === 'active' ? 'Reactivated' : 'Suspended'} user: ${user.name}`, id]
-      );
-    } catch (_) {}
+    logAudit({
+      userId: req.user.userId || req.user.id,
+      userName: req.user.name || 'Admin',
+      role: 'Administrator',
+      action: `${status === 'active' ? 'Reactivated' : 'Suspended'} user: ${user.name}`,
+      entityType: 'User',
+      entityId: id,
+      status: 'success',
+      ipAddress: getClientIp(req),
+      userAgent: req.headers?.['user-agent'],
+    });
 
     res.json({ success: true, userId: id, status });
   } catch (err) {

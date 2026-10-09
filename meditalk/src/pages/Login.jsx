@@ -12,6 +12,8 @@ const ROLE_OPTIONS = [
   { value: ROLES.PATIENT, label: "Patient" },
   { value: ROLES.DOCTOR, label: "Doctor" },
   { value: ROLES.ADMIN, label: "Administrator" },
+  { value: ROLES.NURSE, label: "Nurse" },
+  { value: ROLES.RECEPTIONIST, label: "Receptionist" },
 ];
 
 export default function Login() {
@@ -24,7 +26,8 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [showPw, setShowPw] = useState(false);
 
-  const redirectTo = location.state?.from || null;
+  const params = new URLSearchParams(location.search);
+  const redirectTo = location.state?.from || params.get('redirect') || null;
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -160,6 +163,12 @@ export default function Login() {
               Sign up
             </Link>
           </p>
+
+          <div className="mt-4 pt-4 border-t border-sage/20 text-center text-xs text-ink/50 space-x-3">
+            <Link to="/terms" className="hover:text-primary hover:underline">Terms of Service</Link>
+            <span>·</span>
+            <Link to="/privacy" className="hover:text-primary hover:underline">Privacy Policy</Link>
+          </div>
         </div>
       </div>
     </div>
