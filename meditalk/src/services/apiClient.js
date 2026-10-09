@@ -31,10 +31,12 @@ export async function apiFetch(path, options = {}) {
   const body = contentType.includes('application/json') ? await res.json() : await res.text();
 
   if (!res.ok) {
-    // On 401 Unauthorized, clear stale credentials and redirect to login
+    // On 401 Unauthorized, clear stale credentials and only redirect if on a protected route
     if (res.status === 401) {
       localStorage.removeItem('meditrack_user');
-      if (window.location.pathname !== '/login') {
+      const publicPaths = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/privacy', '/terms'];
+      const isPublicPath = publicPaths.includes(window.location.pathname) || window.location.pathname.startsWith('/video/');
+      if (!isPublicPath) {
         window.location.href = '/login';
       }
     }

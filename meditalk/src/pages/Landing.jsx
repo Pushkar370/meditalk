@@ -5,6 +5,7 @@ import {
 import Logo from "../components/ui/Logo";
 import Button from "../components/ui/Button";
 import EmergencyBanner from "../components/ui/EmergencyBanner";
+import { useAuth } from "../context/AuthContext";
 
 const FEATURES = [
   { icon: FileText, title: "Unified Health Records", text: "Consultations, labs, imaging and vitals in one secure chart." },
@@ -16,17 +17,32 @@ const FEATURES = [
 ];
 
 export default function Landing() {
+  const { user, isAuthenticated } = useAuth();
+  const dashboardPath = user?.role === "receptionist" || user?.role === "nurse"
+    ? `/${user.role}/queue`
+    : user?.role
+      ? `/${user.role}/dashboard`
+      : "/login";
+
   return (
     <div className="min-h-screen bg-background">
       <header className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
         <Logo />
         <div className="flex items-center gap-2">
-          <Link to="/login">
-            <Button variant="ghost" size="sm">Log in</Button>
-          </Link>
-          <Link to="/register">
-            <Button size="sm">Get Started</Button>
-          </Link>
+          {isAuthenticated && user ? (
+            <Link to={dashboardPath}>
+              <Button size="sm">Go to Dashboard <ArrowRight className="h-3.5 w-3.5 ml-1 inline" /></Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm">Log in</Button>
+              </Link>
+              <Link to="/register">
+                <Button size="sm">Get Started</Button>
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -43,8 +59,16 @@ export default function Landing() {
             prescriptions — built for clinics and hospitals that care about efficiency and trust.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/register"><Button size="lg">Create Account</Button></Link>
-            <Link to="/login"><Button size="lg" variant="outline">Sign In</Button></Link>
+            {isAuthenticated && user ? (
+              <Link to={dashboardPath}>
+                <Button size="lg">Go to Dashboard <ArrowRight className="h-4 w-4 ml-1 inline" /></Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/register"><Button size="lg">Create Account</Button></Link>
+                <Link to="/login"><Button size="lg" variant="outline">Sign In</Button></Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -95,9 +119,9 @@ export default function Landing() {
           })}
         </div>
         <div className="mt-10 text-center">
-          <Link to="/register">
+          <Link to={isAuthenticated && user ? dashboardPath : "/register"}>
             <Button size="lg">
-              Start using MediTalk <ArrowRight className="h-4 w-4" />
+              {isAuthenticated && user ? "Go to Dashboard" : "Start using MediTalk"} <ArrowRight className="h-4 w-4 ml-1 inline" />
             </Button>
           </Link>
         </div>

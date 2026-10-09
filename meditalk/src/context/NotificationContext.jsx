@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { getNotifications, markAsRead, markAllAsRead, deleteNotification } from "../services/notificationService";
 import { useToast } from "./ToastContext";
+import { useAuth } from "./AuthContext";
 import { useSSE } from "../hooks/useSSE";
 
 const NotificationContext = createContext(null);
@@ -8,21 +9,27 @@ const NotificationContext = createContext(null);
 const POLL_INTERVAL = 120_000; // 120 seconds fallback
 
 export function NotificationProvider({ children }) {
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const intervalRef = useRef(null);
   const { showToast } = useToast();
 
   const load = useCallback(async () => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
     try {
       const data = await getNotifications();
-      setNotifications(data);
+      setNotifications(data || []);
     } catch (_) {
       // silently fail on polling errors
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Handle incoming real-time SSE notification
   const handleSSENotification = useCallback(
@@ -41,15 +48,20 @@ export function NotificationProvider({ children }) {
     [showToast]
   );
 
-  // Connect to SSE stream
-  useSSE(handleSSENotification);
+  // Connect to SSE stream only when authenticated
+  useSSE(handleSSENotification, isAuthenticated);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
     load();
     // Safety-net fallback polling
     intervalRef.current = setInterval(load, POLL_INTERVAL);
     return () => clearInterval(intervalRef.current);
-  }, [load]);
+  }, [load, isAuthenticated]);
 
 
   const markRead = useCallback(async (id) => {
