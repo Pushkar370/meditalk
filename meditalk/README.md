@@ -193,11 +193,11 @@ node backend/scripts/verify_audit_logs.mjs
 
 | Document | Purpose |
 | :--- | :--- |
-| **[Codebase Walkthrough](meditalk/docs/CODEBASE_EXPLANATION.md)** | File-by-file breakdown of frontend, backend, routes, database, and clinical flow. |
-| **[Setup & Installation](meditalk/docs/SETUP_AND_INSTALLATION.md)** | Step-by-step local setup, environment variables, database seeding, and production builds. |
-| **[Frontend Architecture](meditalk/docs/FRONTEND_ARCHITECTURE.md)** | Guide to React components, the user portals, routing guards, and design system. |
-| **[Backend Architecture](meditalk/docs/BACKEND_ARCHITECTURE.md)** | Deep dive into Express middleware, security, zero-trust privacy, SSE, and background jobs. |
-| **[Project History & Changelog](meditalk/docs/PROJECT_HISTORY_AND_CHANGELOG.md)** | Complete chronological story of the project from commit 1 to the present day, with challenges and solutions. |
+| **[Codebase Walkthrough](docs/CODEBASE_EXPLANATION.md)** | File-by-file breakdown of frontend, backend, routes, database, and clinical flow. |
+| **[Setup & Installation](docs/SETUP_AND_INSTALLATION.md)** | Step-by-step local setup, environment variables, database seeding, and production builds. |
+| **[Frontend Architecture](docs/FRONTEND_ARCHITECTURE.md)** | Guide to React components, the user portals, routing guards, and design system. |
+| **[Backend Architecture](docs/BACKEND_ARCHITECTURE.md)** | Deep dive into Express middleware, security, zero-trust privacy, SSE, and background jobs. |
+| **[Project History & Changelog](docs/PROJECT_HISTORY_AND_CHANGELOG.md)** | Complete chronological story of the project from commit 1 to the present day, with challenges and solutions. |
 
 ---
 
