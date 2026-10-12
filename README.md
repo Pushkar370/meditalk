@@ -162,6 +162,20 @@ npm run dev
 - **Frontend App:** Open `http://localhost:5173`
 - **Backend API:** Running at `http://localhost:3001` (Health check: `/api/health`)
 
+### 5. Demo Credentials
+
+| Role | Role Tab on Login | Email | Password | User Name |
+| :--- | :--- | :--- | :--- | :--- |
+| **Patient** | `Patient` | `patient@meditalk.com` | `password` | Aarav Sharma |
+| **Doctor** | `Doctor` | `doctor@meditalk.com` | `password` | Dr. Sneha Menon (General Medicine) |
+| **Doctor (Specialist)** | `Doctor` | `arjun.patel@meditalk.com` | `password` | Dr. Arjun Patel (Cardiology) |
+| **Nurse** | `Nurse` | `nurse@meditalk.com` | `password` | Nurse Clara Barton |
+| **Receptionist** | `Receptionist` | `receptionist@meditalk.com` | `password` | Sarah Jenkins (Reception) |
+| **Administrator** | `Administrator` | `admin@meditalk.com` | `password` | Admin User |
+
+> *Tip: Ensure the role toggle button selected on the login page matches the user's role.*
+
+
 ---
 
 ## Testing & Quality Assurance
