@@ -37,19 +37,19 @@ MediTalk is configured with a unified root setup that installs dependencies for 
 npm install
 ```
 
-This installs all required packages, including React, Vite, Express, PostgreSQL driver (`pg`), background job queue (`pg-boss`), styling tools (`tailwindcss`), and PDF generation tools (`jspdf`).
+This installs all required packages, including React, Vite, Express 5, PostgreSQL driver (`pg`), background job queue (`pg-boss`), styling tools (`tailwindcss`), and PDF generation tools (`jspdf`).
 
 ---
 
 ## 4. Environment Configuration (`.env`)
 
-In the project root directory, create a `.env` file (you can copy the provided `.env.example` file if present):
+In the project root directory, create a `.env` file (you can copy the provided `.env.example` file):
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` in any text editor and fill in your configuration values:
+Open `.env` in any text editor and configure your environment variables:
 
 ```env
 # Port on which the backend server will run
@@ -58,11 +58,11 @@ PORT=3001
 # Cloud or Local PostgreSQL connection string with SSL
 DATABASE_URL=postgresql://username:password@your-postgres-host.neon.tech/neondb?sslmode=require
 
-# Secret string used to sign and verify JSON Web Tokens (JWT) for secure login
-JWT_SECRET=meditalk_super_secret_production_key_2026
+# Secret string used to sign and verify JSON Web Tokens (JWT) for secure login (min 32 characters)
+JWT_SECRET=meditalk_super_secret_production_key_2026_minimum_32_characters
 
 # Google Gemini API Key (Used for AI Symptom Intake & SOAP drafting)
-# If left empty, MediTalk automatically falls back to its built-in clinical rule matrix!
+# If left empty, MediTalk automatically falls back to its built-in deterministic clinical rule matrix!
 GEMINI_API_KEY="your-gemini-api-key"
 
 # Resend API Key (Used for automated transactional appointment emails)
@@ -77,13 +77,13 @@ FRONTEND_URL=http://localhost:5173
 ```
 
 > **Note on Resilient Defaults:** 
-> MediTalk is built so that if you do not have external API keys for Gemini or Resend, the application **does not crash**. It automatically uses deterministic clinical rules for symptom triage and logs appointment emails to the server console.
+> MediTalk is engineered so that if you do not have external API keys for Gemini or Resend, the application **does not crash**. It automatically uses deterministic clinical rules for symptom triage and logs appointment emails to the server console.
 
 ---
 
 ## 5. Database Setup & Seeding
 
-Once your `DATABASE_URL` is set in `.env`, run the database initialization script. This creates all necessary tables (users, doctors, patients, appointments, prescriptions, audit logs) and seeds sample doctors and accounts:
+Once your `DATABASE_URL` is set in `.env`, run the database initialization and seeding script:
 
 ```bash
 npm run seed
@@ -124,24 +124,49 @@ If you prefer running the frontend and backend in separate terminal windows:
 
 ---
 
-## 7. Running the Automated Test Suite
+## 7. Demo Credentials for Testing
 
-MediTalk includes an end-to-end automated test suite (`test_suite.mjs`) that tests database health, login authentication, doctor availability, appointment queues, clinical safety checks, WhatsApp deep links, and patient privacy protections:
+All test accounts are pre-seeded in the database with the default password `password`:
 
-```bash
-npm test
-```
+| Role | Role Tab on Login | Email | Password | User Name |
+| :--- | :--- | :--- | :--- | :--- |
+| **Patient** | `Patient` | `patient@meditalk.com` | `password` | Aarav Sharma |
+| **Doctor** | `Doctor` | `doctor@meditalk.com` | `password` | Dr. Sneha Menon (General Medicine) |
+| **Doctor (Specialist)** | `Doctor` | `arjun.patel@meditalk.com` | `password` | Dr. Arjun Patel (Cardiology) |
+| **Nurse** | `Nurse` | `nurse@meditalk.com` | `password` | Nurse Clara Barton |
+| **Receptionist** | `Receptionist` | `receptionist@meditalk.com` | `password` | Sarah Jenkins (Reception) |
+| **Administrator** | `Administrator` | `admin@meditalk.com` | `password` | Admin User |
 
-This runs 36 assertions across 8 core test suites. All 36 tests should pass with green checkmarks:
-```text
-========================================
-Results: 36 Passed, 0 Failed
-========================================
-```
+> *Tip: On the login page (`/login`), click the role button corresponding to the account before signing in.*
 
 ---
 
-## 8. Building for Production
+## 8. Testing & Quality Assurance
+
+MediTalk includes three automated test suites containing **108 passed assertions (100% Green)** across security, access control, clinical workflows, and cryptographic integrity:
+
+```bash
+# 1. End-to-End Clinical Lifecycle Suite (36 Tests)
+npm test
+
+# 2. Zero-Trust Access Control & Clinical Scoping Suite (37 Tests)
+node test_access_control.mjs
+
+# 3. Tamper-Resistant Audit Log & Read Auditing Suite (35 Tests)
+node test_audit_hardening.mjs
+
+# 4. Standalone Audit Chain Verification CLI
+node backend/scripts/verify_audit_logs.mjs
+```
+
+### Test Suite Summary:
+- **`test_suite.mjs` (36 Passed):** Validates database connectivity, authentication, doctor availability, appointment queues, clinical safety checks, WhatsApp deep links, and patient privacy protections.
+- **`test_access_control.mjs` (37 Passed):** Proves doctors cannot view patient records without a confirmed appointment (`403 Forbidden`), patients can only self-book, nurses can record vitals but cannot view clinical notes, and receptionists see schedule info with triage summaries stripped.
+- **`test_audit_hardening.mjs` (35 Passed):** Proves database engine rejects `UPDATE` and `DELETE` on audit rows, validates SHA-256 chain linkage, verifies the tamper detection algorithm, proves read access auditing on charts, vitals, prescriptions, and notes, and verifies sub-millisecond dispatch overhead.
+
+---
+
+## 9. Building for Production
 
 To create an optimized, minified production build of the frontend:
 
@@ -149,21 +174,4 @@ To create an optimized, minified production build of the frontend:
 npm run build
 ```
 
-This compiles all React components into static production assets in the `dist/` directory.
-
-To start the production server:
-
-```bash
-npm start
-```
-
----
-
-## 9. Common Troubleshooting
-
-| Issue | Cause | Solution |
-| :--- | :--- | :--- |
-| `ECONNREFUSED 127.0.0.1:5432` | Local PostgreSQL is not running or `DATABASE_URL` is incorrect. | Ensure your cloud PostgreSQL URL in `.env` is correct and has `?sslmode=require`. |
-| `Port 3001 already in use` | Another process is already running on port 3001. | Terminate the existing node process or change `PORT=3002` in `.env`. |
-| `Vite build warning: chunks > 500 kB` | Normal bundle warning for rich libraries (`jspdf`, `html2canvas`). | Safe to ignore; the application uses Vite code splitting for production. |
-| Test suite reports port conflict | A previous test instance or dev server is holding port 3005. | Close running background node processes and re-run `npm test`. |
+This compiles React components into the `dist/` folder, ready for deployment to any static host or reverse proxy.

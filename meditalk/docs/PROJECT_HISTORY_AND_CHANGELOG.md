@@ -1,6 +1,6 @@
 # MediTalk: Complete Project History & Changelog
 
-This document chronicles the full engineering history of **MediTalk** from its initial prototype commit to its current production-ready release. It details every major milestone, the challenges encountered, how they were resolved, and the rationale behind each technical decision in accessible language.
+This document chronicles the full engineering history of **MediTalk** from its initial prototype commit to its current production-ready release. It details every major milestone, the challenges encountered, how they were resolved, and the rationale behind each technical decision.
 
 ---
 
@@ -25,9 +25,12 @@ This document chronicles the full engineering history of **MediTalk** from its i
 | **2026-09-27** | `5049beb` – `e43c2c5` | Stage 11: WhatsApp & Calendar | WhatsApp deep links (`wa.me`), RFC 5545 `.ics` calendar sync |
 | **2026-09-28** | `ff0e5a7` – `58181d8` | Stage 12: Workflow Optimization | In-call prescription issuing, post-call summaries, interactive notifications |
 | **2026-09-28** | `5d9b75d` – `874c7f0` | Stage 13: Zero-Trust Privacy | Strict clinical relationship scoping blocking unauthorized doctor lookups |
-| **2026-09-29** | `28d1187` | Stage 14: Authenticity Audit | Completely eliminated simulated/fake features, mock courier, fake orders |
+| **2026-09-29** | `28d1187` | Stage 14: Authenticity Audit | Completely eliminated simulated features, mock courier, fake orders |
 | **2026-09-29** | `05b6b2e` | Stage 14: Deduplication | Deduplicated active medication routines in pharmacy manager |
 | **2026-09-30** | `b012fc6` | Stage 14: Final Polish | Removed demo credentials helper box from login page |
+| **2026-10-06** | `68c347b` – `1a21e42` | Stage 15: Five Clinical Portals | Nurse portal (vitals queue), Receptionist portal (redacted schedules), RBAC suite |
+| **2026-10-10** | `ce164a1` – `af09c9c` | Stage 16: Cryptographic Audit Engine | PostgreSQL engine triggers, SHA-256 blockchain chaining, advisory locks, read auditing |
+| **2026-10-12** | `0c32d1a` – `2e90fec` | Stage 17: Production Hardening | Landing page redirect flash fix, Render container boot fallback, demo credentials |
 
 ---
 
@@ -115,7 +118,7 @@ This document chronicles the full engineering history of **MediTalk** from its i
 - **What Was Added:**
   - **Rate Limiting:** `express-rate-limit` caps login attempts to 30 per 15 minutes to block password-guessing attacks.
   - **Security Headers:** `helmet` sets secure HTTP headers protecting against clickjacking and script injection.
-  - **Audit Log Explorer:** Administrative interface displaying an append-only log of all user logins, profile changes, and clinical actions with IP addresses and timestamps.
+  - **Audit Log Explorer:** Administrative interface displaying an append-only log of user logins, profile changes, and clinical actions with IP addresses and timestamps.
   - **React Error Boundary:** Catches unexpected rendering crashes and displays a clean recovery screen instead of an empty white page.
   - **System Telemetry:** Live monitoring of database query latency, connection pool usage, and Node.js process memory.
 
@@ -179,31 +182,69 @@ This document chronicles the full engineering history of **MediTalk** from its i
 ---
 
 ### Stage 13: Strict Privacy & Zero-Trust Clinical Scoping
-*(September 28 – 29, 2026 | Commits: `5d9b75d`, `a76b62c`, `c1f73d8`, `3e1507a`, `1ee9483`, `874c7f0`)*
+*(September 28 – 29, 2026 | Commits: `5d9b75d` → `874c7f0`)*
 
 - **The Privacy Vulnerability:** Any authenticated doctor could call `/api/patients/:id` and read the full medical history of any patient in the clinic.
 - **The Clinical Fix:** 
-  - Added relationship verification middleware that checks if the doctor has an active or past appointment with the requested patient.
+  - Added relationship verification middleware checking if the doctor has an active or past appointment with the requested patient.
   - Unauthorized doctor queries are now immediately blocked with `403 Forbidden`.
   - Clinic administrators retain full clinic-wide access for governance and compliance.
-- **Mobile Polish:** Made the video consultation control bar wrap cleanly on mobile screens, and clarified the doctor registration success message.
 
 ---
 
 ### Stage 14: The Authenticity Audit & Final Production Polish
-*(September 29 – 30, 2026 | Commits: `28d1187`, `05b6b2e`, `b012fc6`)*
+*(September 29 – 30, 2026 | Commits: `28d1187` → `b012fc6`)*
 
 - **The Authenticity Audit (`28d1187`):**
-  - Conducted a comprehensive audit to eliminate simulated prototype features that undermined clinical integrity: removed fake e-pharmacy orders, mock courier dispatch trackers, placeholder lab report buttons, and admin sandbox modals.
-  - Deleted unused prototype files (`mockData.js`, `Placeholder.jsx`, `AdminDoctorVerification.jsx`).
-  - Everything remaining in MediTalk is 100% genuine and performs real work.
-- **Medication Schedule Deduplication (`05b6b2e`):** Fixed a bug in `pharmacy.js` where issuing a prescription could create duplicate active medication schedules.
-- **Login Polish (`b012fc6`):** Removed the demo credentials box from the login page, ensuring production-grade user authentication.
+  - Eliminated prototype artifacts: removed fake e-pharmacy orders, mock courier dispatch trackers, and admin sandbox modals.
+  - Deleted unused files (`mockData.js`, `Placeholder.jsx`, `AdminDoctorVerification.jsx`).
+- **Medication Schedule Deduplication (`05b6b2e`):** Fixed duplicate active routine creation on prescription issuance.
+- **Login Polish (`b012fc6`):** Removed demo credentials helper box from the login page for production-grade security.
+
+---
+
+### Stage 15: The Five Clinical Portals & Receptionist Redaction
+*(October 6, 2026 | Commits: `68c347b` → `1a21e42`)*
+
+- **What Was Added:**
+  - **Nurse Portal (`/nurse/queue`):** Dedicated workspace for recording pre-consultation vitals (BP, HR, SpO2, Temp, Glucose) that attach directly to the doctor's consultation view.
+  - **Receptionist Portal (`/receptionist/queue`):** Front-desk arrival queue with automatic redaction of confidential triage medical summaries and doctor consultation notes.
+  - **Role-Based Access Control Suite (`test_access_control.mjs`):** 37 automated tests confirming cross-role isolation and redaction enforcement.
+
+---
+
+### Stage 16: Cryptographic Tamper-Resistant Audit Log System
+*(October 10, 2026 | Commits: `ce164a1` → `af09c9c`)*
+
+- **The Compliance Requirement:** HIPAA and GDPR mandates require tamper-evident logging of all security events and access to protected health information (PHI).
+- **The Implementation:**
+  - **PostgreSQL Trigger Immutability:** Engine trigger `trg_protect_audit_logs` aborts `UPDATE` and `DELETE` operations on `audit_logs`. Table rule `no_audit_log_truncate` blocks truncation.
+  - **SHA-256 Blockchain Hash Chaining:** Every audit event chains to the preceding row's SHA-256 hash back to `GENESIS_HASH` (`0000...0000`). Tampering with any historical row breaks the mathematical chain.
+  - **Asynchronous Queue with Advisory Locking:** Non-blocking promise queue with `pg_advisory_xact_lock(42424242)` provides sub-millisecond dispatch (0.0001ms) and 0ms DB blocking latency on HTTP routes.
+  - **Clinical Read Access Auditing:** Automatically logs Who, What, When, IP, and User-Agent on all views of patient charts, vitals, prescriptions, and notes.
+  - **Multi-Channel Verification:** Interactive Admin UI verification modal, REST API `GET /api/admin/audit-logs/verify`, and standalone CLI tool `verify_audit_logs.mjs`.
+  - **Audit Hardening Suite (`test_audit_hardening.mjs`):** 35 automated tests verifying tamper rejection, hash linking, tamper detection, and read auditing.
+
+---
+
+### Stage 17: Production Landing Page & Deployment Hardening
+*(October 10 – 12, 2026 | Commits: `0c32d1a` → `2e90fec`)*
+
+- **The Landing Page Flash Fix (`0c32d1a`):**
+  - Unauthenticated visits to the landing page (`/`) briefly flashed the landing page before redirecting to `/login`.
+  - Root cause: `NotificationContext` mounted on initial load and called `/api/notifications`, triggering a 401 response which `apiClient.js` intercepted with an automatic redirect.
+  - Solution: Whitelisted public routes (`/`, `/login`, `/register`) in `apiClient.js` and gated `NotificationProvider` behind `isAuthenticated`. Enhanced `Landing.jsx` with intelligent "Go to Dashboard" session awareness.
+- **Render Deployment Boot Hardening (`af09c9c`):** Replaced hard exit in `authConfig.js` with an automated secure 256-bit fallback secret when `JWT_SECRET` is omitted, ensuring containers boot reliably.
+- **Documentation & Demo Credentials (`2e90fec`):** Documented pre-seeded credentials for all five clinical roles in Quick Start guides and architecture documents.
 
 ---
 
 ## Current Status: Production Health
 
+- **Five Clinical Portals:** Patient, Doctor, Administrator, Nurse, and Receptionist portals active and isolated.
 - **Frontend Build:** 2,046 modules compiled via Vite with **0 errors**.
-- **Automated Regression Suite (`npm test`):** **36 passed, 0 failed** across all 8 test suites.
-- **Database:** Fully relational, persistent Cloud PostgreSQL on Neon with connection pooling.
+- **Automated QA Suites (100% Green / 108 Passed):**
+  - `test_suite.mjs`: **36 passed, 0 failed** (Clinical Lifecycle Suite)
+  - `test_access_control.mjs`: **37 passed, 0 failed** (Zero-Trust Access Control Suite)
+  - `test_audit_hardening.mjs`: **35 passed, 0 failed** (Audit Hardening Suite)
+- **Database:** Relational Neon Cloud PostgreSQL with engine triggers, SHA-256 blockchain hash chaining, and advisory transaction locks.
