@@ -44,17 +44,17 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <PageHeader
-        title="Admin Dashboard"
-        subtitle="Clinic-wide overview, system diagnostics, and operational telemetry."
+        title="Admin Overview"
+        subtitle="Clinic-wide operational performance, system telemetry, and appointment distributions."
         action={
           <button
             onClick={handleDiagnosticsPing}
             disabled={pinging}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-sage/40 text-xs font-semibold text-ink shadow-sm hover:bg-sage/10 transition active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle text-xs font-semibold text-ink dark:text-dark-ink shadow-sm hover:bg-canvas dark:hover:bg-dark-surface-elevated transition active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-primary ${pinging ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-accent ${pinging ? "animate-spin" : ""}`} />
             Run Diagnostics Ping
           </button>
         }
@@ -62,79 +62,79 @@ export default function AdminDashboard() {
 
       {/* ── System Diagnostics & Platform Health Card ──────────────── */}
       {health && (
-        <div className="bg-gradient-to-r from-primary/5 via-sage/10 to-accent/10 border border-primary/20 rounded-2xl p-4 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Activity className="w-4 h-4" />
+        <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-5 sm:p-6 shadow-apple-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-accent/10 dark:bg-accent/20 flex items-center justify-center text-accent shrink-0">
+                <Activity className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-ink">System Diagnostics & Telemetry</h3>
-                <p className="text-[11px] text-ink/50">Real-time health of database, active streams, and server resources</p>
+                <h3 className="text-base font-semibold tracking-tight text-ink dark:text-dark-ink">System Diagnostics & Telemetry</h3>
+                <p className="text-xs text-ink/50 dark:text-dark-ink/50">Real-time health of database connection pool, active event streams, and host memory</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
                 health.status === "operational"
-                  ? "bg-success/15 text-success border border-success/30"
-                  : "bg-danger/15 text-danger border border-danger/30"
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                  : "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30"
               }`}>
-                <span className={`h-2 w-2 rounded-full ${health.status === "operational" ? "bg-success animate-pulse" : "bg-danger"}`} />
+                <span className={`h-2 w-2 rounded-full ${health.status === "operational" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
                 {health.status === "operational" ? "Platform Operational" : "Service Degraded"}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             {/* Database Telemetry */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-sage/30">
-              <div className="flex items-center gap-1.5 text-ink/50 mb-1">
-                <Database className="w-3.5 h-3.5 text-primary" />
+            <div className="bg-canvas dark:bg-dark-surface-elevated/70 rounded-xl p-3.5 border border-border-subtle dark:border-dark-border-subtle">
+              <div className="flex items-center gap-1.5 text-ink/50 dark:text-dark-ink/50 mb-1.5">
+                <Database className="w-3.5 h-3.5 text-accent" />
                 <span className="font-medium">PostgreSQL Latency</span>
               </div>
-              <p className="text-base font-bold text-ink">
-                {health.database?.latencyMs ?? "—"} <span className="text-xs font-normal text-ink/50">ms</span>
+              <p className="text-xl font-bold tracking-tight text-ink dark:text-dark-ink">
+                {health.database?.latencyMs ?? "—"} <span className="text-xs font-normal text-ink/50 dark:text-dark-ink/50">ms</span>
               </p>
-              <p className="text-[10px] text-ink/40 mt-0.5">
+              <p className="text-[10px] text-ink/40 dark:text-dark-ink/40 mt-1">
                 Pool: {health.database?.pool?.idleCount || 0} idle · {health.database?.pool?.totalCount || 0} total
               </p>
             </div>
 
             {/* Active Streams */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-sage/30">
-              <div className="flex items-center gap-1.5 text-ink/50 mb-1">
-                <Radio className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="bg-canvas dark:bg-dark-surface-elevated/70 rounded-xl p-3.5 border border-border-subtle dark:border-dark-border-subtle">
+              <div className="flex items-center gap-1.5 text-ink/50 dark:text-dark-ink/50 mb-1.5">
+                <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span className="font-medium">Active SSE Streams</span>
               </div>
-              <p className="text-base font-bold text-ink">
-                {health.activeSseStreams || 0} <span className="text-xs font-normal text-ink/50">live</span>
+              <p className="text-xl font-bold tracking-tight text-ink dark:text-dark-ink">
+                {health.activeSseStreams || 0} <span className="text-xs font-normal text-ink/50 dark:text-dark-ink/50">live</span>
               </p>
-              <p className="text-[10px] text-ink/40 mt-0.5">Real-time notification sockets</p>
+              <p className="text-[10px] text-ink/40 dark:text-dark-ink/40 mt-1">Real-time telemetry broadcast</p>
             </div>
 
             {/* Memory Usage */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-sage/30">
-              <div className="flex items-center gap-1.5 text-ink/50 mb-1">
+            <div className="bg-canvas dark:bg-dark-surface-elevated/70 rounded-xl p-3.5 border border-border-subtle dark:border-dark-border-subtle">
+              <div className="flex items-center gap-1.5 text-ink/50 dark:text-dark-ink/50 mb-1.5">
                 <Cpu className="w-3.5 h-3.5 text-amber-500" />
-                <span className="font-medium">Node Memory (Heap)</span>
+                <span className="font-medium">Heap Memory</span>
               </div>
-              <p className="text-base font-bold text-ink">
-                {health.memory?.heapUsedMb || 0} <span className="text-xs font-normal text-ink/50">MB</span>
+              <p className="text-xl font-bold tracking-tight text-ink dark:text-dark-ink">
+                {health.memory?.heapUsedMb || 0} <span className="text-xs font-normal text-ink/50 dark:text-dark-ink/50">MB</span>
               </p>
-              <p className="text-[10px] text-ink/40 mt-0.5">RSS: {health.memory?.rssMb || 0} MB</p>
+              <p className="text-[10px] text-ink/40 dark:text-dark-ink/40 mt-1">RSS: {health.memory?.rssMb || 0} MB</p>
             </div>
 
             {/* Uptime */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-sage/30">
-              <div className="flex items-center gap-1.5 text-ink/50 mb-1">
+            <div className="bg-canvas dark:bg-dark-surface-elevated/70 rounded-xl p-3.5 border border-border-subtle dark:border-dark-border-subtle">
+              <div className="flex items-center gap-1.5 text-ink/50 dark:text-dark-ink/50 mb-1.5">
                 <Clock className="w-3.5 h-3.5 text-indigo-500" />
                 <span className="font-medium">Process Uptime</span>
               </div>
-              <p className="text-base font-bold text-ink">
+              <p className="text-xl font-bold tracking-tight text-ink dark:text-dark-ink">
                 {formatUptime(health.uptimeSeconds)}
               </p>
-              <p className="text-[10px] text-ink/40 mt-0.5">Node {health.nodeVersion} on {health.platform}</p>
+              <p className="text-[10px] text-ink/40 dark:text-dark-ink/40 mt-1">Node {health.nodeVersion} on {health.platform}</p>
             </div>
           </div>
         </div>
@@ -156,20 +156,20 @@ export default function AdminDashboard() {
             <BarChart labels={analytics.appointmentTrends?.labels || []} data={analytics.appointmentTrends?.data || []} />
           </Card>
           <Card title="Patient Registrations">
-            <LineChart labels={analytics.patientRegistrations?.labels || []} data={analytics.patientRegistrations?.data || []} color="#3A8D5D" />
+            <LineChart labels={analytics.patientRegistrations?.labels || []} data={analytics.patientRegistrations?.data || []} color="#2F6F68" />
           </Card>
           <Card title="Consultation Trends">
-            <LineChart labels={analytics.consultationTrends?.labels || []} data={analytics.consultationTrends?.data || []} color="#8FB9B2" />
+            <LineChart labels={analytics.consultationTrends?.labels || []} data={analytics.consultationTrends?.data || []} color="#0071E3" />
           </Card>
           <Card title="Appointment Status">
             <DonutChart labels={analytics.appointmentStatus?.labels || []} data={analytics.appointmentStatus?.data || []} />
           </Card>
           <Card title="Patient Demographics">
             <DonutChart labels={analytics.patientDemographics?.labels || []} data={analytics.patientDemographics?.data || []}
-              colors={["#2F6F68", "#8FB9B2", "#F4C95D", "#D9534F", "#3A8D5D"]} />
+              colors={["#0071E3", "#2F6F68", "#F4C95D", "#D9534F", "#3A8D5D"]} />
           </Card>
           <Card title="Doctor Workload">
-            <BarChart labels={analytics.doctorWorkload?.labels || []} data={analytics.doctorWorkload?.data || []} color="#3A8D5D" />
+            <BarChart labels={analytics.doctorWorkload?.labels || []} data={analytics.doctorWorkload?.data || []} color="#0071E3" />
           </Card>
         </div>
       )}

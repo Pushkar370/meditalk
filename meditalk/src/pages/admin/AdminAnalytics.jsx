@@ -5,6 +5,7 @@ import StatCard from "../../components/ui/StatCard";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import LoadingState from "../../components/ui/LoadingState";
 import { BarChart, LineChart, DonutChart } from "../../components/charts/Charts";
 import { useToast } from "../../context/ToastContext";
 import { useFetch } from "../../hooks/useFetch";
@@ -70,19 +71,19 @@ export default function AdminAnalytics() {
   }
 
   if (loading || !a) {
-    return <div className="py-20 text-center text-ink/50">Loading analytics & intelligence…</div>;
+    return <LoadingState />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <PageHeader
         title="Clinical & Platform Intelligence"
-        subtitle="Live metrics, demographic shifts, utilization trends, and operational KPIs."
+        subtitle="Live metrics, demographic shifts, utilization trends, and operational executive KPIs."
         action={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Button variant="outline" size="sm" onClick={exportCsv} className="flex items-center gap-1.5">
               <Download className="h-4 w-4" />
-              <span>CSV</span>
+              <span>Export CSV</span>
             </Button>
             <Button
               variant="primary"
@@ -99,35 +100,35 @@ export default function AdminAnalytics() {
       />
 
       {/* Date Range Picker Bar */}
-      <div className="card flex flex-wrap items-center justify-between gap-4 p-4">
-        <div className="flex items-center gap-2 text-sm text-ink font-semibold">
-          <Filter className="w-4 h-4 text-primary" />
-          <span>Date Range Filter</span>
+      <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-4 sm:p-5 shadow-apple-card flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 text-sm text-ink dark:text-dark-ink font-semibold">
+          <Filter className="w-4 h-4 text-accent" />
+          <span className="tracking-tight">Date Range Filter</span>
           {appliedRange.from && appliedRange.to && (
-            <span className="text-xs bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full font-medium">
+            <span className="text-xs bg-accent/10 dark:bg-accent/20 text-accent border border-accent/25 px-2.5 py-0.5 rounded-full font-medium">
               Active: {appliedRange.from} → {appliedRange.to}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink/60">From:</span>
+            <span className="text-xs text-ink/60 dark:text-dark-ink/60">From:</span>
             <input
               type="date"
               value={dateRange.from}
               onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-              className="px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              className="px-3 py-1.5 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-dark-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink/60">To:</span>
+            <span className="text-xs text-ink/60 dark:text-dark-ink/60">To:</span>
             <input
               type="date"
               value={dateRange.to}
               onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-              className="px-3 py-1.5 text-xs bg-white border border-sage/40 rounded-xl text-ink focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              className="px-3 py-1.5 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-dark-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
             />
           </div>
 
@@ -136,56 +137,60 @@ export default function AdminAnalytics() {
           </Button>
 
           {(appliedRange.from || appliedRange.to || dateRange.from || dateRange.to) && (
-            <Button size="sm" variant="ghost" onClick={handleResetFilter} title="Reset filters">
-              <RotateCcw className="w-3.5 h-3.5" />
-            </Button>
+            <button
+              onClick={handleResetFilter}
+              title="Reset filters"
+              className="p-2 rounded-xl text-ink/50 dark:text-dark-ink/50 hover:bg-canvas-subtle dark:hover:bg-dark-surface-elevated transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Phase 5 New Advanced KPI Cards */}
+      {/* Advanced Quality & Retention KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-50/80 via-white to-white p-5 shadow-card">
+        <div className="rounded-2xl border border-emerald-500/25 bg-surface dark:bg-dark-surface p-5 shadow-apple-card hover:shadow-apple-card-hover transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Doctor Acceptance Rate</span>
-            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Doctor Acceptance Rate</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-ink mt-2">
+          <div className="text-3xl font-bold tracking-tight text-ink dark:text-dark-ink mt-2">
             {a.kpis?.doctorAcceptanceRate ?? 92}%
           </div>
-          <p className="text-xs text-ink/60 mt-1">
+          <p className="text-xs text-ink/60 dark:text-dark-ink/60 mt-1">
             Percentage of booked appointments accepted or fulfilled by practitioners.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/5 via-sage/10 to-white p-5 shadow-card">
+        <div className="rounded-2xl border border-accent/25 bg-surface dark:bg-dark-surface p-5 shadow-apple-card hover:shadow-apple-card-hover transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-primary uppercase tracking-wider">Patient Retention Rate</span>
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+            <span className="text-xs font-semibold text-accent uppercase tracking-wider">Patient Retention Rate</span>
+            <div className="p-2 rounded-xl bg-accent/10 dark:bg-accent/20 text-accent">
               <HeartHandshake className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-ink mt-2">
+          <div className="text-3xl font-bold tracking-tight text-ink dark:text-dark-ink mt-2">
             {a.kpis?.patientRetentionRate ?? 85}%
           </div>
-          <p className="text-xs text-ink/60 mt-1">
+          <p className="text-xs text-ink/60 dark:text-dark-ink/60 mt-1">
             Proportion of registered patients who have returned for 2+ appointments.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-50/80 via-white to-white p-5 shadow-card">
+        <div className="rounded-2xl border border-indigo-500/25 bg-surface dark:bg-dark-surface p-5 shadow-apple-card hover:shadow-apple-card-hover transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-sky-800 uppercase tracking-wider">Avg Consultation Length</span>
-            <div className="p-2 rounded-xl bg-sky-100 text-sky-700">
+            <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Avg Consultation Length</span>
+            <div className="p-2 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-ink mt-2">
+          <div className="text-3xl font-bold tracking-tight text-ink dark:text-dark-ink mt-2">
             ~{a.kpis?.avgConsultDuration ?? 28} mins
           </div>
-          <p className="text-xs text-ink/60 mt-1">
+          <p className="text-xs text-ink/60 dark:text-dark-ink/60 mt-1">
             Average clinical contact time per telehealth or in-clinic consultation.
           </p>
         </div>
@@ -207,13 +212,13 @@ export default function AdminAnalytics() {
           <BarChart labels={a.appointmentTrends?.labels || []} data={a.appointmentTrends?.data || []} />
         </Card>
         <Card title="Monthly Patient Registrations Trend">
-          <LineChart labels={a.patientRegistrations?.labels || []} data={a.patientRegistrations?.data || []} color="#3A8D5D" />
+          <LineChart labels={a.patientRegistrations?.labels || []} data={a.patientRegistrations?.data || []} color="#2F6F68" />
         </Card>
         <Card title="Consultation Status Distribution">
           <DonutChart labels={a.appointmentStatus?.labels || []} data={a.appointmentStatus?.data || []} />
         </Card>
         <Card title="Specialty-wise Demand & Utilization">
-          <BarChart labels={a.specialtyAppointments?.labels || []} data={a.specialtyAppointments?.data || []} color="#8FB9B2" />
+          <BarChart labels={a.specialtyAppointments?.labels || []} data={a.specialtyAppointments?.data || []} color="#0071E3" />
         </Card>
       </div>
     </div>

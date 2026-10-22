@@ -12,10 +12,10 @@ export default function NotificationCenter() {
   if (loading) return <LoadingState />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-4xl mx-auto">
       <PageHeader
-        title="Notifications"
-        subtitle="Stay updated with your appointments and care."
+        title="Notification Center"
+        subtitle="Stay updated with your appointments, prescriptions, and clinical care updates."
         action={
           <Button variant="outline" size="sm" onClick={markAllRead}>
             <CheckCheck className="h-4 w-4" /> Mark all read
@@ -24,11 +24,11 @@ export default function NotificationCenter() {
       />
 
       {notifications.length === 0 ? (
-        <div className="card">
+        <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-12 shadow-apple-card">
           <EmptyState icon={Bell} title="No notifications" message="You're all caught up." />
         </div>
       ) : (
-        <div className="card divide-y divide-sage/20 p-2">
+        <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl divide-y divide-border-subtle dark:divide-dark-border-subtle p-3 shadow-apple-card">
           {notifications.map((n) => (
             <NotificationItem
               key={n.id}

@@ -151,16 +151,16 @@ export default function AdminAppointments() {
       key: "patientName",
       label: "Patient",
       render: (r) => (
-        <div>
-          <span className="font-semibold text-ink">{r.patientName}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-ink dark:text-dark-ink">{r.patientName}</span>
           {r.checkInStatus === "checked_in" && (
-            <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-              <Clock className="h-2.5 w-2.5 animate-spin" /> In Waiting Room
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+              <Clock className="h-2.5 w-2.5 animate-spin" /> Lobby
             </span>
           )}
           {r.checkInStatus === "in_room" && (
-            <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <CheckCircle2 className="h-2.5 w-2.5" /> In Consultation Room
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+              <CheckCircle2 className="h-2.5 w-2.5" /> In Consultation
             </span>
           )}
         </div>
@@ -176,14 +176,18 @@ export default function AdminAppointments() {
       label: "Actions",
       render: (r) => (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Button size="sm" variant="outline" onClick={() => setView(r)} title="View Details">
+          <button
+            onClick={() => setView(r)}
+            title="View Details"
+            className="p-1.5 rounded-lg bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:text-accent hover:border-accent/40 transition-all"
+          >
             <Eye className="h-3.5 w-3.5" />
-          </Button>
+          </button>
           {r.date === todayStr && (r.status === "upcoming" || r.status === "confirmed") && (!r.checkInStatus || r.checkInStatus === "scheduled") && (
             <Button
               size="sm"
               variant="outline"
-              className="border-primary/40 text-primary hover:bg-primary/10"
+              className="text-xs text-accent border-accent/40 hover:bg-accent/10"
               onClick={() => handleCheckIn(r.id)}
               disabled={queueActionBusy}
               title="Check in patient at clinic reception"
@@ -193,24 +197,20 @@ export default function AdminAppointments() {
           )}
           {r.status !== "cancelled" && r.status !== "completed" && (
             <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-primary-400 hover:text-primary-300 hover:bg-primary-500/10"
+              <button
                 onClick={() => openReschedule(r)}
                 title="Reschedule Appointment"
+                className="p-1.5 rounded-lg hover:bg-canvas-subtle dark:hover:bg-dark-surface-elevated text-ink/60 dark:text-dark-ink/60 hover:text-accent transition-all"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              </button>
+              <button
                 onClick={() => setCancellingAppt(r)}
                 title="Cancel Appointment"
+                className="p-1.5 rounded-lg hover:bg-danger/10 text-ink/40 dark:text-dark-ink/40 hover:text-danger transition-all"
               >
                 <XCircle className="h-3.5 w-3.5" />
-              </Button>
+              </button>
             </>
           )}
         </div>
@@ -219,36 +219,38 @@ export default function AdminAppointments() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <PageHeader
-        title="Appointment Control Centre"
-        subtitle="Review, reschedule, or cancel patient-doctor consultations platform-wide."
+        title="Consultation Central Control"
+        subtitle="Review, reschedule, or cancel patient-doctor consultations platform-wide and manage the live clinic waiting lobby."
       />
 
-      {/* Mode Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-sage/20 pb-3">
+      {/* Mode Navigation Segmented Bar */}
+      <div className="inline-flex p-1 rounded-2xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle shadow-inner-subtle overflow-x-auto max-w-full">
         <button
           onClick={() => setActiveTab("directory")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
             activeTab === "directory"
-              ? "bg-primary text-white shadow-sm"
-              : "bg-white text-ink/70 border border-sage/30 hover:bg-sage/10"
+              ? "bg-surface dark:bg-dark-surface text-ink dark:text-dark-ink shadow-apple-card"
+              : "text-ink/60 dark:text-dark-ink/60 hover:text-ink dark:hover:text-dark-ink"
           }`}
         >
-          <CalendarDays className="h-4 w-4" /> Appointments Directory ({totalCount})
+          <CalendarDays className="h-4 w-4 text-accent" />
+          <span>All Consultations ({totalCount})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("queue")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
             activeTab === "queue"
-              ? "bg-primary text-white shadow-sm"
-              : "bg-white text-ink/70 border border-sage/30 hover:bg-sage/10"
+              ? "bg-surface dark:bg-dark-surface text-ink dark:text-dark-ink shadow-apple-card"
+              : "text-ink/60 dark:text-dark-ink/60 hover:text-ink dark:hover:text-dark-ink"
           }`}
         >
-          <Users className="h-4 w-4" /> Clinic Reception &amp; Today's Queue
+          <Users className="h-4 w-4 text-accent" />
+          <span>Reception &amp; Lobby Queue</span>
           {waitingPatients.length > 0 && (
-            <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 animate-pulse">
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">
               {waitingPatients.length} Waiting
             </span>
           )}
@@ -256,30 +258,30 @@ export default function AdminAppointments() {
       </div>
 
       {activeTab === "queue" ? (
-        /* ─── CW-6: Clinic Reception & Waiting Room Queue Management ──────── */
+        /* ─── Clinic Reception & Waiting Room Queue Management ──────── */
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="card p-4 bg-white border border-sage/30">
-              <span className="text-xs font-semibold text-ink/60 uppercase">Today's Visits</span>
-              <p className="text-2xl font-bold text-ink mt-1">{todayQueue.length}</p>
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-4 shadow-apple-card">
+              <span className="text-[11px] font-semibold text-ink/50 dark:text-dark-ink/50 uppercase tracking-wider">Today's Visits</span>
+              <p className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{todayQueue.length}</p>
             </div>
-            <div className="card p-4 bg-amber-50/70 border border-amber-200">
-              <span className="text-xs font-semibold text-amber-700 uppercase">Waiting in Lobby</span>
-              <p className="text-2xl font-bold text-amber-900 mt-1">{waitingPatients.length}</p>
+            <div className="bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 rounded-2xl p-4 shadow-apple-card">
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Waiting in Lobby</span>
+              <p className="text-2xl font-bold tracking-tight text-amber-900 dark:text-amber-200 mt-1">{waitingPatients.length}</p>
             </div>
-            <div className="card p-4 bg-emerald-50/70 border border-emerald-200">
-              <span className="text-xs font-semibold text-emerald-700 uppercase">In Consultation</span>
-              <p className="text-2xl font-bold text-emerald-900 mt-1">{inRoomPatients.length}</p>
+            <div className="bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 rounded-2xl p-4 shadow-apple-card">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">In Consultation</span>
+              <p className="text-2xl font-bold tracking-tight text-emerald-900 dark:text-emerald-200 mt-1">{inRoomPatients.length}</p>
             </div>
-            <div className="card p-4 bg-sage/20 border border-sage/40">
-              <span className="text-xs font-semibold text-ink/60 uppercase">Completed Today</span>
-              <p className="text-2xl font-bold text-ink mt-1">{completedToday.length}</p>
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-4 shadow-apple-card">
+              <span className="text-[11px] font-semibold text-ink/50 dark:text-dark-ink/50 uppercase tracking-wider">Completed Today</span>
+              <p className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{completedToday.length}</p>
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-ink text-base flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Live Clinic Floor Queue
+            <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight flex items-center gap-2">
+              <Users className="h-5 w-5 text-accent" /> Live Clinic Floor Queue
             </h3>
             <Button
               size="sm"
@@ -295,11 +297,11 @@ export default function AdminAppointments() {
           </div>
 
           {todayQueue.length === 0 ? (
-            <div className="card">
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
               <EmptyState
                 icon={CalendarDays}
                 title="No appointments scheduled for today"
-                description="Patients scheduled for today will automatically populate here for check-in and queue triage."
+                message="Patients scheduled for today will automatically populate here for check-in and queue triage."
               />
             </div>
           ) : (
@@ -313,51 +315,51 @@ export default function AdminAppointments() {
                 return (
                   <div
                     key={item.id}
-                    className={`card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition border ${
+                    className={`rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all border shadow-apple-card ${
                       isWaiting
-                        ? "border-amber-300 bg-amber-50/30 shadow-sm"
+                        ? "border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10"
                         : isInRoom
-                        ? "border-emerald-300 bg-emerald-50/30 shadow-sm"
-                        : "border-sage/30 bg-white"
+                        ? "border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10"
+                        : "border-border-subtle dark:border-dark-border-subtle bg-surface dark:bg-dark-surface"
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 mt-0.5 ${
-                        isWaiting ? "bg-amber-100 text-amber-800 border border-amber-300" :
-                        isInRoom ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
-                        "bg-sage/20 text-ink/60"
+                    <div className="flex items-start gap-3.5">
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm ${
+                        isWaiting ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30" :
+                        isInRoom ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30" :
+                        "bg-canvas dark:bg-dark-surface-elevated text-ink/70 dark:text-dark-ink/70 border border-border-subtle dark:border-dark-border-subtle"
                       }`}>
                         {isWaiting ? `#${idx + 1}` : isInRoom ? "ROOM" : `${item.time}`}
                       </div>
 
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-ink text-base">{item.patientName}</h4>
-                          <span className="text-xs text-ink/50">→ Dr. {item.doctorName}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-sage/20 text-ink/60 font-medium">
+                          <h4 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">{item.patientName}</h4>
+                          <span className="text-xs text-ink/50 dark:text-dark-ink/50">→ Dr. {item.doctorName}</span>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-canvas dark:bg-dark-surface-elevated text-ink/60 dark:text-dark-ink/60 border border-border-subtle dark:border-dark-border-subtle font-medium">
                             {item.type}
                           </span>
                           {isWaiting && (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                               Waiting ~{item.waitMinutes ?? 0}m
                             </span>
                           )}
                           {isInRoom && (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                               In Consultation
                             </span>
                           )}
                           {isDone && (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sage/30 text-ink/70">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-canvas dark:bg-dark-surface-elevated text-ink/70 dark:text-dark-ink/70">
                               Completed
                             </span>
                           )}
                         </div>
 
-                        <p className="text-xs text-ink/70 mt-1">
+                        <p className="text-xs text-ink/70 dark:text-dark-ink/70 mt-1">
                           Reason: <span className="italic">{item.reason || "General visit"}</span>
                           {item.checkedInAt && (
-                            <span className="ml-2 text-ink/40">
+                            <span className="ml-2 text-ink/40 dark:text-dark-ink/40">
                               · Arrived at {new Date(item.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           )}
@@ -369,11 +371,10 @@ export default function AdminAppointments() {
                       {isScheduled && (
                         <Button
                           size="sm"
-                          variant="primary"
                           loading={queueActionBusy}
                           onClick={() => handleCheckIn(item.id)}
                         >
-                          <UserCheck className="h-3.5 w-3.5" /> Check In Patient
+                          <UserCheck className="h-3.5 w-3.5" /> Check In
                         </Button>
                       )}
 
@@ -403,7 +404,7 @@ export default function AdminAppointments() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-emerald-400 text-emerald-800 hover:bg-emerald-100"
+                          className="border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
                           loading={queueActionBusy}
                           onClick={() => handleQueueStatus(item.id, "completed")}
                         >
@@ -428,74 +429,74 @@ export default function AdminAppointments() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div
               onClick={() => setFilter({ ...filter, status: "" })}
-              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+              className={`cursor-pointer rounded-2xl p-4 border transition-all ${
                 filter.status === ""
-                  ? "bg-primary/10 border-primary text-primary shadow-sm"
-                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+                  ? "bg-accent/10 dark:bg-accent/20 border-accent text-accent shadow-sm"
+                  : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-accent/40 shadow-apple-card"
               }`}
             >
-              <div className="text-xs font-medium">All Consultations</div>
-              <div className="text-xl font-bold text-ink mt-1">{totalCount}</div>
+              <div className="text-xs font-medium text-ink/60 dark:text-dark-ink/60">All Consultations</div>
+              <div className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{totalCount}</div>
             </div>
 
             <div
               onClick={() => setFilter({ ...filter, date: todayStr })}
-              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+              className={`cursor-pointer rounded-2xl p-4 border transition-all ${
                 filter.date === todayStr
-                  ? "bg-sky-50 border-sky-300 text-sky-800 shadow-sm"
-                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+                  ? "bg-accent/10 dark:bg-accent/20 border-accent text-accent shadow-sm"
+                  : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-accent/40 shadow-apple-card"
               }`}
             >
-              <div className="text-xs font-medium flex items-center justify-between">
+              <div className="text-xs font-medium text-ink/60 dark:text-dark-ink/60 flex items-center justify-between">
                 <span>Today</span>
-                <Calendar className="w-3.5 h-3.5 text-sky-600" />
+                <Calendar className="w-3.5 h-3.5 text-accent" />
               </div>
-              <div className="text-xl font-bold text-ink mt-1">{todayCount}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{todayCount}</div>
             </div>
 
             <div
               onClick={() => setFilter({ ...filter, status: "upcoming" })}
-              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+              className={`cursor-pointer rounded-2xl p-4 border transition-all ${
                 filter.status === "upcoming"
-                  ? "bg-amber-50 border-amber-300 text-amber-800 shadow-sm"
-                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+                  ? "bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 shadow-sm"
+                  : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-accent/40 shadow-apple-card"
               }`}
             >
-              <div className="text-xs font-medium flex items-center justify-between">
-                <span>Upcoming / Confirmed</span>
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <div className="text-xs font-medium text-ink/60 dark:text-dark-ink/60 flex items-center justify-between">
+                <span>Upcoming</span>
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               </div>
-              <div className="text-xl font-bold text-ink mt-1">{upcomingCount}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{upcomingCount}</div>
             </div>
 
             <div
               onClick={() => setFilter({ ...filter, status: "completed" })}
-              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+              className={`cursor-pointer rounded-2xl p-4 border transition-all ${
                 filter.status === "completed"
-                  ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm"
-                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+                  ? "bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm"
+                  : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-accent/40 shadow-apple-card"
               }`}
             >
-              <div className="text-xs font-medium flex items-center justify-between">
+              <div className="text-xs font-medium text-ink/60 dark:text-dark-ink/60 flex items-center justify-between">
                 <span>Completed</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div className="text-xl font-bold text-ink mt-1">{completedCount}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{completedCount}</div>
             </div>
 
             <div
               onClick={() => setFilter({ ...filter, status: "cancelled" })}
-              className={`cursor-pointer rounded-2xl p-3.5 border transition-all ${
+              className={`cursor-pointer rounded-2xl p-4 border transition-all ${
                 filter.status === "cancelled"
-                  ? "bg-red-50 border-red-300 text-red-800 shadow-sm"
-                  : "bg-white border-sage/30 text-ink/70 hover:border-primary/40 hover:bg-sage/5 shadow-card"
+                  ? "bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300 shadow-sm"
+                  : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-accent/40 shadow-apple-card"
               }`}
             >
-              <div className="text-xs font-medium flex items-center justify-between">
+              <div className="text-xs font-medium text-ink/60 dark:text-dark-ink/60 flex items-center justify-between">
                 <span>Cancelled</span>
                 <XCircle className="w-3.5 h-3.5 text-danger" />
               </div>
-              <div className="text-xl font-bold text-ink mt-1">{cancelledCount}</div>
+              <div className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink mt-1">{cancelledCount}</div>
             </div>
           </div>
 
@@ -520,7 +521,7 @@ export default function AdminAppointments() {
             </Select>
           </div>
 
-          <div className="card">
+          <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
             {rows.length === 0 ? (
               <EmptyState icon={CalendarDays} title="No appointments match filters" />
             ) : (
@@ -581,7 +582,7 @@ export default function AdminAppointments() {
             <Row label="Status" value={<StatusBadge status={view.status} />} />
             {view.reason && <Row label="Booking Reason" value={view.reason} />}
             {view.cancel_reason && (
-              <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-300 text-xs">
+              <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-rose-700 dark:text-rose-300 text-xs">
                 <strong>Cancellation Reason:</strong> {view.cancel_reason}
               </div>
             )}
@@ -597,8 +598,8 @@ export default function AdminAppointments() {
           title={`Cancel Appointment #${cancellingAppt.id}`}
         >
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
-              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-400 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-sm">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div>
                 Cancelling appointment between <strong>{cancellingAppt.patientName}</strong> and{" "}
                 <strong>{cancellingAppt.doctorName}</strong> on {cancellingAppt.date} at {cancellingAppt.time}.
@@ -607,7 +608,7 @@ export default function AdminAppointments() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-ink/80 mb-1.5">
+              <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">
                 Cancellation Reason / Note to Parties
               </label>
               <textarea
@@ -615,7 +616,7 @@ export default function AdminAppointments() {
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 placeholder="e.g. Doctor emergency leave or platform schedule adjustment."
-                className="input-base"
+                className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl p-3 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
               />
             </div>
 
@@ -643,14 +644,14 @@ export default function AdminAppointments() {
           title={`Reschedule Appointment #${reschedulingAppt.id}`}
         >
           <div className="space-y-4">
-            <p className="text-xs text-ink/60">
-              Rescheduling appointment for <strong className="text-ink">{reschedulingAppt.patientName}</strong> with{" "}
-              <strong className="text-ink">{reschedulingAppt.doctorName}</strong>.
+            <p className="text-xs text-ink/60 dark:text-dark-ink/60">
+              Rescheduling appointment for <strong className="text-ink dark:text-dark-ink">{reschedulingAppt.patientName}</strong> with{" "}
+              <strong className="text-ink dark:text-dark-ink">{reschedulingAppt.doctorName}</strong>.
             </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-ink/80 mb-1">New Date</label>
+                <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1">New Date</label>
                 <Input
                   type="date"
                   value={rescheduleForm.date}
@@ -658,7 +659,7 @@ export default function AdminAppointments() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-ink/80 mb-1">New Time</label>
+                <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1">New Time</label>
                 <Input
                   type="time"
                   value={rescheduleForm.time}
@@ -668,7 +669,7 @@ export default function AdminAppointments() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-ink/80 mb-1.5">
+              <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">
                 Reason for Rescheduling (Optional)
               </label>
               <textarea
@@ -676,7 +677,7 @@ export default function AdminAppointments() {
                 value={rescheduleForm.reason}
                 onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
                 placeholder="e.g. Requested by doctor or administrative timetable shift."
-                className="input-base"
+                className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl p-3 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
               />
             </div>
 
@@ -701,9 +702,9 @@ export default function AdminAppointments() {
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between gap-3 border-b border-sage/20 pb-2">
-      <span className="text-ink/50 text-xs">{label}</span>
-      <span className="font-medium text-ink text-xs text-right">{value}</span>
+    <div className="flex justify-between gap-3 border-b border-border-subtle dark:border-dark-border-subtle pb-2.5">
+      <span className="text-ink/50 dark:text-dark-ink/50 text-xs">{label}</span>
+      <span className="font-medium text-ink dark:text-dark-ink text-xs text-right">{value}</span>
     </div>
   );
 }

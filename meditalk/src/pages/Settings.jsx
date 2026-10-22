@@ -22,8 +22,8 @@ import { exportPatientData, withdrawConsent } from "../services/patientService";
 const SECTIONS = [
   { key: "account", label: "Account", icon: User },
   { key: "password", label: "Password", icon: Lock },
-  { key: "notifications", label: "Notification Preferences", icon: Bell },
-  { key: "appointments", label: "Appointment Preferences", icon: CalendarClock },
+  { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "appointments", label: "Care Preferences", icon: CalendarClock },
   { key: "security", label: "Privacy & Security", icon: Shield },
 ];
 
@@ -218,25 +218,29 @@ export default function Settings() {
   const isMobileDevice = typeof navigator !== "undefined" && /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" subtitle="Manage your account profile, communication, and security." />
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <PageHeader
+        title="Settings & Privacy"
+        subtitle="Manage your profile credentials, notification delivery preferences, active sessions, and privacy rights."
+      />
 
-      <div className="grid lg:grid-cols-[240px_1fr] gap-6">
-        <nav className="space-y-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+        <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-2 lg:pb-0">
           {SECTIONS.map((s) => {
             const Icon = s.icon;
+            const active = section === s.key;
             return (
               <button
                 key={s.key}
                 onClick={() => setSection(s.key)}
-                className={
-                  "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition " +
-                  (section === s.key
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-ink/70 hover:bg-sage/15 hover:text-ink")
-                }
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  active
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-ink/70 dark:text-dark-ink/70 hover:bg-canvas dark:hover:bg-dark-surface-elevated hover:text-ink dark:hover:text-dark-ink"
+                }`}
               >
-                <Icon className="h-4 w-4" /> {s.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{s.label}</span>
               </button>
             );
           })}
@@ -245,7 +249,10 @@ export default function Settings() {
         <div className="space-y-6">
           {/* Account Section */}
           {section === "account" && (
-            <Card title="Account Information">
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-5">
+              <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight border-b border-border-subtle dark:border-dark-border-subtle pb-3">
+                Account Information
+              </h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Input
                   label="Full Name"
@@ -271,17 +278,20 @@ export default function Settings() {
                   disabled
                 />
               </div>
-              <div className="mt-5 flex justify-end">
+              <div className="pt-2 flex justify-end">
                 <Button onClick={handleSaveAccount} loading={savingAccount}>
                   Save Profile Changes
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Password Section */}
           {section === "password" && (
-            <Card title="Change Account Password">
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-5">
+              <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight border-b border-border-subtle dark:border-dark-border-subtle pb-3">
+                Change Account Password
+              </h3>
               <div className="space-y-4 max-w-md">
                 <Input
                   label="Current Password"
@@ -306,39 +316,45 @@ export default function Settings() {
                   Update Password
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Notifications Section */}
           {section === "notifications" && (
-            <Card title="Notification Preferences">
-              <p className="text-xs text-ink/60 mb-4">
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-4">
+              <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight border-b border-border-subtle dark:border-dark-border-subtle pb-3">
+                Notification Preferences
+              </h3>
+              <p className="text-xs text-ink/60 dark:text-dark-ink/60">
                 Control which clinical alerts and appointment updates are sent to your verified channels.
               </p>
-              <div className="divide-y divide-sage/20 space-y-2">
+              <div className="divide-y divide-border-subtle dark:divide-dark-border-subtle pt-2">
                 {notifDefs.map((p) => (
-                  <label key={p.key} className="flex items-center justify-between gap-3 py-3 cursor-pointer">
+                  <label key={p.key} className="flex items-center justify-between gap-4 py-3.5 cursor-pointer">
                     <div>
-                      <span className="text-sm font-medium text-ink block">{p.label}</span>
-                      <span className="text-xs text-ink/50">Dispatched via in-app banner and verified contacts</span>
+                      <span className="text-xs font-semibold text-ink dark:text-dark-ink block">{p.label}</span>
+                      <span className="text-[11px] text-ink/50 dark:text-dark-ink/50">Dispatched via in-app banner and verified contacts</span>
                     </div>
                     <Toggle on={!!prefState[p.key]} onClick={() => toggleNotif(p.key)} />
                   </label>
                 ))}
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Appointments Preferences */}
           {section === "appointments" && (
-            <Card title="Appointment Preferences">
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-5">
+              <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight border-b border-border-subtle dark:border-dark-border-subtle pb-3">
+                Care &amp; Scheduling Preferences
+              </h3>
               <div className="space-y-4 max-w-lg">
                 <div>
-                  <label className="block text-xs font-semibold text-ink mb-1.5">Preferred Consultation Time Window</label>
+                  <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">Preferred Consultation Time Window</label>
                   <select
                     value={apptPrefs.preferredTime}
                     onChange={(e) => setApptPrefs({ ...apptPrefs, preferredTime: e.target.value })}
-                    className="w-full text-xs rounded-xl border border-sage/40 bg-white p-2.5 text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs rounded-xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle p-2.5 text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
                   >
                     <option value="Morning (09:00 AM - 01:00 PM)">Morning (09:00 AM - 01:00 PM)</option>
                     <option value="Afternoon (02:00 PM - 05:00 PM)">Afternoon (02:00 PM - 05:00 PM)</option>
@@ -346,12 +362,12 @@ export default function Settings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-ink mb-1.5">Preferred Clinic / Care Facility</label>
+                  <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">Preferred Clinic / Care Facility</label>
                   <input
                     type="text"
                     value={apptPrefs.preferredBranch}
                     onChange={(e) => setApptPrefs({ ...apptPrefs, preferredBranch: e.target.value })}
-                    className="w-full text-xs rounded-xl border border-sage/40 bg-white p-2.5 text-ink focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs rounded-xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle p-2.5 text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
                   />
                 </div>
                 <div className="pt-2">
@@ -360,53 +376,58 @@ export default function Settings() {
                   </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Security & Sessions */}
           {section === "security" && (
-            <Card title={
-              <span className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> Privacy & Active Sessions</span>
-            }>
-              <div className="space-y-5">
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
-                  <ShieldCheck className="h-5 w-5 text-emerald-700 shrink-0 mt-0.5" />
+            <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-border-subtle dark:border-dark-border-subtle pb-3">
+                <ShieldCheck className="h-5 w-5 text-accent" />
+                <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">
+                  Privacy &amp; Active Sessions
+                </h3>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 flex items-start gap-3.5">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-bold text-emerald-950">Encrypted JWT Session Protection</p>
-                    <p className="text-xs text-emerald-800/80 mt-0.5">
+                    <p className="text-xs font-bold text-emerald-950 dark:text-emerald-100">Encrypted JWT Session Protection</p>
+                    <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80 mt-0.5 leading-relaxed">
                       Your clinical communications and electronic health records are encrypted at rest with AES-256 and authenticated with role-scoped JSON Web Tokens.
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-ink mb-2">Current Active Device Session</p>
-                  <div className="flex items-center gap-3 rounded-xl bg-sage/10 border border-sage/25 p-3.5 text-xs text-ink">
-                    <div className="h-9 w-9 rounded-lg bg-white border border-sage/30 flex items-center justify-center text-primary shadow-sm">
-                      {isMobileDevice ? <Smartphone className="h-4 w-4" /> : <Laptop className="h-4 w-4" />}
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink/50 dark:text-dark-ink/50 mb-2">Current Active Device Session</p>
+                  <div className="flex items-center gap-3.5 rounded-xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle p-4 text-xs text-ink dark:text-dark-ink">
+                    <div className="h-10 w-10 rounded-xl bg-accent/10 dark:bg-accent/20 border border-accent/20 flex items-center justify-center text-accent shadow-sm shrink-0">
+                      {isMobileDevice ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-ink">
+                      <p className="font-semibold text-ink dark:text-dark-ink text-xs">
                         {isMobileDevice ? "Mobile Browser Session" : "Desktop Workstation Session"}
                       </p>
-                      <p className="text-ink/50 text-[11px] mt-0.5">
+                      <p className="text-ink/50 dark:text-dark-ink/50 text-[11px] mt-0.5">
                         Authenticated as <strong>{user?.name || "User"}</strong> ({user?.role}) · Active Now
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Verified
                     </span>
                   </div>
                 </div>
 
                 {/* Health Data Portability (Export) */}
-                <div className="pt-4 border-t border-sage/20">
-                  <div className="flex items-start justify-between gap-4">
+                <div className="pt-4 border-t border-border-subtle dark:border-dark-border-subtle">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div>
-                      <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
-                        <FileJson className="h-4 w-4 text-primary" /> Export My Health Data (GDPR & HIPAA)
+                      <h4 className="text-xs font-bold text-ink dark:text-dark-ink flex items-center gap-1.5">
+                        <FileJson className="h-4 w-4 text-accent" /> Export Health Records (GDPR &amp; HIPAA)
                       </h4>
-                      <p className="text-xs text-ink/60 mt-1 max-w-lg">
+                      <p className="text-xs text-ink/60 dark:text-dark-ink/60 mt-1 max-w-lg leading-relaxed">
                         Download a complete, machine-readable JSON archive of your personal health records, including demographics, appointments, doctor consultation notes, prescriptions, and vital statistics.
                       </p>
                     </div>
@@ -422,34 +443,34 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* Patient Danger Zone: Withdraw Consent & Delete Account */}
+                {/* Patient Danger Zone */}
                 {user?.role === "patient" && (
-                  <div className="pt-5 border-t border-rose-200">
-                    <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/70 p-4 space-y-3">
+                  <div className="pt-5 border-t border-border-subtle dark:border-dark-border-subtle">
+                    <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/10 p-5 space-y-3">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-rose-600" />
-                        <h4 className="text-sm font-bold text-rose-950">Danger Zone: Withdraw Medical Consent & Delete Account</h4>
+                        <AlertTriangle className="h-5 w-5 text-danger" />
+                        <h4 className="text-xs font-bold text-rose-950 dark:text-rose-200">Danger Zone: Withdraw Medical Consent &amp; Delete Account</h4>
                       </div>
-                      <p className="text-xs text-rose-900/90 leading-relaxed">
+                      <p className="text-xs text-rose-900/80 dark:text-rose-200/80 leading-relaxed">
                         Withdrawing your medical consent revokes MediTalk's authorization to process your healthcare records. In compliance with data privacy regulations (GDPR Article 17 / HIPAA Right to Erasure), your account will be permanently anonymized, future appointments cancelled, active login tokens revoked, and your session terminated.
                       </p>
-                      <div className="pt-1 flex items-center justify-between">
-                        <div className="text-[11px] text-rose-800 font-medium">
-                          Status: <span className="font-bold text-emerald-700">Consent Active (v1.0)</span>
+                      <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="text-[11px] text-rose-800 dark:text-rose-300 font-medium">
+                          Status: <span className="font-bold text-emerald-600 dark:text-emerald-400">Consent Active (v1.0)</span>
                         </div>
                         <Button
                           variant="danger"
                           size="sm"
                           onClick={() => setWithdrawModalOpen(true)}
                         >
-                          <UserX className="h-3.5 w-3.5" /> Withdraw Consent & Delete Account
+                          <UserX className="h-3.5 w-3.5" /> Withdraw Consent &amp; Delete Account
                         </Button>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Withdraw Consent Confirmation Modal */}
@@ -474,12 +495,12 @@ function Toggle({ on, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={
-        "relative h-6 w-11 rounded-full transition-colors focus:outline-none " + (on ? "bg-primary" : "bg-sage/40")
-      }
+      className={`relative h-6 w-11 rounded-full transition-colors focus:outline-none ${
+        on ? "bg-accent" : "bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle"
+      }`}
       aria-pressed={on}
     >
-      <span className={"absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all shadow-sm " + (on ? "left-5" : "left-0.5")} />
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all shadow-sm ${on ? "left-5" : "left-0.5"}`} />
     </button>
   );
 }

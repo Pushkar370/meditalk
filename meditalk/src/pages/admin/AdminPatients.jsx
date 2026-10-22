@@ -101,41 +101,75 @@ export default function AdminPatients() {
       key: "actions",
       label: "Actions",
       render: (r) => (
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => setViewingPatient(r)} title="View Patient Details">
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <button
+            onClick={() => setViewingPatient(r)}
+            title="View Patient Details"
+            className="p-1.5 rounded-lg bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:text-accent hover:border-accent/40 transition-all"
+          >
             <Eye className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => openEdit(r)} title="Edit Patient Details">
+          </button>
+          <button
+            onClick={() => openEdit(r)}
+            title="Edit Patient Details"
+            className="p-1.5 rounded-lg hover:bg-canvas-subtle dark:hover:bg-dark-surface-elevated text-ink/60 dark:text-dark-ink/60 hover:text-ink dark:hover:text-dark-ink transition-all"
+          >
             <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button size="sm" variant={r.status === "active" ? "secondary" : "success"} onClick={() => setToggle({ id: r.id, next: r.status === "active" ? "inactive" : "active" })} title={r.status === "active" ? "Deactivate" : "Activate"}>
+          </button>
+          <button
+            onClick={() => setToggle({ id: r.id, next: r.status === "active" ? "inactive" : "active" })}
+            title={r.status === "active" ? "Deactivate" : "Activate"}
+            className={`p-1.5 rounded-lg transition-all ${
+              r.status === "active"
+                ? "text-ink/40 dark:text-dark-ink/40 hover:text-danger hover:bg-danger/10"
+                : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+            }`}
+          >
             <Power className="h-3.5 w-3.5" />
-          </Button>
+          </button>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Patients" subtitle="Manage all registered patients."
-        action={<Button onClick={openAdd}><Plus className="h-4 w-4" /> Add Patient</Button>} />
+    <div className="space-y-8 max-w-7xl mx-auto">
+      <PageHeader
+        title="Patient Master Registry"
+        subtitle="Manage all registered clinic patients, demographic records, and portal account statuses."
+        action={
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" /> Add Patient
+          </Button>
+        }
+      />
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by name or ID..." className="flex-1" />
-        <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="sm:w-44">
-          <option value="All">All Status</option>
+        <SearchBar
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          placeholder="Search by patient name or patient ID..."
+          className="flex-1"
+        />
+        <Select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="sm:w-44"
+        >
+          <option value="All">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </Select>
       </div>
 
-      <div className="card">
-        {rows.length === 0 ? <EmptyState icon={Users} title="No patients found" /> : (
-          <>
+      <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
+        {rows.length === 0 ? (
+          <EmptyState icon={Users} title="No patients found" message="No patient profiles match the query or filter criteria." />
+        ) : (
+          <div className="space-y-4">
             <DataTable columns={columns} data={pageRows} />
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-          </>
+          </div>
         )}
       </div>
 
@@ -143,7 +177,7 @@ export default function AdminPatients() {
       <Modal
         open={!!viewingPatient}
         onClose={() => setViewingPatient(null)}
-        title="Patient Details"
+        title="Patient Profile & History"
         size="md"
         footer={
           <div className="flex justify-between w-full">
@@ -164,55 +198,55 @@ export default function AdminPatients() {
       >
         {viewingPatient && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3.5 p-4 rounded-xl bg-sage/10 border border-sage/25">
-              <div className="h-12 w-12 rounded-xl bg-white border border-sage/30 flex items-center justify-center font-bold text-primary text-lg shadow-sm">
+            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle">
+              <div className="h-12 w-12 rounded-xl bg-accent/10 dark:bg-accent/20 border border-accent/20 flex items-center justify-center font-bold text-accent text-lg shadow-sm">
                 {viewingPatient.name?.charAt(0) || "P"}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-ink text-base">{viewingPatient.name}</h4>
-                <p className="text-xs text-ink/60">ID: <span className="font-mono">{viewingPatient.id}</span> · {viewingPatient.gender || "—"}</p>
-                <p className="text-[11px] text-ink/50 mt-0.5">Registered: {formatDate(viewingPatient.registeredAt)}</p>
+                <h4 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">{viewingPatient.name}</h4>
+                <p className="text-xs text-ink/60 dark:text-dark-ink/60">ID: <span className="font-mono">{viewingPatient.id}</span> · {viewingPatient.gender || "—"}</p>
+                <p className="text-[11px] text-ink/50 dark:text-dark-ink/50 mt-0.5">Registered: {formatDate(viewingPatient.registeredAt)}</p>
               </div>
               <StatusBadge status={viewingPatient.status} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-white border border-sage/30 text-xs">
+            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle text-xs">
               <div>
-                <span className="text-ink/50 block">Email Address</span>
-                <span className="font-medium text-ink break-all">{viewingPatient.email || "—"}</span>
+                <span className="text-ink/50 dark:text-dark-ink/50 block mb-0.5">Email Address</span>
+                <span className="font-medium text-ink dark:text-dark-ink break-all">{viewingPatient.email || "—"}</span>
               </div>
               <div>
-                <span className="text-ink/50 block">Phone</span>
-                <span className="font-medium text-ink">{viewingPatient.phone || "—"}</span>
+                <span className="text-ink/50 dark:text-dark-ink/50 block mb-0.5">Phone Number</span>
+                <span className="font-medium text-ink dark:text-dark-ink">{viewingPatient.phone || "—"}</span>
               </div>
-              <div className="pt-2 border-t border-sage/20">
-                <span className="text-ink/50 block">Date of Birth / Age</span>
-                <span className="font-medium text-ink">{viewingPatient.dob ? `${viewingPatient.dob} (${ageFrom(viewingPatient.dob)} yrs)` : "—"}</span>
+              <div className="pt-2 border-t border-border-subtle dark:border-dark-border-subtle">
+                <span className="text-ink/50 dark:text-dark-ink/50 block mb-0.5">Date of Birth / Age</span>
+                <span className="font-medium text-ink dark:text-dark-ink">{viewingPatient.dob ? `${viewingPatient.dob} (${ageFrom(viewingPatient.dob)} yrs)` : "—"}</span>
               </div>
-              <div className="pt-2 border-t border-sage/20">
-                <span className="text-ink/50 block">Blood Group</span>
+              <div className="pt-2 border-t border-border-subtle dark:border-dark-border-subtle">
+                <span className="text-ink/50 dark:text-dark-ink/50 block mb-0.5">Blood Group</span>
                 <span className="font-semibold text-danger">{viewingPatient.bloodGroup || viewingPatient.blood_group || "—"}</span>
               </div>
               {viewingPatient.address && (
-                <div className="col-span-2 pt-2 border-t border-sage/20">
-                  <span className="text-ink/50 block">Residential Address</span>
-                  <span className="font-medium text-ink">{viewingPatient.address}</span>
+                <div className="col-span-2 pt-2 border-t border-border-subtle dark:border-dark-border-subtle">
+                  <span className="text-ink/50 dark:text-dark-ink/50 block mb-0.5">Residential Address</span>
+                  <span className="font-medium text-ink dark:text-dark-ink">{viewingPatient.address}</span>
                 </div>
               )}
             </div>
 
-            <div className="p-3.5 rounded-xl bg-surface border border-sage/20 text-xs space-y-2">
+            <div className="p-4 rounded-2xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle text-xs space-y-2.5">
               <div>
-                <span className="font-semibold text-ink/70 block mb-1">Recorded Allergies</span>
-                <p className="text-ink/80">
+                <span className="font-semibold text-ink/70 dark:text-dark-ink/70 block mb-1">Recorded Allergies</span>
+                <p className="text-ink/80 dark:text-dark-ink/80">
                   {Array.isArray(viewingPatient.allergies) && viewingPatient.allergies.length > 0
                     ? viewingPatient.allergies.join(", ")
                     : "No known drug/food allergies recorded."}
                 </p>
               </div>
               <div>
-                <span className="font-semibold text-ink/70 block mb-1">Chronic Conditions</span>
-                <p className="text-ink/80">
+                <span className="font-semibold text-ink/70 dark:text-dark-ink/70 block mb-1">Chronic Conditions</span>
+                <p className="text-ink/80 dark:text-dark-ink/80">
                   {Array.isArray(viewingPatient.chronicConditions) && viewingPatient.chronicConditions.length > 0
                     ? viewingPatient.chronicConditions.join(", ")
                     : "No chronic health conditions on file."}
@@ -223,27 +257,42 @@ export default function AdminPatients() {
         )}
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? "Edit Patient" : "Add Patient"} size="lg"
-        footer={<><Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button><Button onClick={save} loading={saving}>Save</Button></>}>
+      {/* Edit/Add Patient Modal */}
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={editing?.id ? "Edit Patient Profile" : "Register New Patient"}
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
+            <Button onClick={save} loading={saving}>Save</Button>
+          </>
+        }
+      >
         <div className="grid sm:grid-cols-2 gap-4">
-          <Input label="Full name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="Email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Phone" value={form.phone || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <Input label="Date of birth" type="date" value={form.dob || ""} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
+          <Input label="Full Name" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label="Email Address" type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Input label="Phone Number" value={form.phone || ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Input label="Date of Birth" type="date" value={form.dob || ""} onChange={(e) => setForm({ ...form, dob: e.target.value })} />
           <Select label="Gender" value={form.gender || ""} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-            <option value="">Select</option>
+            <option value="">Select Gender</option>
             {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
           </Select>
-          <Input label="Blood group" value={form.bloodGroup || ""} onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })} />
+          <Input label="Blood Group" placeholder="e.g. O+, A-" value={form.bloodGroup || ""} onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })} />
           <div className="sm:col-span-2">
-            <Input label="Address" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <Input label="Residential Address" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
         </div>
       </Modal>
 
-      <ConfirmationModal open={!!toggle} onClose={() => setToggle(null)} onConfirm={confirmToggle}
+      <ConfirmationModal
+        open={!!toggle}
+        onClose={() => setToggle(null)}
+        onConfirm={confirmToggle}
         title={toggle?.next === "active" ? "Activate patient?" : "Deactivate patient?"}
-        message={`Are you sure you want to ${toggle?.next === "active" ? "activate" : "deactivate"} this patient?`} />
+        message={`Are you sure you want to ${toggle?.next === "active" ? "activate" : "deactivate"} this patient?`}
+      />
     </div>
   );
 }
