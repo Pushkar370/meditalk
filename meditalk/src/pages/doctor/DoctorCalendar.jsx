@@ -201,133 +201,144 @@ export default function DoctorCalendar() {
   const selectedDayLeave = selectedDateStr ? unavailMap[selectedDateStr] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <PageHeader
-        title="My Schedule & Availability"
-        subtitle="Configure your regular hours, block vacation/leave days, and track appointments."
+        title="Schedule & Availability"
+        subtitle="Configure consultation operating hours, manage planned leave exceptions, and inspect daily booking density."
       />
 
       {/* ─── Schedule Settings Card ─────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-5">
-          <Clock className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold text-ink text-base">Working Hours Configuration</h2>
+      <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-10 w-10 rounded-xl bg-accent/10 dark:bg-accent/20 text-accent flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">Working Hours Configuration</h2>
+            <p className="text-xs text-ink/60 dark:text-dark-ink/60">Define your recurring weekly clinic hours and patient consultation appointment duration.</p>
+          </div>
         </div>
 
         {/* Working Days */}
-        <div className="mb-5">
-          <p className="text-sm font-medium text-ink/70 mb-2">Regular Working Days</p>
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 dark:text-dark-ink/60 mb-2.5">Regular Working Days</p>
           <div className="flex flex-wrap gap-2">
-            {DAYS_LABELS.map((label, idx) => (
-              <button
-                key={idx}
-                onClick={() => toggleDay(idx)}
-                className={
-                  "h-9 w-12 rounded-lg text-sm font-semibold border transition " +
-                  (schedule.work_days.includes(idx)
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-ink/50 border-sage/40 hover:bg-sage/20")
-                }
-              >
-                {label}
-              </button>
-            ))}
+            {DAYS_LABELS.map((label, idx) => {
+              const active = schedule.work_days.includes(idx);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => toggleDay(idx)}
+                  className={`h-9 px-4 rounded-xl text-xs font-semibold transition-all shadow-sm ${
+                    active
+                      ? "bg-accent text-white shadow-accent/25"
+                      : "bg-canvas dark:bg-dark-surface-elevated text-ink/70 dark:text-dark-ink/70 border border-border-subtle dark:border-dark-border-subtle hover:bg-canvas-subtle hover:text-ink dark:hover:text-dark-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Times & Slot Duration */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div>
-            <label className="block text-xs font-medium text-ink/60 mb-1">Start Time</label>
+            <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">Start Time</label>
             <input
               type="time"
               value={schedule.start_time}
               onChange={(e) => setSchedule((s) => ({ ...s, start_time: e.target.value }))}
-              className="w-full border border-sage/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl px-3 py-2 text-sm text-ink dark:text-dark-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink/60 mb-1">End Time</label>
+            <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">End Time</label>
             <input
               type="time"
               value={schedule.end_time}
               onChange={(e) => setSchedule((s) => ({ ...s, end_time: e.target.value }))}
-              className="w-full border border-sage/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl px-3 py-2 text-sm text-ink dark:text-dark-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink/60 mb-1">Slot Duration</label>
+            <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1.5">Slot Duration</label>
             <select
               value={schedule.slot_mins}
               onChange={(e) => setSchedule((s) => ({ ...s, slot_mins: Number(e.target.value) }))}
-              className="w-full border border-sage/40 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl px-3 py-2 text-sm text-ink dark:text-dark-ink focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
             >
               {SLOT_OPTIONS.map((m) => (
-                <option key={m} value={m}>{m} min</option>
+                <option key={m} value={m}>{m} minutes</option>
               ))}
             </select>
           </div>
           <div className="flex items-end">
-            <Button onClick={handleSave} loading={saving} className="w-full">
+            <Button onClick={handleSave} loading={saving} className="w-full justify-center">
               <Save className="h-4 w-4" /> Save Hours
             </Button>
           </div>
         </div>
 
         {/* Break Window */}
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
-          <Coffee className="h-4 w-4 text-amber-600 shrink-0" />
-          <span className="text-xs font-medium text-amber-800">Lunch / Break Window</span>
-          <input
-            type="time"
-            value={schedule.break_start}
-            onChange={(e) => setSchedule((s) => ({ ...s, break_start: e.target.value }))}
-            className="border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-amber-500 bg-white ml-2"
-          />
-          <span className="text-xs text-amber-700">to</span>
-          <input
-            type="time"
-            value={schedule.break_end}
-            onChange={(e) => setSchedule((s) => ({ ...s, break_end: e.target.value }))}
-            className="border border-amber-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-amber-500 bg-white"
-          />
+        <div className="flex flex-wrap items-center gap-3 p-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200">
+          <Coffee className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span className="font-semibold text-amber-900 dark:text-amber-100">Lunch & Break Intermission:</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="time"
+              value={schedule.break_start}
+              onChange={(e) => setSchedule((s) => ({ ...s, break_start: e.target.value }))}
+              className="bg-white dark:bg-dark-surface border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
+            />
+            <span className="text-amber-800 dark:text-amber-300">to</span>
+            <input
+              type="time"
+              value={schedule.break_end}
+              onChange={(e) => setSchedule((s) => ({ ...s, break_end: e.target.value }))}
+              className="bg-white dark:bg-dark-surface border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
+            />
+          </div>
+          <span className="text-[11px] text-amber-800/80 dark:text-amber-300/80 ml-auto hidden sm:inline">Slots within this range will remain unavailable.</span>
         </div>
       </div>
 
       {/* ─── CW-2: Leave & Availability Exceptions Card ──────────── */}
-      <div className="card">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <div className="flex items-center gap-2">
-            <Palmtree className="h-5 w-5 text-amber-600" />
-            <div>
-              <h2 className="font-semibold text-ink text-base">Leave & Time-Off Exceptions</h2>
-              <p className="text-xs text-ink/60">Block specific dates for vacation, conferences, or sick leave. Patients cannot book slots on these dates.</p>
-            </div>
+      <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-10 w-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Palmtree className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">Leave & Vacation Overrides</h2>
+            <p className="text-xs text-ink/60 dark:text-dark-ink/60">Block specific dates for conferences, clinical rounds, or annual leave. Patients cannot book slots on these dates.</p>
           </div>
         </div>
 
         {/* Add Leave Form */}
-        <div className="p-4 rounded-xl bg-sage/10 border border-sage/30 mb-4">
-          <p className="text-xs font-semibold text-ink mb-3 flex items-center gap-1.5">
-            <Plus className="h-3.5 w-3.5 text-primary" /> Schedule Leave / Vacation Day
+        <div className="p-4 rounded-xl bg-canvas dark:bg-dark-surface-elevated/50 border border-border-subtle dark:border-dark-border-subtle mb-6">
+          <p className="text-xs font-semibold text-ink dark:text-dark-ink mb-3 flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-accent" /> Schedule Leave / Vacation Day
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-ink/70 mb-1">Date</label>
+              <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1">Date</label>
               <input
                 type="date"
                 value={leaveDate}
                 min={new Date().toISOString().slice(0, 10)}
                 onChange={(e) => setLeaveDate(e.target.value)}
-                className="w-full border border-sage/40 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary bg-white"
+                className="w-full bg-white dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-xl px-3 py-2 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ink/70 mb-1">Reason / Note</label>
+              <label className="block text-xs font-medium text-ink/70 dark:text-dark-ink/70 mb-1">Reason / Category</label>
               <select
                 value={leaveReason}
                 onChange={(e) => setLeaveReason(e.target.value)}
-                className="w-full border border-sage/40 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary bg-white"
+                className="w-full bg-white dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-xl px-3 py-2 text-xs text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
               >
                 <option value="Vacation">Vacation / Holiday</option>
                 <option value="Conference / Training">Medical Conference / Training</option>
@@ -341,7 +352,7 @@ export default function DoctorCalendar() {
                 onClick={() => handleAddLeave()}
                 loading={addingLeave}
                 disabled={!leaveDate}
-                className="w-full text-xs"
+                className="w-full text-xs justify-center"
               >
                 <CalendarOff className="h-4 w-4" /> Block Date
               </Button>
@@ -351,29 +362,29 @@ export default function DoctorCalendar() {
 
         {/* Scheduled Exceptions List */}
         <div>
-          <p className="text-xs font-semibold text-ink/70 mb-2">Upcoming Scheduled Leave Days</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink/60 dark:text-dark-ink/60 mb-3">Scheduled Leave Days</p>
           {unavailabilities.length === 0 ? (
-            <p className="text-xs text-ink/40 py-2">No upcoming leave dates scheduled. You are available according to your regular hours.</p>
+            <p className="text-xs text-ink/40 dark:text-dark-ink/40 py-2">No upcoming leave dates scheduled. You are available according to your regular hours.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {unavailabilities.map((u) => (
                 <div
                   key={u.id}
-                  className="flex items-center justify-between p-2.5 rounded-lg border border-amber-200 bg-amber-50/70 text-xs"
+                  className="flex items-center justify-between p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/15 text-xs transition-all hover:border-amber-500/50"
                 >
-                  <div className="flex items-center gap-2">
-                    <Palmtree className="h-4 w-4 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-ink">{formatDate(u.date)}</p>
-                      <p className="text-[11px] text-amber-800">{u.reason || "On Leave"}</p>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Palmtree className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink dark:text-dark-ink truncate">{formatDate(u.date)}</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium truncate">{u.reason || "On Leave"}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => handleDeleteLeave(u.id)}
                     title="Remove leave date"
-                    className="p-1 rounded hover:bg-amber-200/60 text-ink/40 hover:text-danger transition"
+                    className="p-1.5 rounded-lg text-ink/40 dark:text-dark-ink/40 hover:text-danger hover:bg-danger/10 transition-colors ml-2 shrink-0"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               ))}
@@ -382,33 +393,43 @@ export default function DoctorCalendar() {
         </div>
       </div>
 
-      {/* ─── Calendar ─────────────────────────────────────── */}
-      <div className="card">
+      {/* ─── Calendar Grid Card ───────────────────────────── */}
+      <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card">
         {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <button
             onClick={prevMonth}
-            className="p-2 rounded-lg border border-sage/40 hover:bg-sage/10 transition"
+            className="p-2 rounded-xl border border-border-subtle dark:border-dark-border-subtle bg-canvas dark:bg-dark-surface-elevated hover:bg-canvas-subtle text-ink dark:text-dark-ink transition-all shadow-sm"
+            aria-label="Previous Month"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="font-semibold text-ink">
+          <span className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">
             {new Date(year, month).toLocaleString("en-US", { month: "long" })} {year}
           </span>
           <button
             onClick={nextMonth}
-            className="p-2 rounded-lg border border-sage/40 hover:bg-sage/10 transition"
+            className="p-2 rounded-xl border border-border-subtle dark:border-dark-border-subtle bg-canvas dark:bg-dark-surface-elevated hover:bg-canvas-subtle text-ink dark:text-dark-ink transition-all shadow-sm"
+            aria-label="Next Month"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {/* Days of week */}
+        <div className="grid grid-cols-7 gap-2 text-center text-xs">
           {DAYS_LABELS.map((d) => (
-            <div key={d} className="py-2 font-semibold text-ink/50">{d}</div>
+            <div key={d} className="py-2 text-[11px] font-semibold uppercase tracking-wider text-ink/40 dark:text-dark-ink/40">
+              {d}
+            </div>
           ))}
-          {Array.from({ length: firstDay }).map((_, i) => <div key={"e" + i} />)}
+
+          {/* Empty prefix slots */}
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={"e" + i} className="min-h-[84px] rounded-xl opacity-0" />
+          ))}
+
+          {/* Month day cells */}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const appts = apptsOn(day);
             const dow = new Date(year, month, day).getDay();
@@ -427,53 +448,53 @@ export default function DoctorCalendar() {
               <div
                 key={day}
                 onClick={() => setSelectedDay(isSelected ? null : day)}
-                className={
-                  "min-h-[76px] rounded-xl border p-1.5 text-left cursor-pointer transition " +
-                  (isSelected
-                    ? "border-primary bg-primary/10 ring-1 ring-primary"
+                className={`min-h-[84px] rounded-xl border p-2 text-left cursor-pointer transition-all ${
+                  isSelected
+                    ? "border-accent bg-accent/5 dark:bg-accent/15 ring-2 ring-accent"
                     : leaveInfo
-                    ? "border-amber-300 bg-amber-50/50"
+                    ? "border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/15 hover:border-amber-500/50"
                     : isWorkingDay
-                    ? "border-sage/30 hover:bg-background"
-                    : "border-dashed border-sage/20 bg-sage/5 opacity-50")
-                }
+                    ? "border-border-subtle dark:border-dark-border-subtle bg-surface dark:bg-dark-surface hover:bg-canvas dark:hover:bg-dark-surface-elevated"
+                    : "border-dashed border-border-subtle/40 dark:border-dark-border-subtle/30 bg-canvas/30 dark:bg-dark-surface-elevated/20 opacity-40 hover:opacity-75"
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-1">
                   <span
-                    className={
-                      "text-[11px] font-semibold " +
-                      (isToday ? "bg-primary text-white rounded-full px-1.5 py-0.5" : "text-ink/70")
-                    }
+                    className={`text-[11px] font-semibold ${
+                      isToday
+                        ? "bg-accent text-white rounded-full px-2 py-0.5 shadow-sm"
+                        : "text-ink/80 dark:text-dark-ink/80"
+                    }`}
                   >
                     {day}
                   </span>
                   {leaveInfo && (
                     <span title={leaveInfo.reason || "On Leave"}>
-                      <Palmtree className="h-3 w-3 text-amber-600" />
+                      <Palmtree className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                     </span>
                   )}
                 </div>
 
                 {leaveInfo ? (
-                  <div className="mt-1 p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-900">
-                    <p className="text-[9px] font-semibold truncate leading-tight">{leaveInfo.reason || "Leave"}</p>
-                    <p className="text-[8px] text-amber-700 font-medium">Slots Blocked</p>
+                  <div className="p-1 rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-200">
+                    <p className="text-[10px] font-semibold truncate leading-tight">{leaveInfo.reason || "Leave"}</p>
+                    <p className="text-[9px] text-amber-700 dark:text-amber-300 font-medium">Slots Blocked</p>
                   </div>
                 ) : isWorkingDay ? (
-                  <div className="mt-1 space-y-0.5">
+                  <div className="space-y-1">
                     {appts.slice(0, 2).map((a) => (
                       <div
                         key={a.id}
-                        className={"text-[9px] truncate rounded px-1 py-0.5 " + statusColor(a.status)}
+                        className={`text-[9px] truncate rounded-md px-1.5 py-0.5 font-medium ${statusColor(a.status)}`}
                       >
                         {a.time} {a.patientName?.split(" ")[0]}
                       </div>
                     ))}
                     {appts.length > 2 && (
-                      <div className="text-[9px] text-ink/40">+{appts.length - 2} more</div>
+                      <div className="text-[9px] text-ink/50 dark:text-dark-ink/50 font-medium">+{appts.length - 2} more</div>
                     )}
                     {totalSlots > 0 && (
-                      <div className="text-[9px] text-ink/30 mt-0.5">
+                      <div className="text-[9px] text-ink/40 dark:text-dark-ink/40 font-mono mt-0.5">
                         {appts.length}/{totalSlots} slots
                       </div>
                     )}
@@ -485,16 +506,16 @@ export default function DoctorCalendar() {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 text-xs mt-4 pt-3 border-t border-sage/20">
-          <Legend className="bg-success/15 text-success" label="Upcoming / Confirmed" />
-          <Legend className="bg-danger/10 text-danger" label="Cancelled" />
-          <Legend className="bg-sage/30 text-primary" label="Completed" />
-          <span className="inline-flex items-center gap-1.5 text-amber-700">
-            <span className="h-3 w-3 rounded bg-amber-500/20 border border-amber-500/40 inline-block" />
+        <div className="flex flex-wrap items-center gap-4 text-xs mt-6 pt-4 border-t border-border-subtle dark:border-dark-border-subtle text-ink/60 dark:text-dark-ink/60">
+          <Legend className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30" label="Upcoming / Confirmed" />
+          <Legend className="bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/30" label="Cancelled" />
+          <Legend className="bg-primary/20 text-primary dark:text-primary-light border border-primary/30" label="Completed" />
+          <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+            <span className="h-3 w-3 rounded-md bg-amber-500/20 border border-amber-500/40 inline-block" />
             Scheduled Leave / Time-Off
           </span>
-          <span className="inline-flex items-center gap-1.5 text-ink/40">
-            <span className="h-3 w-3 rounded border border-dashed border-sage/40" />
+          <span className="inline-flex items-center gap-1.5 text-ink/40 dark:text-dark-ink/40">
+            <span className="h-3 w-3 rounded-md border border-dashed border-border-subtle dark:border-dark-border-subtle" />
             Non-working day
           </span>
         </div>
@@ -502,13 +523,13 @@ export default function DoctorCalendar() {
 
       {/* ─── Day Detail Panel ──────────────────────────── */}
       {selectedDay && (
-        <div className="card space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sage/20">
+        <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-6 shadow-apple-card space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-subtle dark:border-dark-border-subtle">
             <div>
-              <h3 className="font-semibold text-ink text-base">
+              <h3 className="font-semibold text-ink dark:text-dark-ink text-base tracking-tight">
                 {formatDate(selectedDateStr)}
               </h3>
-              <p className="text-xs text-ink/60">
+              <p className="text-xs text-ink/60 dark:text-dark-ink/60">
                 {selectedDayLeave
                   ? `Marked as Leave: ${selectedDayLeave.reason || "On Leave"}`
                   : `${selectedAppts.length} appointments booked`}
@@ -522,7 +543,7 @@ export default function DoctorCalendar() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleDeleteLeave(selectedDayLeave.id)}
-                  className="text-xs text-danger border-danger/40 hover:bg-danger/10"
+                  className="text-xs text-danger border-danger/30 hover:bg-danger/10"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Cancel Leave (Make Available)
                 </Button>
@@ -531,7 +552,7 @@ export default function DoctorCalendar() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleAddLeave(selectedDateStr, "Personal Day")}
-                  className="text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                  className="text-xs text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
                 >
                   <Palmtree className="h-3.5 w-3.5" /> Mark as Leave Day
                 </Button>
@@ -540,8 +561,8 @@ export default function DoctorCalendar() {
           </div>
 
           {selectedDayLeave && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <div className="p-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2.5">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
                 You are currently marked on leave for this day ({selectedDayLeave.reason}). All booking slots are blocked for patients.
               </span>
@@ -549,21 +570,21 @@ export default function DoctorCalendar() {
           )}
 
           {selectedAppts.length === 0 ? (
-            <div className="flex items-center gap-2 text-sm text-ink/50 py-4">
-              <CheckCircle2 className="h-4 w-4 text-success" />
+            <div className="flex items-center gap-2.5 text-sm text-ink/50 dark:text-dark-ink/50 py-4">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               No appointments booked for this day.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {selectedAppts.map((a) => (
                 <div
                   key={a.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-sage/10 border border-sage/20 hover:bg-sage/15 transition"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle hover:border-accent/30 transition-all"
                 >
                   <div>
-                    <p className="text-sm font-medium text-ink">{a.patientName}</p>
-                    <p className="text-xs text-ink/50">{a.time} · {a.type}</p>
-                    {a.reason && <p className="text-xs text-ink/40 mt-0.5">"{a.reason}"</p>}
+                    <p className="text-sm font-semibold text-ink dark:text-dark-ink">{a.patientName}</p>
+                    <p className="text-xs text-ink/50 dark:text-dark-ink/50">{a.time} · {a.type}</p>
+                    {a.reason && <p className="text-xs text-ink/40 dark:text-dark-ink/40 mt-0.5">"{a.reason}"</p>}
                   </div>
                   <StatusBadge status={a.status} />
                 </div>
@@ -578,18 +599,17 @@ export default function DoctorCalendar() {
 
 function statusColor(status) {
   return status === "cancelled"
-    ? "bg-danger/10 text-danger"
+    ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/20"
     : status === "upcoming" || status === "confirmed"
-    ? "bg-success/15 text-success"
-    : "bg-sage/30 text-primary";
+    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+    : "bg-primary/15 text-primary dark:text-primary-light border border-primary/20";
 }
 
 function Legend({ className, label }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={"h-3 w-3 rounded " + className} />
+      <span className={"h-3 w-3 rounded-md " + className} />
       {label}
     </span>
   );
 }
-

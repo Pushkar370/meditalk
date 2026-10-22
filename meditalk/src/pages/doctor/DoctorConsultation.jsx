@@ -67,18 +67,18 @@ function getVitalStatus(key, rawVal) {
 }
 
 const STATUS_STYLES = {
-  neutral:  { dot: "bg-ink/20",           label: "",           bg: "bg-white border-sage/30" },
-  normal:   { dot: "bg-success",          label: "Normal",     bg: "bg-white border-success/30" },
-  warning:  { dot: "bg-amber-400",        label: "High",       bg: "bg-amber-50 border-amber-200" },
-  critical: { dot: "bg-danger animate-pulse", label: "Critical",  bg: "bg-danger/5 border-danger/30" },
+  neutral:  { dot: "bg-ink/20 dark:bg-dark-ink/20", label: "", bg: "bg-canvas dark:bg-dark-surface-elevated/40 border-border-subtle dark:border-dark-border-subtle" },
+  normal:   { dot: "bg-emerald-500", label: "Normal", bg: "bg-canvas dark:bg-dark-surface-elevated/40 border-emerald-500/30" },
+  warning:  { dot: "bg-amber-400", label: "High", bg: "bg-amber-500/10 border-amber-500/30" },
+  critical: { dot: "bg-rose-500 animate-pulse", label: "Critical", bg: "bg-rose-500/10 border-rose-500/30" },
 };
 
 // ─── Video status helpers ──────────────────────────────
 const VIDEO_BADGE = {
-  null:        { label: "Not started",  cls: "bg-ink/10 text-ink/50" },
-  waiting:     { label: "Waiting",      cls: "bg-amber-100 text-amber-700" },
-  in_progress: { label: "In Progress",  cls: "bg-success/15 text-success" },
-  ended:       { label: "Ended",        cls: "bg-danger/10 text-danger" },
+  null:        { label: "Not started",  cls: "bg-canvas dark:bg-dark-surface-elevated text-ink/50 dark:text-dark-ink/50" },
+  waiting:     { label: "Waiting",      cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" },
+  in_progress: { label: "In Progress",  cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" },
+  ended:       { label: "Ended",        cls: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20" },
 };
 
 export default function DoctorConsultation() {
@@ -523,39 +523,41 @@ export default function DoctorConsultation() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
               {/* Allergies — highlighted prominently */}
-              <div className="p-2 rounded-xl bg-red-50 border border-red-100">
-                <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">⚠️ Allergies</p>
+              <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25">
+                <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Allergies
+                </p>
                 {(() => {
                   const allergies = Array.isArray(patient.allergies)
                     ? patient.allergies
                     : (patient.allergies ? [patient.allergies] : []);
                   return allergies.length > 0
-                    ? <div className="flex flex-wrap gap-1">{allergies.map((a, i) => <span key={i} className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-medium">{a}</span>)}</div>
-                    : <p className="text-xs text-ink/40 italic">No known allergies</p>;
+                    ? <div className="flex flex-wrap gap-1">{allergies.map((a, i) => <span key={i} className="px-2.5 py-0.5 bg-rose-500/20 text-rose-800 dark:text-rose-300 rounded-full text-xs font-semibold">{a}</span>)}</div>
+                    : <p className="text-xs text-ink/40 dark:text-dark-ink/40 italic">No known allergies</p>;
                 })()}
               </div>
               {/* Chronic Conditions */}
-              <div className="p-2 rounded-xl bg-amber-50 border border-amber-100">
-                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Chronic Conditions</p>
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+                <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1.5">Chronic Conditions</p>
                 {(() => {
                   const conds = Array.isArray(patient.chronicConditions || patient.chronic_conditions)
                     ? (patient.chronicConditions || patient.chronic_conditions)
                     : [];
                   return conds.length > 0
-                    ? <div className="flex flex-wrap gap-1">{conds.map((c, i) => <span key={i} className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs">{c}</span>)}</div>
-                    : <p className="text-xs text-ink/40 italic">None recorded</p>;
+                    ? <div className="flex flex-wrap gap-1">{conds.map((c, i) => <span key={i} className="px-2.5 py-0.5 bg-amber-500/20 text-amber-800 dark:text-amber-300 rounded-full text-xs font-medium">{c}</span>)}</div>
+                    : <p className="text-xs text-ink/40 dark:text-dark-ink/40 italic">None recorded</p>;
                 })()}
               </div>
               {/* Current Medications */}
-              <div className="p-2 rounded-xl bg-blue-50 border border-blue-100">
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">Current Medications</p>
+              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20">
+                <p className="text-[11px] font-semibold text-primary dark:text-primary-light uppercase tracking-wider mb-1.5">Current Medications</p>
                 {(() => {
                   const meds = Array.isArray(patient.currentMedications || patient.current_medications)
                     ? (patient.currentMedications || patient.current_medications)
                     : [];
                   return meds.length > 0
-                    ? <div className="flex flex-wrap gap-1">{meds.map((m, i) => <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">{typeof m === 'string' ? m : m.name}</span>)}</div>
-                    : <p className="text-xs text-ink/40 italic">None on record</p>;
+                    ? <div className="flex flex-wrap gap-1">{meds.map((m, i) => <span key={i} className="px-2.5 py-0.5 bg-primary/20 text-primary dark:text-primary-light rounded-full text-xs font-medium">{typeof m === 'string' ? m : m.name}</span>)}</div>
+                    : <p className="text-xs text-ink/40 dark:text-dark-ink/40 italic">None on record</p>;
                 })()}
               </div>
             </div>
@@ -1262,22 +1264,22 @@ export default function DoctorConsultation() {
               <p className="text-ink text-xs whitespace-pre-wrap">{soapDraft.objective}</p>
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
-              <span className="font-bold text-amber-900 uppercase tracking-wider block mb-1">
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <span className="font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block mb-1">
                 A · Assessment (Diagnosis &amp; Acuity Evaluation)
               </span>
-              <p className="text-amber-950 text-xs whitespace-pre-wrap">{soapDraft.assessment}</p>
+              <p className="text-amber-900 dark:text-amber-200 text-xs whitespace-pre-wrap">{soapDraft.assessment}</p>
             </div>
 
-            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
-              <span className="font-bold text-emerald-900 uppercase tracking-wider block mb-1">
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <span className="font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1">
                 P · Plan (Therapy, Medications &amp; Follow-up)
               </span>
-              <p className="text-emerald-950 text-xs whitespace-pre-wrap">{soapDraft.plan}</p>
+              <p className="text-emerald-900 dark:text-emerald-200 text-xs whitespace-pre-wrap">{soapDraft.plan}</p>
               {soapDraft.clinical_recommendations && (
-                <div className="mt-2 pt-2 border-t border-emerald-200/60">
-                  <span className="font-semibold text-emerald-900 block mb-0.5">Clinical Recommendations:</span>
-                  <p className="text-emerald-900 whitespace-pre-wrap">{soapDraft.clinical_recommendations}</p>
+                <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-300 block mb-0.5">Clinical Recommendations:</span>
+                  <p className="text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap">{soapDraft.clinical_recommendations}</p>
                 </div>
               )}
             </div>
