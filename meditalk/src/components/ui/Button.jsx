@@ -2,21 +2,25 @@ import { Loader2 } from "lucide-react";
 
 const VARIANTS = {
   primary:
-    "bg-primary text-white hover:bg-primary-dark focus:ring-primary/30 shadow-sm",
+    "bg-primary text-white hover:bg-primary-dark shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:bg-primary-dark",
   secondary:
-    "bg-sage/20 text-primary hover:bg-sage/40 focus:ring-sage/40 border border-sage/50",
-  accent: "bg-accent text-ink hover:bg-accent-light focus:ring-accent/40",
-  danger: "bg-danger text-white hover:bg-red-600 focus:ring-danger/30",
+    "bg-[#E8E8ED] dark:bg-[#2C2C2E] text-ink dark:text-white hover:bg-[#DEDEE3] dark:hover:bg-[#3A3A3C]",
+  accent:
+    "bg-accent text-white hover:bg-accent-dark shadow-xs",
+  danger:
+    "bg-danger text-white hover:bg-danger-dark shadow-xs",
   outline:
-    "bg-white text-ink border border-sage/50 hover:bg-background focus:ring-sage/40",
-  ghost: "bg-transparent text-ink hover:bg-sage/20 focus:ring-sage/30",
-  success: "bg-success text-white hover:bg-green-700 focus:ring-success/30",
+    "bg-white dark:bg-[#1C1C1E] text-ink dark:text-white border border-black/[0.12] dark:border-white/[0.16] hover:bg-black/[0.03] dark:hover:bg-white/[0.05]",
+  ghost:
+    "bg-transparent text-ink dark:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08]",
+  success:
+    "bg-success text-white hover:bg-success-dark shadow-xs",
 };
 
 const SIZES = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2.5 text-sm",
-  lg: "px-5 py-3 text-base",
+  sm: "px-3 py-1.5 text-xs font-medium rounded-full",
+  md: "px-4.5 py-2.5 text-sm font-medium rounded-full",
+  lg: "px-6 py-3 text-base font-semibold rounded-full",
 };
 
 export default function Button({
@@ -34,8 +38,9 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       className={
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition " +
-        "focus:outline-none focus:ring-2 disabled:opacity-60 disabled:cursor-not-allowed " +
+        "inline-flex items-center justify-center gap-2 transition-all duration-150 " +
+        "active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 " +
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 " +
         VARIANTS[variant] +
         " " +
         SIZES[size] +
@@ -44,7 +49,7 @@ export default function Button({
       }
       {...props}
     >
-      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+      {loading && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
       {children}
     </button>
   );

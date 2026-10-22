@@ -9,16 +9,21 @@ export default function EmergencyBanner({ dismissible = false, compact = false }
 
   if (compact) {
     return (
-      <aside aria-label="Emergency Medical Advisory" className="rounded-xl border border-rose-300 bg-rose-50/90 text-rose-950 p-3 shadow-xs">
+      <aside
+        aria-label="Emergency Medical Advisory"
+        className="rounded-2xl border border-danger/25 bg-danger/[0.04] dark:bg-danger/10 text-ink dark:text-white p-3.5 shadow-xs mb-4"
+      >
         <div className="flex items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
-            <span className="font-semibold text-rose-900">Emergency:</span>
-            <span className="text-rose-800">Chest pain or severe symptoms? Call <strong>112 / 911</strong> immediately.</span>
+            <span className="flex h-2 w-2 rounded-full bg-danger animate-pulse shrink-0" />
+            <span className="font-semibold text-danger">Emergency:</span>
+            <span className="text-ink-secondary dark:text-neutral-300">
+              Chest pain or severe symptoms? Call <strong>112 / 911</strong> immediately.
+            </span>
           </div>
           <a
             href="tel:112"
-            className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs hover:bg-rose-700 transition"
+            className="inline-flex items-center gap-1 rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white shadow-xs hover:bg-danger-dark transition-all"
           >
             <PhoneCall className="h-3 w-3" /> Call 112
           </a>
@@ -28,30 +33,35 @@ export default function EmergencyBanner({ dismissible = false, compact = false }
   }
 
   return (
-    <aside aria-label="Emergency Medical Advisory" className="mb-5 rounded-2xl border-2 border-rose-400 bg-gradient-to-r from-rose-50 via-red-50 to-orange-50 text-rose-950 shadow-sm overflow-hidden">
-      <div className="p-4 sm:p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
-        <div className="flex items-start gap-3">
-          <div className="h-9 w-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-            <AlertTriangle className="h-5 w-5 animate-pulse" />
+    <aside
+      aria-label="Emergency Medical Advisory"
+      className="mb-6 rounded-2xl border border-danger/30 bg-danger/[0.04] dark:bg-danger/10 text-ink dark:text-white shadow-card overflow-hidden"
+    >
+      <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <div className="h-10 w-10 rounded-xl bg-danger text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+            <AlertTriangle className="h-5 w-5" />
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-rose-600 text-white shadow-xs">
-                🚨 Urgent Medical Warning
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-danger text-white shadow-xs">
+                Emergency Advisory
               </span>
-              <span className="text-xs font-bold text-rose-950">MediTalk is NOT for Life-Threatening Emergencies</span>
+              <span className="text-xs font-bold text-ink dark:text-white">
+                MediTalk is for Non-Emergency Care
+              </span>
             </div>
-            <p className="text-xs text-rose-900/90 leading-relaxed max-w-3xl">
-              If you are experiencing <strong>chest pain</strong>, <strong>severe shortness of breath</strong>, <strong>sudden numbness/paralysis</strong>, uncontrolled bleeding, or signs of stroke, <strong>call emergency services immediately (112 / 911 / 108)</strong> or go to the nearest emergency room.
+            <p className="text-xs text-ink-secondary dark:text-neutral-300 leading-relaxed max-w-3xl">
+              If you have <strong>chest pain</strong>, <strong>acute breathlessness</strong>, <strong>sudden weakness or numbness</strong>, severe bleeding, or stroke signs, <strong>call emergency services (112 / 911 / 108)</strong> or go to the nearest emergency department.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+        <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-rose-800 hover:text-rose-950 px-2.5 py-1.5 rounded-lg hover:bg-rose-100 transition"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-ink-secondary dark:text-neutral-300 hover:text-ink dark:hover:text-white px-3 py-1.5 rounded-full hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition"
           >
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             {expanded ? "Less" : "Warning Signs"}
@@ -59,16 +69,16 @@ export default function EmergencyBanner({ dismissible = false, compact = false }
 
           <a
             href="tel:112"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-rose-700 active:scale-95 transition"
+            className="inline-flex items-center gap-1.5 rounded-full bg-danger px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-danger-dark active:scale-[0.98] transition-all"
           >
-            <PhoneCall className="h-3.5 w-3.5" /> Call Emergency (112)
+            <PhoneCall className="h-3.5 w-3.5" /> Call 112
           </a>
 
           {dismissible && (
             <button
               type="button"
               onClick={() => setDismissed(true)}
-              className="p-1 rounded-lg text-rose-700 hover:bg-rose-200/60 transition"
+              className="p-1.5 rounded-full text-ink-tertiary hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition"
               title="Dismiss warning"
             >
               <X className="h-4 w-4" />
@@ -78,17 +88,17 @@ export default function EmergencyBanner({ dismissible = false, compact = false }
       </div>
 
       {expanded && (
-        <div className="border-t border-rose-200/80 bg-white/70 px-4 py-3 sm:px-6 text-xs text-rose-950">
-          <p className="font-bold text-rose-900 mb-1.5 flex items-center gap-1.5">
-            <ShieldAlert className="h-4 w-4 text-rose-600" /> Seek Immediate Emergency Department Care If Experiencing:
+        <div className="border-t border-danger/15 bg-white/60 dark:bg-black/30 backdrop-blur-sm px-5 py-4 text-xs text-ink dark:text-neutral-200">
+          <p className="font-bold text-danger mb-2 flex items-center gap-1.5">
+            <ShieldAlert className="h-4 w-4" /> Seek Emergency Department Care Immediately If Experiencing:
           </p>
-          <ul className="grid sm:grid-cols-2 md:grid-cols-3 gap-2 text-rose-900/90 list-disc list-inside">
-            <li>Pressure, tightness or squeezing in your chest</li>
-            <li>Difficulty breathing or choking sensation</li>
-            <li>Sudden weakness, facial droop, or speech difficulty (Stroke)</li>
-            <li>Loss of consciousness, fainting, or acute confusion</li>
-            <li>Sudden, excruciating, worst headache of life</li>
-            <li>Severe anaphylaxis / throat closing after allergen</li>
+          <ul className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-ink-secondary dark:text-neutral-300 list-disc list-inside">
+            <li>Pressure, squeezing, or crushing pain in your chest</li>
+            <li>Severe difficulty breathing or choking sensation</li>
+            <li>Sudden weakness, facial droop, or slurred speech</li>
+            <li>Loss of consciousness, syncope, or acute confusion</li>
+            <li>Sudden, excruciating, worst headache of your life</li>
+            <li>Severe anaphylaxis / throat tightness after allergen exposure</li>
           </ul>
         </div>
       )}

@@ -1,8 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Sparkles, AlertCircle, AlertTriangle, CheckCircle2, Info, ArrowRight,
-  RotateCcw, Calendar, Stethoscope, ShieldAlert, HeartPulse, ChevronRight, PhoneCall
+  Sparkles,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  ArrowRight,
+  RotateCcw,
+  Calendar,
+  Stethoscope,
+  ShieldAlert,
+  HeartPulse,
+  ChevronRight,
+  PhoneCall,
+  Check,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -32,9 +44,15 @@ const DURATION_OPTIONS = [
 ];
 
 const ACCOMPANYING_LIST = [
-  "High Fever", "Dizziness / Lightheadedness", "Extreme Fatigue",
-  "Nausea / Vomiting", "Night Sweats", "Swelling in Legs/Ankles",
-  "Shortness of Breath", "Difficulty Swallowing", "Palpitations / Rapid Heartbeat",
+  "High Fever",
+  "Dizziness / Lightheadedness",
+  "Extreme Fatigue",
+  "Nausea / Vomiting",
+  "Night Sweats",
+  "Swelling in Legs/Ankles",
+  "Shortness of Breath",
+  "Difficulty Swallowing",
+  "Palpitations / Rapid Heartbeat",
 ];
 
 export default function PatientTriage() {
@@ -106,70 +124,68 @@ export default function PatientTriage() {
   }
 
   function getSeverityColor(val) {
-    if (val <= 3) return "text-success";
-    if (val <= 6) return "text-amber-500";
-    if (val <= 8) return "text-orange-500";
-    return "text-danger";
+    if (val <= 3) return "text-emerald-600 dark:text-emerald-400";
+    if (val <= 6) return "text-amber-500 dark:text-amber-400";
+    if (val <= 8) return "text-orange-500 dark:text-orange-400";
+    return "text-rose-600 dark:text-rose-400";
   }
 
   function getUrgencyBadge(urgency) {
     switch (urgency) {
       case "emergency":
         return {
-          bg: "bg-danger/15 text-danger border-danger/30",
+          bg: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
           icon: ShieldAlert,
-          title: "Emergency Care Required 🚨",
+          title: "Emergency Care Required",
           badgeTone: "danger",
         };
       case "urgent":
         return {
-          bg: "bg-amber-100 text-amber-800 border-amber-300",
+          bg: "bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30",
           icon: AlertTriangle,
-          title: "Urgent Consultation (24–48h) ⚠️",
+          title: "Urgent Consultation (24–48h)",
           badgeTone: "warning",
         };
       case "self_care":
         return {
-          bg: "bg-blue-50 text-blue-700 border-blue-200",
+          bg: "bg-sky-500/10 text-sky-800 dark:text-sky-300 border-sky-500/30",
           icon: Info,
-          title: "Mild / Home Monitoring ℹ️",
+          title: "Mild / Home Monitoring",
           badgeTone: "info",
         };
       default:
         return {
-          bg: "bg-success/15 text-success border-success/30",
+          bg: "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/30",
           icon: CheckCircle2,
-          title: "Routine Scheduled Visit 🟢",
+          title: "Routine Scheduled Visit",
           badgeTone: "success",
         };
     }
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto animate-fade-in">
       <PageHeader
         title="AI Clinical Triage Assistant"
         subtitle="Conversational symptom checker providing triage urgency levels and intelligent specialty guidance."
         action={
           step === 3 && (
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              <RotateCcw className="w-4 h-4" /> Start New Triage
+            <Button variant="outline" size="sm" onClick={handleReset} className="text-xs">
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Start New Triage
             </Button>
           )
         }
       />
 
-      {/* Clinical Disclaimer Banner */}
-      <div className="flex items-start gap-3.5 p-4 rounded-xl bg-amber-50 border border-amber-300 shadow-sm text-ink">
-        <div className="h-6 w-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+      {/* Clinical Guidance Notice Banner */}
+      <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-canvas dark:bg-dark-surface-elevated/40 border border-border-subtle dark:border-dark-border-subtle text-ink dark:text-dark-ink">
+        <div className="h-6 w-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
           <Info className="w-4 h-4" />
         </div>
-        <p className="text-xs sm:text-sm text-ink leading-relaxed">
-          <strong className="font-bold text-amber-950">Clinical Guidance Notice:</strong>{" "}
-          <span className="text-ink/80 font-normal">
-            This AI tool assesses urgency and recommends specialists based on evidence-based triage logic. It is not an official medical diagnosis. In life-threatening emergencies,{" "}
-          </span>
-          <strong className="font-bold text-danger">
+        <p className="text-xs sm:text-sm text-ink/75 dark:text-dark-ink/75 leading-relaxed">
+          <strong className="font-semibold text-ink dark:text-dark-ink">Clinical Guidance Notice:</strong>{" "}
+          This AI tool assesses urgency and recommends medical specialties based on evidence-based triage logic. It is not an official medical diagnosis. In life-threatening emergencies,{" "}
+          <strong className="font-semibold text-rose-600 dark:text-rose-400">
             dial emergency services (911 / 112 / 108) immediately.
           </strong>
         </p>
@@ -181,10 +197,10 @@ export default function PatientTriage() {
           <Card>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-ink mb-1">
-                  1. What symptoms are you experiencing? <span className="text-danger">*</span>
+                <label className="block text-sm font-semibold text-ink dark:text-dark-ink mb-1">
+                  1. What symptoms are you experiencing? <span className="text-rose-500">*</span>
                 </label>
-                <p className="text-xs text-ink/60 mb-2">
+                <p className="text-xs text-ink/50 dark:text-dark-ink/50 mb-2.5">
                   Describe what you feel, where the discomfort is located, and how it started.
                 </p>
                 <textarea
@@ -192,13 +208,13 @@ export default function PatientTriage() {
                   value={symptoms}
                   onChange={(e) => setSymptoms(e.target.value)}
                   placeholder="e.g., I've had sharp chest pain radiating to my shoulder for the past 2 hours, especially when taking deep breaths..."
-                  className="w-full border border-sage/40 rounded-xl p-3.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition resize-none"
+                  className="w-full bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-4 text-sm text-ink dark:text-dark-ink placeholder:text-ink/30 dark:placeholder:text-dark-ink/30 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition resize-none"
                 />
               </div>
 
               {/* Quick Suggestion Chips */}
               <div>
-                <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-semibold text-ink/50 dark:text-dark-ink/50 uppercase tracking-wider mb-2">
                   Quick Examples (Click to append)
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -207,7 +223,7 @@ export default function PatientTriage() {
                       key={idx}
                       type="button"
                       onClick={() => handleQuickChip(chip.text)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-sage/40 hover:bg-sage/15 text-ink/80 shadow-sm transition active:scale-95"
+                      className="px-3 py-1.5 rounded-full text-xs font-medium bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle hover:border-primary/40 text-ink/80 dark:text-dark-ink/80 transition active:scale-[0.97]"
                     >
                       {chip.label}
                     </button>
@@ -221,7 +237,7 @@ export default function PatientTriage() {
             <div className="space-y-6">
               {/* Duration */}
               <div>
-                <label className="block text-xs font-semibold text-ink/70 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-ink/60 dark:text-dark-ink/60 uppercase tracking-wider mb-2.5">
                   How long have these symptoms persisted?
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -230,10 +246,10 @@ export default function PatientTriage() {
                       key={opt}
                       type="button"
                       onClick={() => setDuration(opt)}
-                      className={`px-3 py-2 rounded-xl text-xs font-medium border text-left transition ${
+                      className={`px-3 py-2.5 rounded-xl text-xs font-medium border text-left transition-all active:scale-[0.98] ${
                         duration === opt
                           ? "bg-primary text-white border-primary shadow-sm"
-                          : "bg-white border-sage/40 text-ink/80 hover:bg-sage/10"
+                          : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/80 dark:text-dark-ink/80 hover:border-primary/30"
                       }`}
                     >
                       {opt}
@@ -245,11 +261,18 @@ export default function PatientTriage() {
               {/* Severity Slider */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-ink/70 uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-ink/60 dark:text-dark-ink/60 uppercase tracking-wider">
                     Severity Level (1 to 10 scale)
                   </label>
                   <span className={`text-sm font-bold ${getSeverityColor(severity)}`}>
-                    {severity} / 10 · {severity <= 3 ? "Mild" : severity <= 6 ? "Moderate" : severity <= 8 ? "Severe" : "Critical"}
+                    {severity} / 10 ·{" "}
+                    {severity <= 3
+                      ? "Mild"
+                      : severity <= 6
+                      ? "Moderate"
+                      : severity <= 8
+                      ? "Severe"
+                      : "Critical"}
                   </span>
                 </div>
                 <input
@@ -258,9 +281,9 @@ export default function PatientTriage() {
                   max="10"
                   value={severity}
                   onChange={(e) => setSeverity(parseInt(e.target.value, 10))}
-                  className="w-full accent-primary h-2 bg-sage/30 rounded-lg cursor-pointer"
+                  className="w-full accent-primary h-2 bg-canvas dark:bg-dark-surface-elevated rounded-lg cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-ink/40 mt-1">
+                <div className="flex justify-between text-[10px] text-ink/40 dark:text-dark-ink/40 mt-1.5">
                   <span>1 (Barely noticeable)</span>
                   <span>5 (Noticeable discomfort)</span>
                   <span>10 (Unbearable / Debilitating)</span>
@@ -269,7 +292,7 @@ export default function PatientTriage() {
 
               {/* Accompanying Symptoms */}
               <div>
-                <label className="block text-xs font-semibold text-ink/70 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-semibold text-ink/60 dark:text-dark-ink/60 uppercase tracking-wider mb-2.5">
                   Any accompanying symptoms? (Select all that apply)
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -280,10 +303,10 @@ export default function PatientTriage() {
                         key={item}
                         type="button"
                         onClick={() => toggleAccompanying(item)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-[0.97] ${
                           active
-                            ? "bg-primary/10 border-primary text-primary font-semibold"
-                            : "bg-white border-sage/40 text-ink/70 hover:bg-sage/10"
+                            ? "bg-primary text-white border-primary shadow-sm font-semibold"
+                            : "bg-surface dark:bg-dark-surface border-border-subtle dark:border-dark-border-subtle text-ink/70 dark:text-dark-ink/70 hover:border-primary/30"
                         }`}
                       >
                         {item} {active && "✓"}
@@ -299,9 +322,9 @@ export default function PatientTriage() {
                   onClick={handleRunAssessment}
                   loading={assessing}
                   disabled={!symptoms.trim()}
-                  className="w-full sm:w-auto px-6 py-3"
+                  className="w-full sm:w-auto px-6 py-3 text-xs"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 mr-1.5" />
                   Analyze Symptoms & Run Triage
                 </Button>
               </div>
@@ -318,31 +341,37 @@ export default function PatientTriage() {
             const badge = getUrgencyBadge(result.urgency);
             const IconComponent = badge.icon;
             return (
-              <div className={`p-5 rounded-2xl border ${badge.bg} shadow-sm space-y-2`}>
+              <div
+                className={`p-6 rounded-3xl border ${badge.bg} shadow-card dark:shadow-none space-y-3`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-white/70 shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle shadow-sm">
                       <IconComponent className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider opacity-75">Triage Level</span>
-                      <h2 className="text-lg font-bold">{badge.title}</h2>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider opacity-75">
+                        Triage Urgency Level
+                      </span>
+                      <h2 className="text-xl font-bold tracking-tight">{badge.title}</h2>
                     </div>
                   </div>
 
-                  <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-white/80 border border-current/20">
-                    {result.source === "gemini_ai" ? "Powered by Google Gemini ✨" : "Evidence-Based Clinical Matrix ⚙️"}
+                  <span className="text-xs font-mono px-3 py-1 rounded-full bg-surface/80 dark:bg-dark-surface/80 border border-current/20">
+                    {result.source === "gemini_ai"
+                      ? "Powered by Google Gemini ✨"
+                      : "Evidence-Based Clinical Matrix ⚙️"}
                   </span>
                 </div>
                 <p className="text-sm pt-1 leading-relaxed opacity-90">{result.urgencyReason}</p>
 
                 {result.urgency === "emergency" && (
-                  <div className="mt-4 p-4 rounded-xl bg-danger/10 border-2 border-danger text-danger space-y-3">
-                    <div className="flex items-start gap-2.5">
-                      <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="mt-4 p-5 rounded-2xl bg-rose-500/10 border-2 border-rose-500 text-rose-700 dark:text-rose-400 space-y-3.5">
+                    <div className="flex items-start gap-3">
+                      <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
                       <div>
                         <h4 className="font-bold text-sm">Critical Clinical Safety Alert</h4>
-                        <p className="text-xs leading-relaxed mt-0.5 text-ink/80">
+                        <p className="text-xs leading-relaxed mt-0.5 text-ink/80 dark:text-dark-ink/80">
                           These symptoms may indicate an acute medical emergency. Telehealth visits cannot substitute for emergency room or immediate paramedic intervention. If you or the patient is having chest pain, severe shortness of breath, sudden facial drooping or weakness, call emergency services right away.
                         </p>
                       </div>
@@ -350,19 +379,19 @@ export default function PatientTriage() {
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <a
                         href="tel:112"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-bold hover:bg-danger/90 transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition shadow-sm"
                       >
                         <PhoneCall className="w-3.5 h-3.5" /> Call 112 (National Emergency)
                       </a>
                       <a
                         href="tel:108"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-danger/90 text-white text-xs font-bold hover:bg-danger transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-rose-600/90 text-white text-xs font-bold hover:bg-rose-600 transition shadow-sm"
                       >
                         <PhoneCall className="w-3.5 h-3.5" /> Call 108 (Ambulance)
                       </a>
                       <a
                         href="tel:911"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-danger text-danger text-xs font-semibold hover:bg-danger/5 transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-surface dark:bg-dark-surface border border-rose-500 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-500/10 transition shadow-sm"
                       >
                         <PhoneCall className="w-3.5 h-3.5" /> Call 911
                       </a>
@@ -374,37 +403,41 @@ export default function PatientTriage() {
           })()}
 
           {/* Recommended Specialty & 1-Click Booking CTA */}
-          <div className="bg-gradient-to-br from-primary/10 via-sage/15 to-white border border-primary/25 rounded-2xl p-6 shadow-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+          <div className="rounded-3xl bg-surface dark:bg-dark-surface border border-primary/20 dark:border-primary/30 p-6 sm:p-7 shadow-card dark:shadow-none">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary dark:text-primary-light flex items-center gap-1.5">
                   <Stethoscope className="w-3.5 h-3.5" /> Recommended Specialty
                 </span>
-                <h3 className="text-xl font-bold text-ink">{result.recommendedSpecialty}</h3>
-                <p className="text-xs text-ink/70 max-w-xl">{result.recommendedSpecialtyReason}</p>
+                <h3 className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink">
+                  {result.recommendedSpecialty}
+                </h3>
+                <p className="text-xs sm:text-sm text-ink/70 dark:text-dark-ink/70 max-w-xl leading-relaxed">
+                  {result.recommendedSpecialtyReason}
+                </p>
               </div>
 
-              <button
+              <Button
                 onClick={handleProceedToBooking}
-                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-semibold text-sm shadow-md hover:bg-primary/90 transition active:scale-95 shrink-0"
+                className="text-xs py-3 px-5 shrink-0"
               >
-                <Calendar className="w-4 h-4" />
+                <Calendar className="w-4 h-4 mr-1.5" />
                 Book with {result.recommendedSpecialty}
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Suggested Questions for the Doctor */}
             <Card title="Suggested Questions for Your Doctor">
-              <ul className="space-y-2.5 text-xs text-ink/80">
+              <ul className="space-y-3 text-xs text-ink/80 dark:text-dark-ink/80">
                 {(result.suggestedQuestions || []).map((q, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="h-4 w-4 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
                       {i + 1}
                     </span>
-                    <span>{q}</span>
+                    <span className="leading-relaxed">{q}</span>
                   </li>
                 ))}
               </ul>
@@ -412,11 +445,11 @@ export default function PatientTriage() {
 
             {/* Home Care & Monitoring Tips */}
             <Card title="Home Care & Symptom Monitoring">
-              <ul className="space-y-2.5 text-xs text-ink/80">
+              <ul className="space-y-3 text-xs text-ink/80 dark:text-dark-ink/80">
                 {(result.homeCareTips || []).map((tip, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
-                    <span>{tip}</span>
+                  <li key={i} className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{tip}</span>
                   </li>
                 ))}
               </ul>
@@ -425,11 +458,14 @@ export default function PatientTriage() {
 
           {/* Clinical Summary for Doctor */}
           <Card title="Pre-Consultation Clinical Brief (Stored with Appointment)">
-            <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-xs font-mono text-ink/85 space-y-2">
-              <p className="font-semibold text-ink">{result.clinicalSummary}</p>
+            <div className="p-4 rounded-2xl bg-canvas dark:bg-dark-surface-elevated/40 border border-border-subtle dark:border-dark-border-subtle text-xs font-mono text-ink/85 dark:text-dark-ink/85 space-y-2">
+              <p className="font-semibold text-ink dark:text-dark-ink leading-relaxed">
+                {result.clinicalSummary}
+              </p>
               {result.redFlags && result.redFlags.length > 0 && (
-                <p className="text-danger text-[11px] font-sans font-medium">
-                  <span className="font-bold">Screened Warnings:</span> {result.redFlags.join(", ")}
+                <p className="text-rose-600 dark:text-rose-400 text-[11px] font-sans font-medium">
+                  <span className="font-bold">Screened Warnings:</span>{" "}
+                  {result.redFlags.join(", ")}
                 </p>
               )}
             </div>

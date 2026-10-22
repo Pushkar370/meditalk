@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Mail, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import Logo from "../components/ui/Logo";
 import Input from "../components/ui/Input";
 import Button from "../components/ui/Button";
@@ -13,7 +13,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [devToken, setDevToken] = useState(null); // only set in dev mode
+  const [devToken, setDevToken] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,7 +29,6 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
       setSent(true);
-      // In development, the backend returns a _devToken for easy testing
       if (res._devToken) setDevToken(res._devToken);
     } catch (err) {
       setError(err.message || "Request failed. Please try again.");
@@ -40,53 +39,88 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-6"><Logo /></div>
-        <div className="card">
-          <h1 className="text-xl font-bold text-ink">Forgot password</h1>
-          <p className="text-sm text-ink/50 mt-1">
-            Enter your email and we'll send a reset link.
+    <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] text-ink dark:text-white flex flex-col justify-center items-center p-4 sm:p-6 transition-colors selection:bg-primary/20">
+      <div className="w-full max-w-md animate-enter">
+        <div className="flex flex-col items-center text-center mb-8">
+          <Link to="/" className="mb-4 inline-block hover:opacity-90 transition">
+            <Logo size="lg" />
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-white">
+            Reset your password
+          </h1>
+          <p className="text-xs sm:text-sm text-ink-secondary dark:text-neutral-400 mt-1">
+            Enter your email and we'll send a secure reset link.
           </p>
+        </div>
 
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover p-6 sm:p-8">
           {sent ? (
-            <div className="mt-6 text-center space-y-3">
-              <div className="mx-auto h-12 w-12 rounded-full bg-success/15 flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-success" />
+            <div className="text-center space-y-4 animate-enter py-2">
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-success/15 text-success dark:text-success-light flex items-center justify-center">
+                <CheckCircle2 className="h-7 w-7" />
               </div>
-              <p className="text-sm text-ink/70">Reset instructions sent to <strong>{email}</strong></p>
-              <p className="text-xs text-ink/40">Check your inbox (and spam folder). The link expires in 1 hour.</p>
+              <div>
+                <h3 className="text-base font-semibold text-ink dark:text-white">
+                  Reset link dispatched
+                </h3>
+                <p className="mt-1 text-xs text-ink-secondary dark:text-neutral-400 leading-relaxed">
+                  We've sent password reset instructions to <strong>{email}</strong>. The link expires in 1 hour.
+                </p>
+              </div>
+
               {devToken && (
-                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-left">
-                  <p className="text-xs font-semibold text-yellow-700">🔧 DEV MODE — Reset Token:</p>
-                  <Link to={`/reset-password?token=${devToken}`} className="text-xs text-blue-600 underline break-all">
+                <div className="mt-4 p-3.5 bg-warning/[0.08] border border-warning/20 rounded-2xl text-left">
+                  <p className="text-xs font-semibold text-warning-dark dark:text-warning">
+                    🔧 Development Mode Reset Link:
+                  </p>
+                  <Link
+                    to={`/reset-password?token=${devToken}`}
+                    className="text-xs text-accent underline break-all font-mono mt-1 block"
+                  >
                     /reset-password?token={devToken}
                   </Link>
                 </div>
               )}
+
+              <div className="pt-2">
+                <Link to="/login">
+                  <Button variant="secondary" className="w-full">
+                    Return to Sign In
+                  </Button>
+                </Link>
+              </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink/40" />
-                <Input
-                  className="pl-9"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  error={error}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Send reset link"}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <Input
+                id="reset-email"
+                label="Registered Email Address"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                error={error}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+              <Button
+                type="submit"
+                loading={loading}
+                className="w-full shadow-card py-3 text-sm font-semibold"
+                size="lg"
+              >
+                Send Reset Link
               </Button>
             </form>
           )}
 
-          <Link to="/login" className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-            <ArrowLeft className="h-4 w-4" /> Back to login
-          </Link>
+          <div className="mt-6 pt-5 border-t border-black/[0.06] dark:border-white/[0.08] text-center">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white transition"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+            </Link>
+          </div>
         </div>
       </div>
     </div>

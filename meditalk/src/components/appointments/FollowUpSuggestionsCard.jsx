@@ -39,7 +39,11 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
     setSubmitting(true);
     try {
       await confirmFollowUpSuggestion(selectedSug.id, { time: selectedTime, type: "video" });
-      toast.success(`Follow-up booked with Dr. ${selectedSug.doctor_name} on ${formatDate(selectedSug.suggested_date)} at ${selectedTime}!`);
+      toast.success(
+        `Follow-up booked with Dr. ${selectedSug.doctor_name} on ${formatDate(
+          selectedSug.suggested_date
+        )} at ${selectedTime}!`
+      );
       setSelectedSug(null);
       if (onConfirmed) onConfirmed();
     } catch (err) {
@@ -67,31 +71,36 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
       {suggestions.map((sug) => (
         <div
           key={sug.id}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-sage/20 border border-teal-500/30 p-4 sm:p-5 shadow-sm"
+          className="relative overflow-hidden rounded-2xl bg-surface dark:bg-dark-surface border border-primary/20 dark:border-primary/30 p-5 shadow-card dark:shadow-none transition-all duration-200"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light flex items-center justify-center shrink-0">
                 <CalendarCheck2 className="h-5 w-5" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-600/15 text-teal-800">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light">
                     Recommended Follow-Up
                   </span>
-                  <span className="text-xs font-semibold text-ink">Dr. {sug.doctor_name}</span>
-                  <span className="text-xs text-ink/50">({sug.specialty || "Specialist"})</span>
+                  <span className="text-xs font-semibold text-ink dark:text-dark-ink">
+                    Dr. {sug.doctor_name}
+                  </span>
+                  <span className="text-xs text-ink/50 dark:text-dark-ink/50">
+                    ({sug.specialty || "Specialist"})
+                  </span>
                 </div>
-                <h4 className="text-sm font-bold text-ink mt-1">
+                <h4 className="text-sm font-semibold text-ink dark:text-dark-ink">
                   Proposed Date: {formatDate(sug.suggested_date)}
                 </h4>
                 {sug.reason && (
-                  <p className="text-xs text-ink/70 mt-0.5">
-                    <span className="font-medium text-ink">Clinical reason:</span> {sug.reason}
+                  <p className="text-xs text-ink/70 dark:text-dark-ink/70">
+                    <span className="font-medium text-ink dark:text-dark-ink">Clinical reason:</span>{" "}
+                    {sug.reason}
                   </p>
                 )}
                 {sug.instructions && (
-                  <p className="text-[11px] text-teal-900 mt-1 italic bg-teal-500/10 px-2 py-1 rounded-md inline-block">
+                  <p className="text-[11px] text-ink/80 dark:text-dark-ink/80 italic bg-canvas dark:bg-dark-surface-elevated px-2.5 py-1 rounded-lg border border-border-subtle dark:border-dark-border-subtle inline-block mt-1">
                     "{sug.instructions}"
                   </p>
                 )}
@@ -102,7 +111,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
               <Button
                 size="sm"
                 onClick={() => handleOpenConfirm(sug)}
-                className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm text-xs"
+                className="text-xs"
               >
                 <Check className="h-3.5 w-3.5" /> 1-Click Confirm
               </Button>
@@ -111,7 +120,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
                 variant="ghost"
                 loading={dismissingId === sug.id}
                 onClick={() => handleDismiss(sug.id)}
-                className="text-xs text-ink/50 hover:text-ink hover:bg-sage/20"
+                className="text-xs text-ink/50 dark:text-dark-ink/50 hover:text-ink dark:hover:text-dark-ink"
               >
                 <X className="h-3.5 w-3.5" /> Dismiss
               </Button>
@@ -120,38 +129,41 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
 
           {/* Inline Slot Picker when user clicks confirm */}
           {selectedSug?.id === sug.id && (
-            <div className="mt-4 pt-3 border-t border-teal-500/20 bg-white/80 border border-sage/20 rounded-xl p-3">
-              <p className="text-xs font-semibold text-ink mb-2 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-teal-600" />
+            <div className="mt-4 pt-4 border-t border-border-subtle dark:border-dark-border-subtle bg-canvas dark:bg-dark-surface-elevated/50 rounded-xl p-3.5">
+              <p className="text-xs font-medium text-ink dark:text-dark-ink mb-2.5 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-primary" />
                 Select a time slot for {formatDate(sug.suggested_date)}:
               </p>
 
               {slotsLoading ? (
-                <div className="flex items-center gap-2 text-xs text-ink/60 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-teal-600" /> Loading available doctor slots…
+                <div className="flex items-center gap-2 text-xs text-ink/60 dark:text-dark-ink/60 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading available doctor slots…
                 </div>
               ) : slots.length === 0 ? (
-                <div className="flex items-center gap-2 text-xs text-amber-700 py-1">
-                  <AlertCircle className="h-4 w-4 text-amber-600" /> No standard slots available on this exact date. Please check with clinic or select a different time in booking.
+                <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 py-1">
+                  <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                  No standard slots available on this date. Please check with clinic or select another day.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                    {slots.map((slot) => (
-                      <button
-                        key={slot.time}
-                        type="button"
-                        onClick={() => setSelectedTime(slot.time)}
-                        className={
-                          "py-1.5 px-2 rounded-lg text-xs font-medium border transition " +
-                          (selectedTime === slot.time
-                            ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                            : "bg-white text-ink border-sage/40 hover:bg-teal-50")
-                        }
-                      >
-                        {slot.time}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {slots.map((slot) => {
+                      const isSelected = selectedTime === slot.time;
+                      return (
+                        <button
+                          key={slot.time}
+                          type="button"
+                          onClick={() => setSelectedTime(slot.time)}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-medium border transition-all duration-150 active:scale-[0.98] ${
+                            isSelected
+                              ? "bg-primary text-white border-primary shadow-sm"
+                              : "bg-surface dark:bg-dark-surface text-ink dark:text-dark-ink border-border-subtle dark:border-dark-border-subtle hover:border-primary/40"
+                          }`}
+                        >
+                          {slot.time}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="flex items-center gap-2 pt-1">
@@ -160,7 +172,7 @@ export default function FollowUpSuggestionsCard({ suggestions = [], onConfirmed,
                       onClick={handleConfirm}
                       loading={submitting}
                       disabled={!selectedTime}
-                      className="bg-teal-600 hover:bg-teal-700 text-white text-xs"
+                      className="text-xs"
                     >
                       Book Appointment ({selectedTime || "Select time"})
                     </Button>

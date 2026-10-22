@@ -70,7 +70,11 @@ export default function Register() {
     setSubmitting(false);
     if (res.success) {
       setDone(true);
-      toast.success(role === ROLES.DOCTOR ? "Doctor registration submitted for review!" : "Patient registration successful!");
+      toast.success(
+        role === ROLES.DOCTOR
+          ? "Doctor registration submitted for review!"
+          : "Patient registration successful!"
+      );
     } else {
       toast.error(res.message);
     }
@@ -78,21 +82,25 @@ export default function Register() {
 
   if (done) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="card max-w-md text-center">
-          <div className="mx-auto h-14 w-14 rounded-full bg-success/15 flex items-center justify-center">
-            <CheckCircle2 className="h-7 w-7 text-success" />
+      <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] text-ink dark:text-white flex items-center justify-center p-6 transition-colors">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover p-8 max-w-md w-full text-center animate-enter">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-success/15 text-success dark:text-success-light flex items-center justify-center mb-4">
+            <CheckCircle2 className="h-7 w-7" />
           </div>
-          <h1 className="mt-4 text-xl font-bold text-ink">
-            {role === ROLES.DOCTOR ? "Registration Submitted" : "Account created"}
+          <h1 className="text-xl font-bold tracking-tight text-ink dark:text-white">
+            {role === ROLES.DOCTOR ? "Credentials Under Review" : "Account Created Successfully"}
           </h1>
-          <p className="mt-2 text-sm text-ink/60">
+          <p className="mt-2 text-xs sm:text-sm text-ink-secondary dark:text-neutral-400 leading-relaxed">
             {role === ROLES.DOCTOR
-              ? "Your doctor account has been created and your medical credentials are under administrative review. You will be able to sign in once an administrator approves your license."
-              : "Your MediTalk Patient account is ready. You can now sign in."}
+              ? "Your doctor account has been created. Medical credentials are under administrative review. You will be able to sign in once an administrator approves your license."
+              : "Your MediTalk Patient account is active. You can now sign in to access your digital records and book appointments."}
           </p>
-          <Button className="mt-6 w-full" onClick={() => navigate("/login")}>
-            {role === ROLES.DOCTOR ? "Back to Login" : "Go to Login"}
+          <Button
+            className="mt-6 w-full shadow-card py-3"
+            size="lg"
+            onClick={() => navigate("/login")}
+          >
+            {role === ROLES.DOCTOR ? "Return to Sign In" : "Proceed to Sign In"}
           </Button>
         </div>
       </div>
@@ -100,125 +108,232 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-background">
-      <div className="w-full max-w-lg">
-        <div className="flex justify-center mb-6">
-          <Logo />
+    <div className="min-h-screen bg-[#F5F5F7] dark:bg-[#000000] text-ink dark:text-white flex flex-col justify-center items-center p-4 sm:p-8 transition-colors selection:bg-primary/20">
+      <div className="w-full max-w-xl animate-enter py-8">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center mb-8">
+          <Link to="/" className="mb-4 inline-block hover:opacity-90 transition">
+            <Logo size="lg" />
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink dark:text-white">
+            Create your account
+          </h1>
+          <p className="text-xs sm:text-sm text-ink-secondary dark:text-neutral-400 mt-1">
+            Join the verified MediTalk clinical network.
+          </p>
         </div>
-        <div className="card">
-          <h1 className="text-2xl font-bold text-ink">Create your account</h1>
-          <p className="text-sm text-ink/50 mt-1">Join MediTalk medical network.</p>
 
-          {/* Role selector */}
-          <div className="mt-4">
-            <label className="label-base">Register as</label>
-            <div className="grid grid-cols-2 gap-2">
+        {/* Card Form */}
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover p-6 sm:p-8">
+          {/* Role selector segmented control */}
+          <div className="mb-6">
+            <label className="label-base">Account Type</label>
+            <div className="p-1 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.06] grid grid-cols-2 gap-1 text-center">
               <button
                 type="button"
                 onClick={() => setRole(ROLES.PATIENT)}
                 className={
-                  "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition " +
+                  "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all duration-150 " +
                   (role === ROLES.PATIENT
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-sage/40 text-ink/60 hover:bg-sage/20")
+                    ? "bg-white dark:bg-[#1C1C1E] text-ink dark:text-white shadow-xs"
+                    : "text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white")
                 }
               >
-                <User className="h-4 w-4" /> Patient
+                <User className="h-4 w-4" /> Patient Account
               </button>
               <button
                 type="button"
                 onClick={() => setRole(ROLES.DOCTOR)}
                 className={
-                  "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition " +
+                  "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all duration-150 " +
                   (role === ROLES.DOCTOR
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-sage/40 text-ink/60 hover:bg-sage/20")
+                    ? "bg-white dark:bg-[#1C1C1E] text-ink dark:text-white shadow-xs"
+                    : "text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white")
                 }
               >
-                <Stethoscope className="h-4 w-4" /> Doctor
+                <Stethoscope className="h-4 w-4" /> Physician Account
               </button>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4.5">
             <div className="grid sm:grid-cols-2 gap-4">
-              <Input label="Full name" placeholder={role === ROLES.DOCTOR ? "Dr. John Doe" : "Jane Doe"} value={form.name} error={errors.name} onChange={(e) => update("name", e.target.value)} />
-              <Input label="Email" type="email" placeholder="john@example.com" value={form.email} error={errors.email} onChange={(e) => update("email", e.target.value)} />
-              <Input label="Phone" placeholder="+1 (555) 000-0000" value={form.phone} error={errors.phone} onChange={(e) => update("phone", e.target.value)} />
+              <Input
+                label="Full Name"
+                placeholder={role === ROLES.DOCTOR ? "Dr. Sneha Menon" : "Aarav Sharma"}
+                value={form.name}
+                error={errors.name}
+                onChange={(e) => update("name", e.target.value)}
+              />
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="name@example.com"
+                value={form.email}
+                error={errors.email}
+                onChange={(e) => update("email", e.target.value)}
+              />
+              <Input
+                label="Phone Number"
+                placeholder="+91 98765 43210"
+                value={form.phone}
+                error={errors.phone}
+                onChange={(e) => update("phone", e.target.value)}
+              />
 
               {role === ROLES.PATIENT ? (
                 <>
-                  <Input label="Date of birth" type="date" value={form.dob} error={errors.dob} onChange={(e) => update("dob", e.target.value)} />
-                  <Select label="Gender" value={form.gender} error={errors.gender} onChange={(e) => update("gender", e.target.value)}>
+                  <Input
+                    label="Date of Birth"
+                    type="date"
+                    value={form.dob}
+                    error={errors.dob}
+                    onChange={(e) => update("dob", e.target.value)}
+                  />
+                  <Select
+                    label="Gender"
+                    value={form.gender}
+                    error={errors.gender}
+                    onChange={(e) => update("gender", e.target.value)}
+                  >
                     <option value="">Select gender</option>
                     {GENDERS.map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
                     ))}
                   </Select>
                 </>
               ) : (
                 <>
-                  <Select label="Specialty" value={form.specialty} error={errors.specialty} onChange={(e) => update("specialty", e.target.value)}>
+                  <Select
+                    label="Medical Specialty"
+                    value={form.specialty}
+                    error={errors.specialty}
+                    onChange={(e) => update("specialty", e.target.value)}
+                  >
                     {SPECIALTIES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                   </Select>
-                  <Input label="Experience (years)" type="number" min="0" value={form.experience} error={errors.experience} onChange={(e) => update("experience", e.target.value)} />
+                  <Input
+                    label="Experience (Years)"
+                    type="number"
+                    min="0"
+                    value={form.experience}
+                    error={errors.experience}
+                    onChange={(e) => update("experience", e.target.value)}
+                  />
                 </>
               )}
 
               {role === ROLES.DOCTOR && (
                 <div className="sm:col-span-2">
-                  <Input label="Bio / Qualifications" placeholder="e.g. MD, FACC - 10+ years cardiology specialist" value={form.bio} onChange={(e) => update("bio", e.target.value)} />
+                  <Input
+                    label="Credentials & Qualifications"
+                    placeholder="e.g. MBBS, MD - 12+ years experience in preventive medicine"
+                    value={form.bio}
+                    onChange={(e) => update("bio", e.target.value)}
+                  />
                 </div>
               )}
 
-              <Input label="Password" type="password" placeholder="••••••••" value={form.password} error={errors.password} onChange={(e) => update("password", e.target.value)} />
-              <Input label="Confirm password" type="password" placeholder="••••••••" value={form.confirm} error={errors.confirm} onChange={(e) => update("confirm", e.target.value)} />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="••••••••"
+                value={form.password}
+                error={errors.password}
+                onChange={(e) => update("password", e.target.value)}
+              />
+              <Input
+                label="Confirm Password"
+                type="password"
+                placeholder="••••••••"
+                value={form.confirm}
+                error={errors.confirm}
+                onChange={(e) => update("confirm", e.target.value)}
+              />
             </div>
 
-            {/* Privacy Notice & Consent Checkbox */}
-            <div className="rounded-xl border border-sage/30 bg-sage/10 p-3.5 space-y-2.5 text-xs text-ink/80">
-              <div className="flex items-center gap-2 font-bold text-ink">
-                <ShieldCheck className="h-4 w-4 text-primary" />
+            {/* Privacy Notice & Consent Card */}
+            <div className="rounded-2xl border border-black/[0.08] dark:border-white/[0.12] bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 p-4 space-y-2.5 text-xs">
+              <div className="flex items-center gap-2 font-semibold text-ink dark:text-white">
+                <ShieldCheck className="h-4 w-4 text-primary dark:text-primary-light" />
                 <span>Health Data Privacy & Consent Notice</span>
               </div>
-              <p className="text-[11px] text-ink/70 leading-relaxed">
+              <p className="text-[11px] text-ink-secondary dark:text-neutral-400 leading-relaxed">
                 MediTalk processes your medical details exclusively for clinical consultations, electronic prescribing, and appointment management under HIPAA and GDPR privacy frameworks. You can export your health data or withdraw consent anytime in Settings.
               </p>
-              <label className="flex items-start gap-2 cursor-pointer pt-1">
+              <label className="flex items-start gap-2.5 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   checked={form.consent}
                   onChange={(e) => update("consent", e.target.checked)}
-                  className="mt-0.5 rounded border-sage/40 text-primary focus:ring-primary h-4 w-4 shrink-0"
+                  className="mt-0.5 rounded border-black/[0.15] dark:border-white/[0.2] text-primary focus:ring-primary h-4 w-4 shrink-0"
                 />
-                <span className="text-[11px] leading-snug">
+                <span className="text-[11px] leading-snug text-ink dark:text-neutral-200">
                   I have read and accept the{" "}
-                  <Link to="/terms" target="_blank" className="font-semibold text-primary underline hover:text-primary-dark">
+                  <Link
+                    to="/terms"
+                    target="_blank"
+                    className="font-semibold text-primary dark:text-primary-light underline"
+                  >
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link to="/privacy" target="_blank" className="font-semibold text-primary underline hover:text-primary-dark">
+                  <Link
+                    to="/privacy"
+                    target="_blank"
+                    className="font-semibold text-primary dark:text-primary-light underline"
+                  >
                     Privacy Policy
                   </Link>
                   , and I give informed consent for the processing of my healthcare records.
                 </span>
               </label>
               {errors.consent && (
-                <p className="text-[11px] font-semibold text-rose-600 pl-6">{errors.consent}</p>
+                <p className="text-[11px] font-semibold text-danger pl-6">{errors.consent}</p>
               )}
             </div>
 
-            <Button type="submit" loading={submitting} className="w-full" size="lg">
-              <UserPlus className="h-4 w-4" /> Create {role === ROLES.DOCTOR ? "Doctor" : "Patient"} Account
+            <Button
+              type="submit"
+              loading={submitting}
+              className="w-full shadow-card py-3 text-sm font-semibold mt-2"
+              size="lg"
+            >
+              <UserPlus className="h-4 w-4" /> Create {role === ROLES.DOCTOR ? "Doctor" : "Patient"}{" "}
+              Account
             </Button>
           </form>
 
-          <p className="mt-4 text-sm text-ink/60 text-center">
+          <p className="mt-6 text-xs text-ink-secondary dark:text-neutral-400 text-center">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+            <Link
+              to="/login"
+              className="text-primary dark:text-primary-light font-semibold hover:underline ml-1"
+            >
+              Sign In
+            </Link>
           </p>
+        </div>
+
+        {/* Footer Links */}
+        <div className="mt-6 text-center text-xs text-ink-tertiary dark:text-neutral-500 space-x-3">
+          <Link to="/terms" className="hover:text-ink dark:hover:text-white transition">
+            Terms of Use
+          </Link>
+          <span>·</span>
+          <Link to="/privacy" className="hover:text-ink dark:hover:text-white transition">
+            Privacy Policy
+          </Link>
+          <span>·</span>
+          <Link to="/" className="hover:text-ink dark:hover:text-white transition">
+            MediTalk Home
+          </Link>
         </div>
       </div>
     </div>
