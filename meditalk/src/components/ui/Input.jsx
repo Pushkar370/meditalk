@@ -24,13 +24,13 @@ export default function Input({ label, error, helperText, className = "", id, ..
         {...props}
       />
       {error && (
-        <p id={`${inputId}-error`} className="mt-1.5 text-xs text-danger flex items-center gap-1 font-medium">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
+        <p id={`${inputId}-error`} className="mt-1.5 text-xs text-danger flex items-start gap-1 font-medium break-words">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span className="min-w-0 flex-1">{error}</span>
         </p>
       )}
       {!error && helperText && (
-        <p className="mt-1 text-xs text-ink-secondary dark:text-neutral-400">{helperText}</p>
+        <p className="mt-1 text-xs text-ink-secondary dark:text-neutral-400 break-words">{helperText}</p>
       )}
     </div>
   );

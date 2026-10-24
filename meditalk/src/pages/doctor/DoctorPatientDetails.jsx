@@ -155,13 +155,13 @@ export default function DoctorPatientDetails() {
       {/* Patient Profile Card */}
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
             <Avatar name={patient.name} size="lg" />
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-ink dark:text-dark-ink">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-ink dark:text-white truncate" title={patient.name}>
                 {patient.name}
               </h2>
-              <p className="text-xs text-ink/50 dark:text-dark-ink/50 mt-0.5 font-mono">
+              <p className="text-xs text-ink-secondary dark:text-neutral-400 mt-0.5 font-mono">
                 #{patient.id}
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function DoctorPatientDetails() {
       </Card>
 
       {/* Apple Segmented Tabs */}
-      <div className="flex p-1 rounded-2xl bg-canvas dark:bg-dark-surface-elevated/60 border border-border-subtle dark:border-dark-border-subtle w-fit max-w-full overflow-x-auto scrollbar-none">
+      <div className="flex p-1 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.06] w-full sm:w-fit max-w-full overflow-x-auto no-scrollbar">
         {tabs.map((t) => {
           const active = tab === t.key;
           return (
@@ -198,8 +198,8 @@ export default function DoctorPatientDetails() {
               onClick={() => setTab(t.key)}
               className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 shrink-0 ${
                 active
-                  ? "bg-surface dark:bg-dark-surface text-ink dark:text-dark-ink shadow-sm"
-                  : "text-ink/50 dark:text-dark-ink/50 hover:text-ink dark:hover:text-dark-ink"
+                  ? "bg-white dark:bg-[#1C1C1E] text-ink dark:text-white shadow-xs"
+                  : "text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white"
               }`}
             >
               {t.label}

@@ -952,7 +952,7 @@ export default function DoctorConsultation() {
                   className="input-base w-full"
                 />
                 {icdOpen && icdSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl border border-sage/30 shadow-lg overflow-hidden">
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-[#1C1C1E] rounded-xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover overflow-hidden">
                     {icdSuggestions.map((s) => (
                       <button
                         key={s.code}
@@ -963,15 +963,15 @@ export default function DoctorConsultation() {
                           setIcdQuery("");
                           setIcdOpen(false);
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-primary/5 transition border-b border-sage/10 last:border-0"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition border-b border-black/[0.04] dark:border-white/[0.06] last:border-0"
                       >
-                        <span className="text-xs font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                        <span className="text-xs font-mono font-semibold text-primary dark:text-primary-light bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
                           {s.code}
                         </span>
-                        <span className="text-sm text-ink">{s.description}</span>
+                        <span className="text-sm text-ink dark:text-white truncate">{s.description}</span>
                       </button>
                     ))}
-                    <div className="px-4 py-1.5 text-[10px] text-ink/30 border-t border-sage/10">
+                    <div className="px-4 py-1.5 text-[10px] text-ink-secondary dark:text-neutral-400 border-t border-black/[0.04] dark:border-white/[0.06]">
                       ICD-10 · Select to autofill code
                     </div>
                   </div>

@@ -1,67 +1,69 @@
+import { CheckCircle2, Clock, XCircle, AlertCircle, MinusCircle } from "lucide-react";
 import { APPOINTMENT_STATUS_LABELS } from "../../constants";
 
-const STATUS_STYLES = {
+const STATUS_CONFIG = {
   upcoming: {
-    bg: "bg-warning/10 text-warning-dark dark:text-warning border-warning/20",
-    dot: "bg-warning",
+    bg: "bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/25",
+    icon: Clock,
   },
   confirmed: {
-    bg: "bg-primary/10 text-primary-dark dark:text-primary-light border-primary/20",
-    dot: "bg-primary",
+    bg: "bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/25",
+    icon: CheckCircle2,
   },
   completed: {
-    bg: "bg-success/10 text-success-dark dark:text-success-light border-success/20",
-    dot: "bg-success",
+    bg: "bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/25",
+    icon: CheckCircle2,
   },
   cancelled: {
-    bg: "bg-danger/10 text-danger-dark dark:text-danger-light border-danger/20",
-    dot: "bg-danger",
+    bg: "bg-rose-500/10 text-rose-900 dark:text-rose-300 border-rose-500/25",
+    icon: XCircle,
   },
   pending: {
-    bg: "bg-warning/10 text-warning-dark dark:text-warning border-warning/20",
-    dot: "bg-warning",
+    bg: "bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/25",
+    icon: Clock,
   },
   active: {
-    bg: "bg-success/10 text-success-dark dark:text-success-light border-success/20",
-    dot: "bg-success",
+    bg: "bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/25",
+    icon: CheckCircle2,
   },
   inactive: {
-    bg: "bg-black/[0.05] dark:bg-white/[0.08] text-ink-secondary dark:text-neutral-400 border-black/[0.08] dark:border-white/[0.1]",
-    dot: "bg-ink-tertiary",
+    bg: "bg-black/[0.05] dark:bg-white/[0.08] text-ink-secondary dark:text-neutral-300 border-black/[0.1] dark:border-white/[0.12]",
+    icon: MinusCircle,
   },
   available: {
-    bg: "bg-success/10 text-success-dark dark:text-success-light border-success/20",
-    dot: "bg-success",
+    bg: "bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/25",
+    icon: CheckCircle2,
   },
   busy: {
-    bg: "bg-danger/10 text-danger-dark dark:text-danger-light border-danger/20",
-    dot: "bg-danger",
+    bg: "bg-rose-500/10 text-rose-900 dark:text-rose-300 border-rose-500/25",
+    icon: AlertCircle,
   },
   success: {
-    bg: "bg-success/10 text-success-dark dark:text-success-light border-success/20",
-    dot: "bg-success",
+    bg: "bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border-emerald-500/25",
+    icon: CheckCircle2,
   },
   failed: {
-    bg: "bg-danger/10 text-danger-dark dark:text-danger-light border-danger/20",
-    dot: "bg-danger",
+    bg: "bg-rose-500/10 text-rose-900 dark:text-rose-300 border-rose-500/25",
+    icon: XCircle,
   },
 };
 
 export default function StatusBadge({ status, label, className = "" }) {
   const normalized = (status || "").toLowerCase();
   const text = label || APPOINTMENT_STATUS_LABELS[normalized] || status;
-  const style = STATUS_STYLES[normalized] || STATUS_STYLES.inactive;
+  const config = STATUS_CONFIG[normalized] || STATUS_CONFIG.inactive;
+  const Icon = config.icon;
 
   return (
     <span
       className={
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border " +
-        style.bg +
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border whitespace-nowrap " +
+        config.bg +
         " " +
         className
       }
     >
-      <span className={"h-1.5 w-1.5 rounded-full shrink-0 " + style.dot} aria-hidden="true" />
+      <Icon className="h-3 w-3 shrink-0 stroke-[2.2]" aria-hidden="true" />
       <span className="capitalize">{text}</span>
     </span>
   );

@@ -39,5 +39,8 @@
   },
   "overrides": {
     "braces": "^3.0.3"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
   }
 }

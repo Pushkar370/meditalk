@@ -36,14 +36,20 @@ export default {
           dark: "#1C1C1E",
           darkCard: "#2C2C2E",
         },
-        // Apple typography colors
+        // Apple typography colors - calibrated for WCAG AA (>= 4.5:1 contrast)
         ink: {
-          DEFAULT: "#1D1D1F", // Primary label
-          secondary: "#6E6E73", // Secondary label
-          tertiary: "#86868B", // Tertiary / placeholder
-          quaternary: "#AEAEB2",
+          DEFAULT: "#1D1D1F", // Primary label (contrast > 16:1 on white)
+          secondary: "#4B4B50", // Secondary label (contrast > 7.5:1 on white, > 6.8:1 on #F5F5F7)
+          tertiary: "#5C5C62", // Tertiary label / helper text (contrast > 5.5:1 on white)
+          quaternary: "#6E6E73",
           dark: "#F5F5F7",
         },
+        "dark-canvas": "#000000",
+        "dark-surface": "#1C1C1E",
+        "dark-surface-elevated": "#2C2C2E",
+        "dark-ink": "#F5F5F7",
+        "border-subtle": "rgba(0, 0, 0, 0.08)",
+        "dark-border-subtle": "rgba(255, 255, 255, 0.12)",
         // Apple system feedback colors
         danger: {
           DEFAULT: "#FF3B30",

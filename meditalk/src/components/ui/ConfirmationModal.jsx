@@ -46,7 +46,7 @@ export default function ConfirmationModal({
             <Info className="h-5 w-5" />
           )}
         </div>
-        <p className="text-sm text-ink-secondary dark:text-neutral-300 leading-relaxed pt-1">
+        <p className="text-sm text-ink-secondary dark:text-neutral-300 leading-relaxed pt-1 flex-1 min-w-0 break-words">
           {message}
         </p>
       </div>

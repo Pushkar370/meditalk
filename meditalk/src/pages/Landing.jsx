@@ -93,7 +93,7 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="px-4 sm:px-6 pt-20 pb-16 sm:pt-28 sm:pb-24 max-w-4xl mx-auto text-center animate-enter">
-        <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light text-xs font-semibold tracking-wide uppercase mb-6">
+        <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/20 text-xs font-semibold tracking-wide uppercase mb-6">
           <ShieldCheck className="h-3.5 w-3.5" />
           <span>Trust-First Virtual Clinic Platform</span>
         </div>
@@ -145,12 +145,12 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-success/10 text-success-dark dark:text-success-light text-xs font-semibold">
-                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Live Video Ready
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 bg-black/[0.04] dark:bg-white/[0.06] text-ink-secondary dark:text-neutral-300 text-xs font-mono">
+              <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 bg-[#E8E8ED] dark:bg-[#2C2C2E] text-ink dark:text-white text-xs font-mono">
                 SHA-256 Verified
               </span>
             </div>
@@ -160,7 +160,7 @@ export default function Landing() {
             <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 border border-black/[0.04] dark:border-white/[0.06]">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-secondary dark:text-neutral-400">Blood Pressure</p>
               <p className="text-2xl font-bold text-ink dark:text-white mt-1">120/80</p>
-              <p className="text-[11px] text-success mt-1 flex items-center gap-1">
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-1 font-medium">
                 <CheckCircle2 className="h-3 w-3" /> Optimal Range
               </p>
             </div>
@@ -168,7 +168,7 @@ export default function Landing() {
             <div className="p-4 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E]/60 border border-black/[0.04] dark:border-white/[0.06]">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-secondary dark:text-neutral-400">Oxygen (SpO2)</p>
               <p className="text-2xl font-bold text-ink dark:text-white mt-1">99%</p>
-              <p className="text-[11px] text-success mt-1 flex items-center gap-1">
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-1 font-medium">
                 <CheckCircle2 className="h-3 w-3" /> Normal
               </p>
             </div>
@@ -191,7 +191,7 @@ export default function Landing() {
       {/* Feature Principles Grid */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-28">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary dark:text-primary-light">
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-800 dark:text-emerald-400">
             Platform Capabilities
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold text-ink dark:text-white tracking-tight mt-2">
@@ -216,7 +216,7 @@ export default function Landing() {
                 <h3 className="mt-4 text-base font-semibold text-ink dark:text-white tracking-tight">
                   {f.title}
                 </h3>
-                <p className="mt-2 text-xs text-ink-secondary dark:text-neutral-400 leading-relaxed">
+                <p className="mt-2 text-xs text-ink-secondary dark:text-neutral-200 leading-relaxed">
                   {f.text}
                 </p>
               </div>
@@ -247,7 +247,7 @@ export default function Landing() {
             <span>© 2026 MediTalk Systems. All rights reserved.</span>
           </div>
 
-          <div className="flex items-center gap-6 font-medium">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-medium">
             <Link to="/privacy" className="hover:text-ink dark:hover:text-white transition">
               Privacy Notice
             </Link>

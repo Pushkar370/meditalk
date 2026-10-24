@@ -103,7 +103,7 @@ export default function AdminAuditLogs() {
       key: "timestamp",
       label: "Timestamp",
       render: (r) => (
-        <span className="text-xs font-mono text-ink/70 dark:text-dark-ink/70">
+        <span className="text-xs font-mono text-ink-secondary dark:text-neutral-300">
           {formatDateTime(r.timestamp)}
         </span>
       ),
@@ -112,9 +112,11 @@ export default function AdminAuditLogs() {
       key: "user_name",
       label: "Actor",
       render: (r) => (
-        <div>
-          <div className="font-semibold text-ink dark:text-dark-ink text-xs">{r.user_name || "System"}</div>
-          <div className="text-[11px] text-ink/50 dark:text-dark-ink/50">{r.role || "System"}</div>
+        <div className="min-w-0">
+          <div className="font-semibold text-ink dark:text-white text-xs truncate" title={r.user_name || "System"}>
+            {r.user_name || "System"}
+          </div>
+          <div className="text-[11px] text-ink-secondary dark:text-neutral-400 truncate">{r.role || "System"}</div>
         </div>
       ),
     },
@@ -122,7 +124,7 @@ export default function AdminAuditLogs() {
       key: "action",
       label: "Action / Event",
       render: (r) => (
-        <div className="font-medium text-ink dark:text-dark-ink text-xs max-w-xs truncate" title={r.action}>
+        <div className="font-medium text-ink dark:text-white text-xs max-w-xs truncate" title={r.action}>
           {r.action}
         </div>
       ),
@@ -131,12 +133,12 @@ export default function AdminAuditLogs() {
       key: "ip_address",
       label: "Origin & Hash",
       render: (r) => (
-        <div>
-          <span className="text-xs font-mono text-ink/75 dark:text-dark-ink/75" title={r.user_agent || "Client"}>
+        <div className="min-w-0">
+          <span className="text-xs font-mono text-ink-secondary dark:text-neutral-300" title={r.user_agent || "Client"}>
             {r.ip_address || "127.0.0.1"}
           </span>
           {r.hash && (
-            <div className="text-[10px] font-mono text-ink/40 dark:text-dark-ink/40 truncate max-w-[90px]" title={`SHA-256 Hash: ${r.hash}`}>
+            <div className="text-[10px] font-mono text-ink-secondary dark:text-neutral-400 truncate max-w-[110px]" title={`SHA-256 Hash: ${r.hash}`}>
               ⛓️ {r.hash.slice(0, 8)}...
             </div>
           )}
@@ -165,7 +167,7 @@ export default function AdminAuditLogs() {
       key: "entity_id",
       label: "Reference",
       render: (r) => (
-        <span className="text-[11px] font-mono text-ink/50 dark:text-dark-ink/50 truncate max-w-[120px] inline-block" title={r.entity_id}>
+        <span className="text-[11px] font-mono text-ink-secondary dark:text-neutral-400 truncate max-w-[120px] inline-block" title={r.entity_id}>
           {r.entity_id || "—"}
         </span>
       ),
@@ -284,8 +286,8 @@ export default function AdminAuditLogs() {
                 )}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h4 className="font-semibold text-sm tracking-tight">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-semibold text-sm tracking-tight text-ink dark:text-white">
                     {integrityResult.verified
                       ? "Cryptographic Hash Chain Verified (SHA-256)"
                       : "CRITICAL: Audit Log Tampering Detected!"}
@@ -293,14 +295,14 @@ export default function AdminAuditLogs() {
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                       integrityResult.verified
-                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                        : "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                        ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+                        : "bg-rose-500/20 text-rose-800 dark:text-rose-300"
                     }`}
                   >
                     {integrityResult.verified ? "Tamper-Proof" : "Compromised"}
                   </span>
                 </div>
-                <p className="text-xs text-ink/70 dark:text-dark-ink/70 mt-0.5">
+                <p className="text-xs text-ink-secondary dark:text-neutral-300 mt-0.5 break-words">
                   {integrityResult.verified
                     ? `Sequential cryptographic chain intact across ${integrityResult.totalEntries} rows. Engine trigger forbids UPDATE/DELETE.`
                     : integrityResult.error}
@@ -311,14 +313,14 @@ export default function AdminAuditLogs() {
             {integrityResult.verified && (
               <div className="text-right text-xs space-y-0.5 bg-canvas/60 dark:bg-dark-surface-elevated/70 px-3.5 py-2 rounded-xl border border-emerald-500/20">
                 <div className="flex items-center gap-2 justify-end">
-                  <span className="text-ink/50 dark:text-dark-ink/50 text-[11px]">Head Hash:</span>
-                  <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 text-[11px]">
+                  <span className="text-ink-secondary dark:text-neutral-400 text-[11px]">Head Hash:</span>
+                  <span className="font-mono font-semibold text-emerald-800 dark:text-emerald-400 text-[11px]">
                     {integrityResult.headHash
                       ? `${integrityResult.headHash.slice(0, 10)}...${integrityResult.headHash.slice(-8)}`
                       : "Genesis"}
                   </span>
                 </div>
-                <div className="text-[10px] text-ink/40 dark:text-dark-ink/40">
+                <div className="text-[10px] text-ink-secondary dark:text-neutral-400">
                   Verified at {formatDateTime(integrityResult.verifiedAt)}
                 </div>
               </div>
@@ -330,7 +332,7 @@ export default function AdminAuditLogs() {
       {/* KPI Stats Chips Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-4 shadow-apple-card flex flex-col justify-between">
-          <div className="text-xs text-ink/60 dark:text-dark-ink/60 font-medium flex items-center justify-between">
+          <div className="text-xs text-ink-secondary dark:text-neutral-400 font-medium flex items-center justify-between">
             <span>Total Events</span>
             <Shield className="w-3.5 h-3.5 text-accent" />
           </div>
@@ -372,8 +374,8 @@ export default function AdminAuditLogs() {
 
       {/* Filter Toolbar */}
       <div className="bg-surface dark:bg-dark-surface border border-border-subtle dark:border-dark-border-subtle rounded-2xl p-5 shadow-apple-card space-y-4">
-        <div className="flex items-center justify-between gap-2 border-b border-border-subtle dark:border-dark-border-subtle pb-3">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink/70 dark:text-dark-ink/70">
+        <div className="flex items-center justify-between gap-2 border-b border-border-subtle dark:border-dark-border-subtle pb-3 flex-wrap">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-secondary dark:text-neutral-300">
             <Filter className="w-3.5 h-3.5 text-accent" />
             <span>Search &amp; Scoping Parameters</span>
           </div>
@@ -382,7 +384,7 @@ export default function AdminAuditLogs() {
             {(appliedFilters.from || appliedFilters.to || appliedFilters.role || appliedFilters.status || appliedFilters.search) && (
               <button
                 onClick={handleResetFilters}
-                className="text-xs text-ink/50 dark:text-dark-ink/50 hover:text-ink dark:hover:text-dark-ink flex items-center gap-1 transition-all ml-2"
+                className="text-xs text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white flex items-center gap-1 transition-all ml-2"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset</span>
@@ -394,13 +396,13 @@ export default function AdminAuditLogs() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
           {/* Free Search */}
           <div className="lg:col-span-2 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 dark:text-dark-ink/40" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-secondary dark:text-neutral-400" />
             <input
               type="text"
               placeholder="Filter by actor name, user ID, or action..."
               value={filters.search}
               onChange={(e) => handleFilterChange("search", e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-dark-ink placeholder:text-ink/40 focus:outline-none focus:border-accent"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-white placeholder:text-ink-secondary dark:placeholder:text-neutral-400 focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -409,13 +411,13 @@ export default function AdminAuditLogs() {
             <select
               value={filters.role}
               onChange={(e) => handleFilterChange("role", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-white focus:outline-none focus:border-accent"
             >
-              <option value="">All Roles</option>
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
-              <option value="admin">Admin</option>
-              <option value="system">System Worker</option>
+              <option value="" className="dark:bg-[#2C2C2E]">All Roles</option>
+              <option value="patient" className="dark:bg-[#2C2C2E]">Patient</option>
+              <option value="doctor" className="dark:bg-[#2C2C2E]">Doctor</option>
+              <option value="admin" className="dark:bg-[#2C2C2E]">Admin</option>
+              <option value="system" className="dark:bg-[#2C2C2E]">System Worker</option>
             </select>
           </div>
 
@@ -424,12 +426,12 @@ export default function AdminAuditLogs() {
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-dark-ink focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 text-xs bg-canvas dark:bg-dark-surface-elevated border border-border-subtle dark:border-dark-border-subtle rounded-xl text-ink dark:text-white focus:outline-none focus:border-accent"
             >
-              <option value="">All Statuses</option>
-              <option value="success">Success</option>
-              <option value="warning">Warning</option>
-              <option value="failed">Failed</option>
+              <option value="" className="dark:bg-[#2C2C2E]">All Statuses</option>
+              <option value="success" className="dark:bg-[#2C2C2E]">Success</option>
+              <option value="warning" className="dark:bg-[#2C2C2E]">Warning</option>
+              <option value="failed" className="dark:bg-[#2C2C2E]">Failed</option>
             </select>
           </div>
 

@@ -20,16 +20,16 @@ export default function DoctorCard({ doctor, onSelect, selected = false }) {
           {initials(d.name)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-ink dark:text-white truncate tracking-tight">
+          <p className="font-semibold text-sm text-ink dark:text-white truncate tracking-tight" title={d.name}>
             {d.name}
           </p>
-          <p className="text-xs text-ink-secondary dark:text-neutral-400 mt-0.5 truncate">
+          <p className="text-xs text-ink-secondary dark:text-neutral-400 mt-0.5 truncate" title={d.specialty}>
             {d.specialty}
           </p>
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-black/[0.04] dark:border-white/[0.06] flex items-center justify-between text-xs text-ink-secondary dark:text-neutral-400">
+      <div className="mt-4 pt-3 border-t border-black/[0.04] dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-2 text-xs text-ink-secondary dark:text-neutral-400">
         <span className="inline-flex items-center gap-1 font-semibold text-ink dark:text-white">
           <Star className="h-3.5 w-3.5 text-warning fill-warning" />
           <span>{d.rating || "4.9"}</span>

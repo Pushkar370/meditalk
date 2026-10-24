@@ -26,7 +26,7 @@ const TYPE_COLOR = {
   [NOTIFICATION_TYPES.CANCELLED]: "text-rose-600 dark:text-rose-400 bg-rose-500/10 dark:bg-rose-500/20",
   [NOTIFICATION_TYPES.PRESCRIPTION]: "text-primary dark:text-primary-light bg-primary/10 dark:bg-primary/20",
   [NOTIFICATION_TYPES.FOLLOWUP]: "text-accent bg-accent/10 dark:bg-accent/20",
-  [NOTIFICATION_TYPES.SYSTEM]: "text-ink/60 dark:text-dark-ink/60 bg-canvas dark:bg-dark-surface-elevated",
+  [NOTIFICATION_TYPES.SYSTEM]: "text-ink-secondary dark:text-neutral-300 bg-black/5 dark:bg-white/10",
 };
 
 function getNotificationRoute(notification, userRole) {
@@ -102,7 +102,7 @@ export default function NotificationItem({ notification, onRead, onDelete }) {
   const auth = useAuth();
   const user = auth?.user;
   const Icon = TYPE_ICON[notification.type] || Info;
-  const colorClass = TYPE_COLOR[notification.type] || "text-ink/60 bg-canvas dark:bg-dark-surface-elevated";
+  const colorClass = TYPE_COLOR[notification.type] || "text-ink-secondary dark:text-neutral-300 bg-black/5 dark:bg-white/10";
   const targetRoute = getNotificationRoute(notification, user?.role);
 
   const handleClick = () => {
@@ -127,36 +127,36 @@ export default function NotificationItem({ notification, onRead, onDelete }) {
       }}
       className={`group flex items-start gap-3.5 p-4 rounded-xl transition-all cursor-pointer ${
         notification.read
-          ? "bg-transparent hover:bg-canvas dark:hover:bg-dark-surface-elevated/60"
-          : "bg-accent/5 dark:bg-accent/10 border border-accent/20 hover:border-accent/40"
+          ? "bg-transparent hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+          : "bg-primary/5 dark:bg-primary/10 border border-primary/20 hover:border-primary/40"
       }`}
     >
-      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${colorClass}`}>
+      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${colorClass}`}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-semibold text-ink dark:text-dark-ink text-sm truncate group-hover:text-accent transition-colors">
+          <p className="font-semibold text-ink dark:text-white text-sm truncate group-hover:text-primary transition-colors" title={notification.title}>
             {notification.title}
           </p>
-          {!notification.read && <span className="h-2 w-2 rounded-full bg-accent shrink-0 shadow-sm" />}
+          {!notification.read && <span className="h-2 w-2 rounded-full bg-primary shrink-0 shadow-xs" />}
         </div>
-        <p className="text-xs text-ink/60 dark:text-dark-ink/60 mt-0.5 line-clamp-2 leading-relaxed">{notification.message}</p>
-        <div className="flex items-center gap-3 mt-2">
-          <p className="text-[11px] text-ink/40 dark:text-dark-ink/40">{formatDateTime(notification.date)}</p>
-          <span className="text-[11px] text-accent opacity-0 group-hover:opacity-100 transition-opacity font-semibold flex items-center gap-1">
+        <p className="text-xs text-ink-secondary dark:text-neutral-300 mt-0.5 break-words leading-relaxed">{notification.message}</p>
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
+          <p className="text-[11px] text-ink-secondary dark:text-neutral-400 font-medium">{formatDateTime(notification.date)}</p>
+          <span className="text-[11px] text-primary dark:text-primary-light opacity-0 group-hover:opacity-100 transition-opacity font-semibold flex items-center gap-1">
             Open <ArrowRight className="h-3 w-3" />
           </span>
         </div>
       </div>
-      <div className="flex flex-col gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
         {!notification.read && onRead && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onRead(notification.id);
             }}
-            className="text-[11px] font-medium text-accent hover:underline px-1 py-0.5"
+            className="text-[11px] font-semibold text-primary dark:text-primary-light hover:underline px-1.5 py-0.5 rounded"
           >
             Mark read
           </button>
@@ -167,7 +167,7 @@ export default function NotificationItem({ notification, onRead, onDelete }) {
               e.stopPropagation();
               onDelete(notification.id);
             }}
-            className="text-[11px] font-medium text-danger hover:underline px-1 py-0.5"
+            className="text-[11px] font-semibold text-danger hover:underline px-1.5 py-0.5 rounded"
           >
             Delete
           </button>

@@ -9,8 +9,8 @@
     --border-subtle: rgba(0, 0, 0, 0.06);
     --border-regular: rgba(0, 0, 0, 0.10);
     --text-primary: #1D1D1F;
-    --text-secondary: #6E6E73;
-    --text-tertiary: #86868B;
+    --text-secondary: #4B4B50;
+    --text-tertiary: #5C5C62;
     --primary-color: #007A5A;
     --primary-light: #059669;
   }
@@ -21,8 +21,8 @@
     --border-subtle: rgba(255, 255, 255, 0.08);
     --border-regular: rgba(255, 255, 255, 0.14);
     --text-primary: #F5F5F7;
-    --text-secondary: #A1A1A6;
-    --text-tertiary: #6E6E73;
+    --text-secondary: #D1D1D6;
+    --text-tertiary: #98989D;
     --primary-color: #10B981;
     --primary-light: #34D399;
   }
@@ -32,26 +32,33 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   body {
     background-color: var(--canvas-bg);
     color: var(--text-primary);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overflow-x: hidden;
   }
 
-  /* Accessible focus states matching Apple HIG */
+  /* Accessible focus states matching Apple HIG with dark mode distinction */
   *:focus-visible {
     outline: 2px solid #007A5A;
+    outline-offset: 2px;
+  }
+
+  .dark *:focus-visible {
+    outline: 2px solid #10B981;
     outline-offset: 2px;
   }
 }
 
 @layer components {
-  /* Apple-style card surface */
+  /* Apple-style card surface with responsive padding */
   .card {
     @apply bg-white dark:bg-[#1C1C1E] rounded-2xl border border-black/[0.06] dark:border-white/[0.08]
-      shadow-card hover:shadow-card-hover transition-all duration-200 p-6;
+      shadow-card hover:shadow-card-hover transition-all duration-200 p-4 sm:p-6 min-w-0 w-full;
   }
 
   /* Frosted glass surface */
@@ -61,10 +68,10 @@
 
   /* Subtle input matching Apple HIG */
   .input-base {
-    @apply w-full rounded-xl border border-black/[0.10] dark:border-white/[0.12]
+    @apply w-full rounded-xl border border-black/[0.10] dark:border-white/[0.14]
       bg-white dark:bg-[#2C2C2E] px-4 py-2.5 text-sm text-ink dark:text-white
-      placeholder:text-ink-tertiary dark:placeholder:text-neutral-500
-      focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none
+      placeholder:text-[#5C5C62] dark:placeholder:text-[#98989D]
+      focus:border-primary dark:focus:border-primary-light focus:ring-4 focus:ring-primary/10 focus:outline-none
       transition-all duration-150;
   }
 

@@ -23,22 +23,22 @@ export default function AppointmentCard({
           : "card"
       }
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex items-center gap-3.5 min-w-0 flex-1">
           <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary dark:text-primary-light flex items-center justify-center shrink-0">
             <Stethoscope className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-ink dark:text-white tracking-tight">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-ink dark:text-white tracking-tight truncate" title={a.doctorName}>
               {a.doctorName}
             </p>
-            <p className="text-xs text-ink-secondary dark:text-neutral-400 mt-0.5">
+            <p className="text-xs text-ink-secondary dark:text-neutral-400 mt-0.5 truncate" title={a.specialty}>
               {a.specialty}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1.5 shrink-0 flex-wrap">
           <StatusBadge status={a.status} />
           {a.checkInStatus === "checked_in" && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-success/10 text-success-dark dark:text-success-light border border-success/20">
@@ -55,7 +55,7 @@ export default function AppointmentCard({
         </div>
       </div>
 
-      <div className="mt-4 pt-3.5 border-t border-black/[0.04] dark:border-white/[0.06] grid grid-cols-2 gap-2.5 text-xs text-ink-secondary dark:text-neutral-300">
+      <div className="mt-4 pt-3.5 border-t border-black/[0.04] dark:border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-ink-secondary dark:text-neutral-300">
         <div className="flex items-center gap-2">
           <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
           <span>{a.date}</span>

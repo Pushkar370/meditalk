@@ -38,9 +38,9 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       className={
-        "inline-flex items-center justify-center gap-2 transition-all duration-150 " +
-        "active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 " +
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 " +
+        "inline-flex items-center justify-center gap-2 transition-all duration-150 max-w-full " +
+        "active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 " +
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1C1C1E] " +
         VARIANTS[variant] +
         " " +
         SIZES[size] +

@@ -29,7 +29,7 @@ export default function Sidebar({ role, items, onNavigate }) {
 
       {/* Navigation Links */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary dark:text-neutral-500">
+        <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary dark:text-neutral-400">
           {ROLE_LABELS[role] || role} Portal
         </div>
 
@@ -48,7 +48,7 @@ export default function Sidebar({ role, items, onNavigate }) {
               }
             >
               <Icon className="h-4 w-4 shrink-0 stroke-[1.8]" />
-              <span className="truncate">{item.label}</span>
+              <span className="truncate" title={item.label}>{item.label}</span>
             </NavLink>
           );
         })}
@@ -61,10 +61,10 @@ export default function Sidebar({ role, items, onNavigate }) {
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-ink dark:text-white truncate">
+            <p className="text-xs font-semibold text-ink dark:text-white truncate" title={user?.name || "User"}>
               {user?.name || "User"}
             </p>
-            <p className="text-[11px] text-ink-secondary dark:text-neutral-400 truncate">
+            <p className="text-[11px] text-ink-secondary dark:text-neutral-400 truncate" title={ROLE_LABELS[role] || role}>
               {ROLE_LABELS[role] || role}
             </p>
           </div>

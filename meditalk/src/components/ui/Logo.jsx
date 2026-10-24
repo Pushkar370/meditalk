@@ -38,7 +38,7 @@ export default function Logo({ size = "md", withText = true, inverted = false })
           <span
             className={
               "text-[9px] font-semibold tracking-widest uppercase mt-0.5 " +
-              (inverted ? "text-white/70" : "text-ink-secondary dark:text-neutral-400")
+              (inverted ? "text-white/80" : "text-ink-secondary dark:text-neutral-300")
             }
           >
             Clinical Care

@@ -27,9 +27,9 @@ export default function Select({ label, error, className = "", id, children, ...
         <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-tertiary" />
       </div>
       {error && (
-        <p id={`${selectId}-error`} className="mt-1.5 text-xs text-danger flex items-center gap-1 font-medium">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{error}</span>
+        <p id={`${selectId}-error`} className="mt-1.5 text-xs text-danger flex items-start gap-1 font-medium break-words">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span className="min-w-0 flex-1">{error}</span>
         </p>
       )}
     </div>

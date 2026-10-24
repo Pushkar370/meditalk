@@ -125,26 +125,26 @@ export default function Topbar({ onMenuClick, notificationTo, searchTo = "/patie
             className="flex items-center gap-2 p-1 rounded-full hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-all text-left"
           >
             <Avatar name={user?.name || "User"} size="sm" />
-            <div className="hidden md:block text-left pr-1">
-              <span className="text-xs font-semibold text-ink dark:text-white block leading-tight">
+            <div className="hidden md:block text-left pr-1 max-w-[140px] lg:max-w-[200px]">
+              <span className="text-xs font-semibold text-ink dark:text-white block leading-tight truncate" title={user?.name || "User"}>
                 {user?.name || "User"}
               </span>
-              <span className="text-[10px] text-ink-secondary dark:text-neutral-400 font-medium">
+              <span className="text-[10px] text-ink-secondary dark:text-neutral-400 font-medium truncate block">
                 {ROLE_LABELS[role] || role}
               </span>
             </div>
             <ChevronDown
-              className={`h-3.5 w-3.5 text-ink-tertiary dark:text-neutral-400 transition-transform duration-200 ${
+              className={`h-3.5 w-3.5 shrink-0 text-ink-tertiary dark:text-neutral-400 transition-transform duration-200 ${
                 dropdownOpen ? "rotate-180 text-primary" : ""
               }`}
             />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2.5 w-56 rounded-2xl bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover py-2 z-50 animate-enter">
-              <div className="px-4 py-2.5 border-b border-black/[0.06] dark:border-white/[0.08]">
-                <p className="text-xs font-bold text-ink dark:text-white truncate">{user?.name}</p>
-                <p className="text-[11px] text-ink-secondary dark:text-neutral-400 truncate mt-0.5">{user?.email}</p>
+            <div className="absolute right-0 mt-2.5 w-64 max-w-[calc(100vw-2rem)] rounded-2xl bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover py-2 z-50 animate-enter">
+              <div className="px-4 py-2.5 border-b border-black/[0.06] dark:border-white/[0.08] min-w-0">
+                <p className="text-xs font-bold text-ink dark:text-white truncate" title={user?.name}>{user?.name}</p>
+                <p className="text-[11px] text-ink-secondary dark:text-neutral-400 truncate mt-0.5" title={user?.email}>{user?.email}</p>
                 <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-primary/10 text-primary dark:text-primary-light">
                   {ROLE_LABELS[role] || role}
                 </span>

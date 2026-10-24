@@ -68,13 +68,13 @@ export default function Modal({
         }
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-md">
-          <h2 className="text-lg font-semibold tracking-tight text-ink dark:text-white">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-black/[0.06] dark:border-white/[0.08] bg-white/70 dark:bg-[#1C1C1E]/70 backdrop-blur-md gap-3">
+          <h2 className="text-base sm:text-lg font-semibold tracking-tight text-ink dark:text-white truncate flex-1 min-w-0" title={typeof title === "string" ? title : undefined}>
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-full bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.1] dark:hover:bg-white/[0.15] text-ink-secondary dark:text-neutral-300 flex items-center justify-center transition-all"
+            className="h-8 w-8 shrink-0 rounded-full bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.1] dark:hover:bg-white/[0.15] text-ink-secondary dark:text-neutral-300 flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Close dialog"
           >
             <X className="h-4 w-4" />
@@ -82,11 +82,11 @@ export default function Modal({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
+        <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto flex-1 min-w-0 break-words">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-black/[0.06] dark:border-white/[0.08] bg-[#F5F5F7]/80 dark:bg-[#2C2C2E]/60 backdrop-blur-md flex items-center justify-end gap-3">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-black/[0.06] dark:border-white/[0.08] bg-[#F5F5F7]/80 dark:bg-[#2C2C2E]/60 backdrop-blur-md flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
             {footer}
           </div>
         )}

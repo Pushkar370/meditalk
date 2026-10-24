@@ -124,7 +124,7 @@ export default function Register() {
         </div>
 
         {/* Card Form */}
-        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover p-6 sm:p-8">
+        <div className="bg-white dark:bg-[#1C1C1E] rounded-3xl border border-black/[0.08] dark:border-white/[0.12] shadow-popover p-5 sm:p-8">
           {/* Role selector segmented control */}
           <div className="mb-6">
             <label className="label-base">Account Type</label>
@@ -279,7 +279,7 @@ export default function Register() {
                   <Link
                     to="/terms"
                     target="_blank"
-                    className="font-semibold text-primary dark:text-primary-light underline"
+                    className="font-semibold text-primary dark:text-emerald-400 underline"
                   >
                     Terms of Service
                   </Link>{" "}
@@ -287,7 +287,7 @@ export default function Register() {
                   <Link
                     to="/privacy"
                     target="_blank"
-                    className="font-semibold text-primary dark:text-primary-light underline"
+                    className="font-semibold text-primary dark:text-emerald-400 underline"
                   >
                     Privacy Policy
                   </Link>
@@ -295,7 +295,7 @@ export default function Register() {
                 </span>
               </label>
               {errors.consent && (
-                <p className="text-[11px] font-semibold text-danger pl-6">{errors.consent}</p>
+                <p className="text-[11px] font-semibold text-danger pl-6 break-words">{errors.consent}</p>
               )}
             </div>
 
@@ -314,7 +314,7 @@ export default function Register() {
             Already have an account?{" "}
             <Link
               to="/login"
-              className="text-primary dark:text-primary-light font-semibold hover:underline ml-1"
+              className="text-primary dark:text-emerald-400 font-semibold hover:underline ml-1"
             >
               Sign In
             </Link>
@@ -322,7 +322,7 @@ export default function Register() {
         </div>
 
         {/* Footer Links */}
-        <div className="mt-6 text-center text-xs text-ink-tertiary dark:text-neutral-500 space-x-3">
+        <div className="mt-6 text-center text-xs text-ink-tertiary dark:text-neutral-400 space-x-3">
           <Link to="/terms" className="hover:text-ink dark:hover:text-white transition">
             Terms of Use
           </Link>

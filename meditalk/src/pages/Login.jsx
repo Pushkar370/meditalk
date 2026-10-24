@@ -82,7 +82,7 @@ export default function Login() {
             {/* Apple Segmented Control for Role */}
             <div>
               <label className="label-base">Sign In Role</label>
-              <div className="p-1 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.06] grid grid-cols-5 gap-1 text-center">
+              <div className="p-1 rounded-2xl bg-[#F5F5F7] dark:bg-[#2C2C2E] border border-black/[0.04] dark:border-white/[0.06] flex overflow-x-auto no-scrollbar sm:grid sm:grid-cols-5 gap-1 text-center">
                 {ROLE_OPTIONS.map((r) => {
                   const isSelected = form.role === r.value;
                   return (
@@ -90,8 +90,9 @@ export default function Login() {
                       type="button"
                       key={r.value}
                       onClick={() => update("role", r.value)}
+                      title={r.label}
                       className={
-                        "py-2 px-1 rounded-xl text-xs font-semibold transition-all duration-150 truncate " +
+                        "py-2 px-2.5 sm:px-1 rounded-xl text-xs font-semibold transition-all duration-150 shrink-0 sm:shrink min-w-fit sm:min-w-0 sm:truncate " +
                         (isSelected
                           ? "bg-white dark:bg-[#1C1C1E] text-ink dark:text-white shadow-xs"
                           : "text-ink-secondary dark:text-neutral-400 hover:text-ink dark:hover:text-white")
@@ -191,7 +192,7 @@ export default function Login() {
         </div>
 
         {/* Footer Links */}
-        <div className="mt-6 text-center text-xs text-ink-tertiary dark:text-neutral-500 space-x-3">
+        <div className="mt-6 text-center text-xs text-ink-tertiary dark:text-neutral-400 space-x-3">
           <Link to="/terms" className="hover:text-ink dark:hover:text-white transition">
             Terms of Use
           </Link>

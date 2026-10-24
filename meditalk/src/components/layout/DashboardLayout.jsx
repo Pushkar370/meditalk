@@ -31,7 +31,7 @@ export default function DashboardLayout({ role }) {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar
           onMenuClick={() => setMobileOpen(true)}
           notificationTo={`/${role}/notifications`}
@@ -44,8 +44,8 @@ export default function DashboardLayout({ role }) {
           }
         />
 
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-          <div className="mx-auto max-w-6xl">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 px-4 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+          <div className="mx-auto max-w-6xl w-full min-w-0">
             {role === "patient" && <EmergencyBanner dismissible={true} />}
             <Outlet />
           </div>
