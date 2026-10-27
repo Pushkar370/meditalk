@@ -553,7 +553,7 @@ export default function PatientRecords() {
                 download={selectedRecord.description || "record"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border-subtle dark:border-dark-border-subtle bg-surface dark:bg-dark-surface text-xs font-semibold text-ink dark:text-dark-ink hover:bg-canvas transition"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-border-subtle dark:border-dark-border-subtle bg-surface dark:bg-dark-surface text-xs font-semibold text-ink dark:text-dark-ink hover:bg-canvas transition"
               >
                 <Download className="h-3.5 w-3.5" /> Download File
               </a>

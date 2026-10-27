@@ -23,7 +23,7 @@ export default function EmergencyBanner({ dismissible = false, compact = false }
           </div>
           <a
             href="tel:112"
-            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-danger px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-danger-dark active:scale-[0.98] transition-all shrink-0 self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-danger px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-danger-dark active:scale-[0.98] transition-all shrink-0 self-start sm:self-auto"
           >
             <PhoneCall className="h-3 w-3" /> Call 112
           </a>
